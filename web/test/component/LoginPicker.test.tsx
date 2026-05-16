@@ -4,7 +4,13 @@
  * LoginPicker is the pre-auth landing screen. It always shows a
  * "Continue with Google" CTA, and — when the build was started with
  * VITE_MOCK_AUTH=1 — it also shows a dev-only mock-member picker
- * backed by `supabase.from('members_view')`.
+ * backed by the `list_mock_auth_members` RPC.
+ *
+ * The RPC switch (vs. the old `members_view` query) was forced by the
+ * 20260516192409__rls_tightening migration: `members_view` is now
+ * security_invoker and the `members` SELECT policy is `to authenticated`
+ * only, so anon callers see zero rows. The new RPC is SECURITY DEFINER
+ * and filters to `@test.local` auth users so production data never leaks.
  *
  * The mock-auth branch is gated by a *module-level* constant
  *   const MOCK_FLAG = import.meta.env.VITE_MOCK_AUTH === '1';
@@ -27,8 +33,9 @@ interface MockMember {
   name: string;
   initials: string;
   tone: number;
-  teams: { team_id: string; role: 'soldier' | 'commander' }[];
-  status: 'available' | 'standby' | 'released' | 'unavailable';
+  division_id: string;
+  auth_user_id: string;
+  email: string;
 }
 
 let membersResult: { data: MockMember[] | null; error: { message: string } | null } = {
@@ -36,35 +43,20 @@ let membersResult: { data: MockMember[] | null; error: { message: string } | nul
   error: null,
 };
 
-const orderSpy = vi.fn();
-const selectSpy = vi.fn();
-const fromSpy = vi.fn();
-
-function makeMembersBuilder() {
-  const builder: Record<string, unknown> = {};
-  builder.select = (cols: string) => {
-    selectSpy(cols);
-    return builder;
-  };
-  builder.order = (col: string) => {
-    orderSpy(col);
-    return Promise.resolve(membersResult);
-  };
-  return builder;
-}
+const rpcSpy = vi.fn();
 
 vi.mock('../../src/lib/supabase', () => ({
   supabase: {
-    from: (table: string) => {
-      fromSpy(table);
-      if (table === 'members_view') return makeMembersBuilder();
-      throw new Error(`Unexpected table in LoginPicker test: ${table}`);
+    rpc: (name: string) => {
+      rpcSpy(name);
+      if (name === 'list_mock_auth_members') return Promise.resolve(membersResult);
+      throw new Error(`Unexpected RPC in LoginPicker test: ${name}`);
     },
   },
 }));
 
 const signInWithGoogleMock = vi.fn(async () => {});
-const signInAsMockMock = vi.fn();
+const signInAsMockMock = vi.fn(async () => {});
 
 vi.mock('../../src/lib/auth', () => ({
   useAuth: () => ({
@@ -78,16 +70,6 @@ vi.mock('../../src/lib/auth', () => ({
   }),
 }));
 
-const setTeamIdMock = vi.fn();
-
-vi.mock('../../src/lib/team-context', () => ({
-  useActiveTeam: () => ({
-    team: null,
-    teams: [],
-    setTeamId: setTeamIdMock,
-  }),
-}));
-
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
@@ -97,8 +79,9 @@ const COMMANDER: MockMember = {
   name: 'Carmela Commander',
   initials: 'CC',
   tone: 2,
-  teams: [{ team_id: 'team-1', role: 'commander' }],
-  status: 'available',
+  division_id: 'd-1',
+  auth_user_id: 'au-cmdr',
+  email: 'commander-carmela@test.local',
 };
 
 const RESERVIST: MockMember = {
@@ -106,8 +89,9 @@ const RESERVIST: MockMember = {
   name: 'Ronen Reservist',
   initials: 'RR',
   tone: 1,
-  teams: [{ team_id: 'team-1', role: 'soldier' }],
-  status: 'standby',
+  division_id: 'd-1',
+  auth_user_id: 'au-res',
+  email: 'soldier-ronen@test.local',
 };
 
 // ---------------------------------------------------------------------------
@@ -140,10 +124,8 @@ describe('LoginPicker', () => {
     signInWithGoogleMock.mockReset();
     signInWithGoogleMock.mockImplementation(async () => {});
     signInAsMockMock.mockReset();
-    setTeamIdMock.mockReset();
-    orderSpy.mockReset();
-    selectSpy.mockReset();
-    fromSpy.mockReset();
+    signInAsMockMock.mockImplementation(async () => {});
+    rpcSpy.mockReset();
     membersResult = { data: [], error: null };
   });
 
@@ -181,8 +163,8 @@ describe('LoginPicker', () => {
     expect(screen.queryByPlaceholderText(/Search by name or role/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Continue as mock/i })).not.toBeInTheDocument();
 
-    // And the members_view query must not have run.
-    expect(fromSpy).not.toHaveBeenCalled();
+    // And the list RPC must not have run.
+    expect(rpcSpy).not.toHaveBeenCalled();
   });
 
   it('shows the mock-auth picker when VITE_MOCK_AUTH === "1"', async () => {
@@ -195,19 +177,17 @@ describe('LoginPicker', () => {
     expect(screen.getByPlaceholderText(/Search by name or role/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Continue as mock/i })).toBeInTheDocument();
 
-    // The members_view fetch fires on mount.
+    // The RPC fetch fires on mount.
     await waitFor(() => {
-      expect(fromSpy).toHaveBeenCalledWith('members_view');
+      expect(rpcSpy).toHaveBeenCalledWith('list_mock_auth_members');
     });
-    expect(selectSpy).toHaveBeenCalledWith('id, name, initials, tone, teams, status');
-    expect(orderSpy).toHaveBeenCalledWith('name');
 
     // Both members render once the promise resolves.
     expect(await screen.findByText('Carmela Commander')).toBeInTheDocument();
     expect(screen.getByText('Ronen Reservist')).toBeInTheDocument();
   });
 
-  it('picking a mock member and confirming calls auth.signInAsMock', async () => {
+  it('picking a mock member and confirming calls auth.signInAsMock with email', async () => {
     membersResult = { data: [COMMANDER, RESERVIST], error: null };
     const LoginPicker = await loadLoginPicker('1');
     render(<LoginPicker />);
@@ -224,13 +204,14 @@ describe('LoginPicker', () => {
 
     await userEvent.click(continueBtn);
 
-    expect(signInAsMockMock).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(signInAsMockMock).toHaveBeenCalledTimes(1);
+    });
     expect(signInAsMockMock).toHaveBeenCalledWith({
       id: RESERVIST.id,
       name: RESERVIST.name,
+      email: RESERVIST.email,
     });
-    // Picking a member also seeds the active team from their first membership.
-    expect(setTeamIdMock).toHaveBeenCalledWith('team-1');
   });
 
   it('disables the Google button while signInWithGoogle is in flight', async () => {

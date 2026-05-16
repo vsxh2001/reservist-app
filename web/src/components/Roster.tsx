@@ -8,6 +8,7 @@ import {
 } from '../lib/types';
 import { useAssignToSlot } from '../lib/queries';
 import { useAuth } from '../lib/auth';
+import { normalizePhoneToE164IL } from '../lib/phone';
 import { CrossTeamRecruitDrawer } from './CrossTeamRecruitDrawer';
 
 const fmtPhone = (p: string) => p.replace('+972 ', '0').replace(/-/g, ' ');
@@ -498,8 +499,33 @@ function RosterRow({
       </div>
       <div className="cell-contact">{fmtPhone(m.phone)}</div>
       <div className="actions">
-        <IconButton icon="phone"    tip="Call"     tone="phone"    onClick={(e) => { e.stopPropagation(); onToast(`Calling ${m.name}…`); }} />
-        <IconButton icon="whatsapp" tip="WhatsApp" tone="whatsapp" onClick={(e) => { e.stopPropagation(); onToast(`Opening WhatsApp with ${m.name}…`); }} />
+        {(() => {
+          const e164 = normalizePhoneToE164IL(m.phone);
+          const stop = (e: React.MouseEvent) => e.stopPropagation();
+          return (
+            <>
+              {e164 ? (
+                <a className="action-btn" data-tip="Call" data-tone="phone"
+                   href={`tel:+${e164}`} onClick={stop} aria-label={`Call ${m.name}`}>
+                  <Icon name="phone" size={14} />
+                </a>
+              ) : (
+                <IconButton icon="phone" tip="Call" tone="phone"
+                            onClick={(e) => { e.stopPropagation(); onToast(`Calling ${m.name}…`); }} />
+              )}
+              {e164 ? (
+                <a className="action-btn" data-tip="WhatsApp" data-tone="whatsapp"
+                   href={`https://wa.me/${e164}`} target="_blank" rel="noopener noreferrer"
+                   onClick={stop} aria-label={`WhatsApp ${m.name}`}>
+                  <Icon name="whatsapp" size={14} />
+                </a>
+              ) : (
+                <IconButton icon="whatsapp" tip="WhatsApp" tone="whatsapp"
+                            onClick={(e) => { e.stopPropagation(); onToast(`Opening WhatsApp with ${m.name}…`); }} />
+              )}
+            </>
+          );
+        })()}
         <IconButton icon="moreHoriz" tip="More" onClick={(e) => { e.stopPropagation(); onPerson(m); }} />
       </div>
     </div>

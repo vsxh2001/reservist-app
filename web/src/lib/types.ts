@@ -89,10 +89,20 @@ export interface Team {
   name: string;
   crest: string;
   invite_code: string | null;
+  /** ISO timestamp. `null` = no expiry (legacy / backfill safety). */
+  invite_expires_at: string | null;
   established: string | null;
   member_count: number;
   commander_count: number;
   project_name: string;
+  /** PRD §7.6 — when false, reservists only see slots they are assigned to (plus urgent slots). */
+  show_unit_schedule: boolean;
+}
+
+/** True iff the team's invite is past its expiry. `null` expiry = never expires. */
+export function isInviteExpired(team: Pick<Team, 'invite_expires_at'>, now: number = Date.now()): boolean {
+  if (!team.invite_expires_at) return false;
+  return Date.parse(team.invite_expires_at) <= now;
 }
 
 export interface SkillFilter { name: string; min_level: SkillLevel }

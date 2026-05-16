@@ -23,8 +23,8 @@ describe('Supabase schema contracts', () => {
   });
 
   it('teams_view returns the M6 team with member + commander counts', async () => {
-    const rows = await rest<{ id: string; name: string; project_name: string; crest: string; invite_code: string | null; member_count: number; commander_count: number }[]>(
-      '/teams_view?select=id,name,project_name,crest,invite_code,member_count,commander_count',
+    const rows = await rest<{ id: string; name: string; project_name: string; crest: string; invite_code: string | null; invite_expires_at: string | null; member_count: number; commander_count: number }[]>(
+      '/teams_view?select=id,name,project_name,crest,invite_code,invite_expires_at,member_count,commander_count',
     );
     expect(rows.length).toBeGreaterThanOrEqual(1);
     const m6 = rows.find((r) => r.crest === 'M6');
@@ -32,6 +32,10 @@ describe('Supabase schema contracts', () => {
     expect(m6!.project_name).toBe('Carmel');
     expect(m6!.member_count).toBe(24);
     expect(m6!.commander_count).toBe(2);
+    // Seed backfills invite_expires_at = now() + 7d for any team with an invite_code.
+    expect(m6!.invite_code).toBeTruthy();
+    expect(m6!.invite_expires_at).toBeTruthy();
+    expect(Date.parse(m6!.invite_expires_at!)).toBeGreaterThan(Date.now());
   });
 
   it('members_view returns the seeded members with leveled skills + teams array', async () => {

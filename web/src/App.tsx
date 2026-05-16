@@ -7,6 +7,7 @@ import { JoinScreen } from './components/JoinScreen';
 import { Dashboard } from './Dashboard';
 import { ReservistDashboard } from './ReservistDashboard';
 import { useMyMember } from './lib/queries';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const qc = new QueryClient({
   defaultOptions: { queries: { staleTime: 5_000, refetchOnWindowFocus: false } },
@@ -70,7 +71,9 @@ export default function App() {
     <QueryClientProvider client={qc}>
       <PrefsProvider>
         <AuthProvider>
-          <Gate />
+          <ErrorBoundary>
+            <Gate />
+          </ErrorBoundary>
         </AuthProvider>
       </PrefsProvider>
     </QueryClientProvider>

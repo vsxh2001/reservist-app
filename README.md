@@ -130,6 +130,25 @@ peers (see Security).
 - **Lint + typecheck** — `npm run lint` (ESLint flat config) and
   `npx tsc -b --noEmit`.
 
+### End-to-end tests
+
+- **Playwright** drives a real browser against the Vite dev server. Specs live
+  in `web/test/e2e/*.spec.ts`; config in `web/playwright.config.ts`.
+- Run with `cd web && npm run test:e2e`. Requires the local Supabase stack to
+  be running (`supabase start`) with `supabase/seed.sql` applied. The smoke
+  spec pre-seeds a Supabase auth session in `localStorage` (HS256-signed JWT
+  for the seeded commander `a0000000-0000-0000-0000-000000000001`), skips the
+  LoginPicker, and asserts the Dashboard's Roster screen renders seeded
+  members.
+- Playwright auto-starts the dev server with `VITE_MOCK_AUTH=1` and the
+  local-dev Supabase URL / anon key inlined in `playwright.config.ts`, so no
+  pre-existing `web/.env` is required.
+- On first run, browser binaries are downloaded into `~/.cache/ms-playwright`
+  via `npx playwright install chromium`. On distros Playwright does not
+  officially recognise (e.g. Ubuntu 26.04 at the time of writing), force a
+  supported fallback with
+  `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64 npx playwright install chromium`.
+
 ## Auth modes
 
 - **Google OAuth via Supabase** (`auth.external.google` in `config.toml`) is

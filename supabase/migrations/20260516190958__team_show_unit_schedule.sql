@@ -15,7 +15,7 @@ alter table teams
 drop view if exists teams_view;
 create view teams_view as
 select
-  t.id, t.project_id, t.division_id, t.name, t.crest, t.invite_code, t.established,
+  t.id, t.project_id, t.division_id, t.name, t.crest, t.invite_code, t.invite_expires_at, t.established,
   p.name as project_name,
   (select count(*)::int from team_members tm where tm.team_id = t.id)                           as member_count,
   (select count(*)::int from team_members tm where tm.team_id = t.id and tm.role = 'commander') as commander_count,

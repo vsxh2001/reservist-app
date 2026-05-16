@@ -1544,6 +1544,32 @@ export function useSetDivisionAdmin() {
 }
 
 // ---------------------------------------------------------------------------
+// Mutations — phone visibility opt-in (PRD §7.2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Toggle the reservist's `phone_visible_to_peers` flag. When true, the member's
+ * phone is exposed to other members in the same division via `members_view`.
+ * Commanders / division admins / self always see the phone regardless of this flag.
+ */
+export function useSetPhoneVisibility() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { memberId: string; visible: boolean }) => {
+      const { error } = await supabase
+        .from('members')
+        .update({ phone_visible_to_peers: vars.visible })
+        .eq('id', vars.memberId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['members'] });
+      qc.invalidateQueries({ queryKey: ['my-member'] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Mutations — bulk-cancel slots in a date range
 // ---------------------------------------------------------------------------
 

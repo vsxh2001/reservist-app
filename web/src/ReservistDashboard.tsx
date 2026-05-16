@@ -28,9 +28,11 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
   const [activeWindow, setActiveWindow] = useState<DeploymentWindow | null>(null);
 
   const nextWindow = useMemo(() => {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    // Compare as YYYY-MM-DD strings to avoid UTC/local midnight skew.
+    const t = new Date();
+    const todayStr = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
     return (windows.data ?? [])
-      .filter((w) => w.state === 'open' && new Date(w.end_date) >= today)
+      .filter((w) => w.state === 'open' && w.end_date >= todayStr)
       .sort((a, b) => a.start_date.localeCompare(b.start_date))[0] ?? null;
   }, [windows.data]);
 
@@ -135,12 +137,20 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
         </section>
 
         {nextWindow && (
-          <section style={{
-            display: 'flex', alignItems: 'center', gap: 14,
-            padding: 16, marginBottom: 14,
-            background: 'var(--card)', border: '1px solid var(--accent)', borderRadius: 12,
-            cursor: 'pointer',
-          }} onClick={() => setActiveWindow(nextWindow)}>
+          <section role="button" tabIndex={0}
+            onClick={() => setActiveWindow(nextWindow)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setActiveWindow(nextWindow);
+              }
+            }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 14,
+              padding: 16, marginBottom: 14,
+              background: 'var(--card)', border: '1px solid var(--accent)', borderRadius: 12,
+              cursor: 'pointer',
+            }}>
             <div style={{
               width: 44, height: 44, borderRadius: 10,
               background: 'var(--accent)', color: 'var(--card)',

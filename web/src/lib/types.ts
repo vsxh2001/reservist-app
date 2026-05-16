@@ -126,7 +126,7 @@ export interface ActivityItem {
   created_at: string;
 }
 
-export type Screen = 'roster' | 'slots' | 'activity' | 'calendar' | 'reviews' | 'settings' | 'requests';
+export type Screen = 'roster' | 'slots' | 'activity' | 'calendar' | 'day' | 'reviews' | 'settings' | 'requests';
 
 export type JoinState = 'pending' | 'approved' | 'rejected';
 

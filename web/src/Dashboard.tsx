@@ -8,6 +8,7 @@ import { ActivityScreen } from './components/ActivityScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 import { RequestsScreen } from './components/RequestsScreen';
 import { CalendarScreen } from './components/CalendarScreen';
+import { CommanderDayView } from './components/CommanderDayView';
 import { NewSlotModal } from './components/NewSlotModal';
 import { Button } from './components/atoms';
 import { Icon } from './components/Icon';
@@ -23,6 +24,7 @@ const titleFor: Record<Screen, { title: string; em: string }> = {
   slots:    { title: 'Open & upcoming', em: 'duty slots' },
   activity: { title: 'Unit', em: 'activity' },
   calendar: { title: 'Unit', em: 'calendar' },
+  day:      { title: 'Unit', em: 'day view' },
   reviews:  { title: 'Commander', em: 'reviews' },
   settings: { title: 'Unit', em: 'settings' },
   requests: { title: 'Join', em: 'requests' },
@@ -224,6 +226,9 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
               members={members.data ?? []}
               onSlotClick={setSlotDrawer}
             />
+          )}
+          {active === 'day' && unit.data && (
+            <CommanderDayView unitId={unit.data.id} />
           )}
         </div>
 

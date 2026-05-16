@@ -55,16 +55,17 @@ export function findMemberConflicts(
 
 export interface MemberSkill { name: string; level: SkillLevel }
 
+export type TeamRole = 'soldier' | 'commander';
+
+export interface TeamMembership { team_id: string; role: TeamRole }
+
 export interface Member {
   id: string;
-  unit_id: string;
+  division_id: string;
   name: string;
   initials: string;
   tone: number;
   phone: string;
-  is_commander: boolean;
-  /** Military role field — deprecated, kept in schema only. UI ignores. */
-  role: string | null;
   joined: string | null;
   last_seen: string | null;
   calls_this_year: number;
@@ -73,14 +74,24 @@ export interface Member {
   status_until: string | null;
   status_set_at: string;
   skills: MemberSkill[];
+  teams: TeamMembership[];
 }
 
-export interface Unit {
+export interface Division { id: string; name: string; created_at: string }
+
+export interface Project { id: string; division_id: string; name: string; sort_idx: number }
+
+export interface Team {
   id: string;
+  project_id: string;
+  division_id: string;
   name: string;
-  short_name: string;
   crest: string;
-  invite_code: string;
+  invite_code: string | null;
+  established: string | null;
+  member_count: number;
+  commander_count: number;
+  project_name: string;
 }
 
 export interface SkillFilter { name: string; min_level: SkillLevel }
@@ -98,7 +109,7 @@ export interface SlotSkill { name: string; min_level: SkillLevel }
 
 export interface Slot {
   id: string;
-  unit_id: string;
+  team_id: string;
   title: string;
   urgent: boolean;
   state: SlotState;
@@ -117,7 +128,7 @@ export interface Slot {
 
 export interface ActivityItem {
   id: string;
-  unit_id: string;
+  team_id: string;
   actor_id: string | null;
   actor_name: string;
   verb: string;
@@ -132,11 +143,9 @@ export type JoinState = 'pending' | 'approved' | 'rejected';
 
 export interface JoinRequest {
   id: string;
-  unit_id: string;
+  team_id: string;
   name: string;
   phone: string;
-  /** Deprecated — kept on schema. UI ignores. */
-  role_name: string | null;
   skill_names: string[];
   note: string | null;
   state: JoinState;
@@ -151,7 +160,7 @@ export type PickState   = 'proposed' | 'approved' | 'rejected' | 'withdrawn';
 export interface DeploymentWindow {
   id: string;
   member_id: string;
-  unit_id: string;
+  team_id: string;
   label: string;
   start_date: string;
   end_date: string;

@@ -1,21 +1,143 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from './supabase';
 import type {
-  ActivityItem, DeploymentPick, DeploymentWindow, JoinRequest,
-  Member, Slot, SlotSkill, SkillLevel, Status, Unit,
+  ActivityItem, DeploymentPick, DeploymentWindow, Division, JoinRequest,
+  Member, Project, Slot, SlotSkill, SkillLevel, Status, Team, TeamRole,
 } from './types';
 
-export function useUnit() {
+// ---------------------------------------------------------------------------
+// Division / project / team queries
+// ---------------------------------------------------------------------------
+
+export function useDivision() {
   return useQuery({
-    queryKey: ['unit'],
-    queryFn: async (): Promise<Unit> => {
+    queryKey: ['division'],
+    queryFn: async (): Promise<Division | null> => {
       const { data, error } = await supabase
-        .from('units')
-        .select('id, name, short_name, crest, invite_code')
+        .from('divisions')
+        .select('id, name, created_at')
         .limit(1)
-        .single();
+        .maybeSingle();
       if (error) throw error;
-      return data as Unit;
+      return data as Division | null;
+    },
+  });
+}
+
+export function useProjects(divisionId: string | undefined) {
+  return useQuery({
+    queryKey: ['projects', divisionId],
+    enabled: !!divisionId,
+    queryFn: async (): Promise<Project[]> => {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, division_id, name, sort_idx')
+        .eq('division_id', divisionId!)
+        .order('sort_idx');
+      if (error) throw error;
+      return data as Project[];
+    },
+  });
+}
+
+export function useTeamsForMember(memberId: string | undefined) {
+  return useQuery({
+    queryKey: ['teams-for-member', memberId],
+    enabled: !!memberId,
+    queryFn: async (): Promise<Team[]> => {
+      // Get team_ids this member belongs to
+      const { data: memberships, error: mErr } = await supabase
+        .from('team_members')
+        .select('team_id')
+        .eq('member_id', memberId!);
+      if (mErr) throw mErr;
+      const teamIds = (memberships ?? []).map((m: any) => m.team_id as string);
+      if (teamIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from('teams_view')
+        .select('*')
+        .in('id', teamIds)
+        .order('project_name')
+        .order('name');
+      if (error) throw error;
+      return data as Team[];
+    },
+  });
+}
+
+export function useTeamsForDivision(divisionId: string | undefined) {
+  return useQuery({
+    queryKey: ['teams-for-division', divisionId],
+    enabled: !!divisionId,
+    queryFn: async (): Promise<Team[]> => {
+      const { data, error } = await supabase
+        .from('teams_view')
+        .select('*')
+        .eq('division_id', divisionId!)
+        .order('project_name')
+        .order('name');
+      if (error) throw error;
+      return data as Team[];
+    },
+  });
+}
+
+export function useTeam(teamId: string | undefined) {
+  return useQuery({
+    queryKey: ['team', teamId],
+    enabled: !!teamId,
+    queryFn: async (): Promise<Team | null> => {
+      const { data, error } = await supabase
+        .from('teams_view')
+        .select('*')
+        .eq('id', teamId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data as Team | null;
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Member queries
+// ---------------------------------------------------------------------------
+
+export function useMembers(teamId: string | undefined) {
+  return useQuery({
+    queryKey: ['members', teamId],
+    enabled: !!teamId,
+    queryFn: async (): Promise<Member[]> => {
+      // Get member_ids for this team
+      const { data: memberships, error: mErr } = await supabase
+        .from('team_members')
+        .select('member_id')
+        .eq('team_id', teamId!);
+      if (mErr) throw mErr;
+      const memberIds = (memberships ?? []).map((m: any) => m.member_id as string);
+      if (memberIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from('members_view')
+        .select('*')
+        .in('id', memberIds)
+        .order('name');
+      if (error) throw error;
+      return data as Member[];
+    },
+  });
+}
+
+export function useMembersInDivision(divisionId: string | undefined) {
+  return useQuery({
+    queryKey: ['members-in-division', divisionId],
+    enabled: !!divisionId,
+    queryFn: async (): Promise<Member[]> => {
+      const { data, error } = await supabase
+        .from('members_view')
+        .select('*')
+        .eq('division_id', divisionId!)
+        .order('name');
+      if (error) throw error;
+      return data as Member[];
     },
   });
 }
@@ -31,7 +153,48 @@ export function useMyMember(userId: string | undefined) {
         .eq('id', userId!)
         .maybeSingle();
       if (error) throw error;
-      return (data as Member | null);
+      return data as Member | null;
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Skills
+// ---------------------------------------------------------------------------
+
+export function useSkills(divisionId: string | undefined) {
+  return useQuery({
+    queryKey: ['skills', divisionId],
+    enabled: !!divisionId,
+    queryFn: async (): Promise<string[]> => {
+      const { data, error } = await supabase
+        .from('skills')
+        .select('name')
+        .eq('division_id', divisionId!)
+        .order('name');
+      if (error) throw error;
+      return (data ?? []).map((s: any) => s.name as string);
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Slots
+// ---------------------------------------------------------------------------
+
+export function useSlots(teamId: string | undefined) {
+  return useQuery({
+    queryKey: ['slots', teamId],
+    enabled: !!teamId,
+    queryFn: async (): Promise<Slot[]> => {
+      const { data, error } = await supabase
+        .from('slots_view')
+        .select('*')
+        .eq('team_id', teamId!)
+        .order('urgent', { ascending: false })
+        .order('start_at', { ascending: true });
+      if (error) throw error;
+      return data as Slot[];
     },
   });
 }
@@ -59,12 +222,332 @@ export function useMySlots(memberId: string | undefined) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Activity
+// ---------------------------------------------------------------------------
+
+export function useActivity(teamId: string | undefined) {
+  return useQuery({
+    queryKey: ['activity', teamId],
+    enabled: !!teamId,
+    queryFn: async (): Promise<ActivityItem[]> => {
+      const { data, error } = await supabase
+        .from('activity_log')
+        .select('*')
+        .eq('team_id', teamId!)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data as ActivityItem[];
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Join requests
+// ---------------------------------------------------------------------------
+
+export function useJoinRequests(teamId: string | undefined) {
+  return useQuery({
+    queryKey: ['join-requests', teamId],
+    enabled: !!teamId,
+    queryFn: async (): Promise<JoinRequest[]> => {
+      const { data, error } = await supabase
+        .from('join_requests')
+        .select('*')
+        .eq('team_id', teamId!)
+        .eq('state', 'pending')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data as JoinRequest[];
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Deployment windows + picks
+// ---------------------------------------------------------------------------
+
+export function useMyDeploymentWindows(userId: string | undefined, teamId?: string) {
+  return useQuery({
+    queryKey: ['my-deployment-windows', userId, teamId ?? null],
+    enabled: !!userId,
+    queryFn: async (): Promise<DeploymentWindow[]> => {
+      let q = supabase
+        .from('deployment_windows_view')
+        .select('*')
+        .eq('member_id', userId!)
+        .order('start_date', { ascending: false });
+      if (teamId) {
+        q = q.eq('team_id', teamId);
+      }
+      const { data, error } = await q;
+      if (error) throw error;
+      return data as DeploymentWindow[];
+    },
+  });
+}
+
+export function useMemberDeploymentWindows(memberId: string | undefined, teamId: string | undefined) {
+  return useQuery({
+    queryKey: ['deployment-windows', memberId, teamId ?? null],
+    enabled: !!memberId && !!teamId,
+    queryFn: async (): Promise<DeploymentWindow[]> => {
+      const { data, error } = await supabase
+        .from('deployment_windows_view')
+        .select('*')
+        .eq('member_id', memberId!)
+        .eq('team_id', teamId!)
+        .order('start_date', { ascending: false });
+      if (error) throw error;
+      return data as DeploymentWindow[];
+    },
+  });
+}
+
+export function useDeploymentPicks(windowId: string | undefined) {
+  return useQuery({
+    queryKey: ['deployment-picks', windowId],
+    enabled: !!windowId,
+    queryFn: async (): Promise<DeploymentPick[]> => {
+      const { data, error } = await supabase
+        .from('deployment_picks')
+        .select('*')
+        .eq('window_id', windowId!)
+        .order('date');
+      if (error) throw error;
+      return data as DeploymentPick[];
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Day aggregate
+// ---------------------------------------------------------------------------
+
+export interface DayAggregateMember {
+  memberId: string;
+  memberName: string;
+  initials: string;
+  tone: number;
+  status: import('./types').Status;
+  reasons: DayReason[];
+}
+
+export type DayReason =
+  | { kind: 'pick' }
+  | { kind: 'slot'; slotTitle: string };
+
+export function useTeamDayAggregate(teamId: string | undefined, dateISO: string) {
+  return useQuery({
+    queryKey: ['team-day', teamId, dateISO],
+    enabled: !!teamId && !!dateISO,
+    queryFn: async (): Promise<DayAggregateMember[]> => {
+      const dayStart = new Date(`${dateISO}T00:00:00`);
+      const dayEnd   = new Date(`${dateISO}T23:59:59.999`);
+      const dayStartISO = dayStart.toISOString();
+      const dayEndISO   = dayEnd.toISOString();
+
+      // 1. Approved deployment picks for this date (via windows that belong to the team)
+      const { data: picks, error: picksErr } = await supabase
+        .from('deployment_picks')
+        .select('id, window_id, date, state, deployment_windows!inner(member_id, team_id, members!inner(id, name, initials, tone, status))')
+        .eq('state', 'approved')
+        .eq('date', dateISO)
+        .eq('deployment_windows.team_id', teamId!);
+      if (picksErr) throw picksErr;
+
+      // 2. Published slot assignees whose slot overlaps with this day
+      const { data: assignees, error: assigneesErr } = await supabase
+        .from('slot_assignees')
+        .select('member_id, slots!inner(id, title, state, start_at, end_at, team_id), members!inner(id, name, initials, tone, status)')
+        .eq('slots.state', 'published')
+        .eq('slots.team_id', teamId!)
+        .lte('slots.start_at', dayEndISO)
+        .or(`end_at.gte.${dayStartISO},end_at.is.null`, { referencedTable: 'slots' });
+      if (assigneesErr) throw assigneesErr;
+
+      const map = new Map<string, DayAggregateMember>();
+
+      // Process picks
+      for (const pick of (picks ?? []) as any[]) {
+        const win = pick.deployment_windows;
+        if (!win) continue;
+        if (win.team_id !== teamId) continue;
+        const member = win.members;
+        if (!member) continue;
+        const memberId: string = member.id;
+        if (!map.has(memberId)) {
+          map.set(memberId, {
+            memberId,
+            memberName: member.name,
+            initials: member.initials,
+            tone: member.tone,
+            status: member.status,
+            reasons: [],
+          });
+        }
+        map.get(memberId)!.reasons.push({ kind: 'pick' });
+      }
+
+      // Process slot assignees
+      for (const row of (assignees ?? []) as any[]) {
+        const slot = row.slots;
+        const member = row.members;
+        if (!slot || !member) continue;
+        const memberId: string = member.id;
+        if (!map.has(memberId)) {
+          map.set(memberId, {
+            memberId,
+            memberName: member.name,
+            initials: member.initials,
+            tone: member.tone,
+            status: member.status,
+            reasons: [],
+          });
+        }
+        const existing = map.get(memberId)!.reasons;
+        const alreadyHasSlot = existing.some(
+          (r) => r.kind === 'slot' && r.slotTitle === slot.title,
+        );
+        if (!alreadyHasSlot) {
+          existing.push({ kind: 'slot', slotTitle: slot.title });
+        }
+      }
+
+      return Array.from(map.values()).sort((a, b) => a.memberName.localeCompare(b.memberName));
+    },
+  });
+}
+
+export function useApprovedPicksForTeam(teamId: string | undefined) {
+  return useQuery({
+    queryKey: ['approved-picks', teamId],
+    enabled: !!teamId,
+    queryFn: async (): Promise<{ member_id: string; date: string }[]> => {
+      // Fetch all deployment windows for the team to get their member_id mapping.
+      const { data: windows, error: wErr } = await supabase
+        .from('deployment_windows')
+        .select('id, member_id')
+        .eq('team_id', teamId!);
+      if (wErr) throw wErr;
+      if (!windows || windows.length === 0) return [];
+
+      const windowToMember = new Map<string, string>(
+        (windows as { id: string; member_id: string }[]).map((w) => [w.id, w.member_id]),
+      );
+      const windowIds = [...windowToMember.keys()];
+
+      const { data: picks, error: pErr } = await supabase
+        .from('deployment_picks')
+        .select('window_id, date')
+        .in('window_id', windowIds)
+        .eq('state', 'approved');
+      if (pErr) throw pErr;
+
+      return ((picks ?? []) as { window_id: string; date: string }[]).flatMap((p) => {
+        const member_id = windowToMember.get(p.window_id);
+        return member_id ? [{ member_id, date: p.date }] : [];
+      });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Invite lookup
+// ---------------------------------------------------------------------------
+
+export function useTeamByInvite(code: string | null) {
+  return useQuery({
+    queryKey: ['team-by-invite', code],
+    enabled: !!code,
+    queryFn: async (): Promise<Team | null> => {
+      const { data, error } = await supabase
+        .from('teams_view')
+        .select('*')
+        .eq('invite_code', code!)
+        .maybeSingle();
+      if (error) throw error;
+      return data as Team | null;
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Mutations — team membership
+// ---------------------------------------------------------------------------
+
+export function useUpdateTeamMembership() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      teamId: string; memberId: string; role: TeamRole;
+      actorId: string; actorName: string; memberName: string;
+    }) => {
+      const { error } = await supabase
+        .from('team_members')
+        .upsert(
+          { team_id: vars.teamId, member_id: vars.memberId, role: vars.role },
+          { onConflict: 'team_id,member_id' },
+        );
+      if (error) throw error;
+      await supabase.from('activity_log').insert({
+        team_id: vars.teamId,
+        actor_id: vars.actorId,
+        actor_name: vars.actorName,
+        verb: vars.role === 'commander' ? 'promoted' : 'set soldier role for',
+        what: vars.memberName,
+        tone: 'accent',
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['members'] });
+      qc.invalidateQueries({ queryKey: ['teams-for-member'] });
+      qc.invalidateQueries({ queryKey: ['activity'] });
+    },
+  });
+}
+
+export function useRemoveTeamMembership() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      teamId: string; memberId: string;
+      actorId: string; actorName: string; memberName: string;
+    }) => {
+      const { error } = await supabase
+        .from('team_members')
+        .delete()
+        .eq('team_id', vars.teamId)
+        .eq('member_id', vars.memberId);
+      if (error) throw error;
+      await supabase.from('activity_log').insert({
+        team_id: vars.teamId,
+        actor_id: vars.actorId,
+        actor_name: vars.actorName,
+        verb: 'removed',
+        what: `${vars.memberName} from the team`,
+        tone: null,
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['members'] });
+      qc.invalidateQueries({ queryKey: ['teams-for-member'] });
+      qc.invalidateQueries({ queryKey: ['activity'] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Mutations — status
+// ---------------------------------------------------------------------------
+
 export function useSelfUpdateStatus() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (vars: {
       memberId: string; status: Status; note: string | null; until: string | null;
-      unitId: string; actorName: string;
+      teamId: string; actorName: string;
     }) => {
       const { error } = await supabase
         .from('members')
@@ -78,7 +561,7 @@ export function useSelfUpdateStatus() {
         .eq('id', vars.memberId);
       if (error) throw error;
       await supabase.from('activity_log').insert({
-        unit_id: vars.unitId,
+        team_id: vars.teamId,
         actor_id: vars.memberId,
         actor_name: vars.actorName,
         verb: 'set status to',
@@ -94,93 +577,151 @@ export function useSelfUpdateStatus() {
   });
 }
 
-export function useMembers(unitId: string | undefined) {
-  return useQuery({
-    queryKey: ['members', unitId],
-    enabled: !!unitId,
-    queryFn: async (): Promise<Member[]> => {
-      const { data, error } = await supabase
-        .from('members_view')
-        .select('*')
-        .eq('unit_id', unitId!)
-        .order('name');
+export function useUpdateStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      memberId: string;
+      status: Status;
+      note: string | null;
+      until: string | null;
+      setBy: string;
+      actorName: string;
+      memberName: string;
+      teamId: string;
+    }) => {
+      const { error } = await supabase
+        .from('members')
+        .update({
+          status: vars.status,
+          status_note: vars.note,
+          status_until: vars.until,
+          status_set_by: vars.setBy,
+          status_set_at: new Date().toISOString(),
+        })
+        .eq('id', vars.memberId);
       if (error) throw error;
-      return data as Member[];
+
+      await supabase.from('activity_log').insert({
+        team_id: vars.teamId,
+        actor_id: vars.setBy,
+        actor_name: vars.actorName,
+        verb: `set ${vars.memberName}'s status to`,
+        what: vars.status + (vars.until ? ` (until ${vars.until})` : ''),
+        tone: 'accent',
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['members'] });
+      qc.invalidateQueries({ queryKey: ['activity'] });
     },
   });
 }
 
-export function useRoles(unitId: string | undefined) {
-  return useQuery({
-    queryKey: ['roles', unitId],
-    enabled: !!unitId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('roles')
-        .select('name')
-        .eq('unit_id', unitId!)
-        .order('sort_idx');
+// ---------------------------------------------------------------------------
+// Mutations — skills
+// ---------------------------------------------------------------------------
+
+export function useSetMemberSkill() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      memberId: string; divisionId: string; skillName: string; level: SkillLevel;
+      actorId: string; actorName: string; memberName: string; teamId: string;
+    }) => {
+      const { data: skill, error: sErr } = await supabase
+        .from('skills').select('id')
+        .eq('division_id', vars.divisionId).eq('name', vars.skillName).maybeSingle();
+      if (sErr) throw sErr;
+      if (!skill) throw new Error(`Skill "${vars.skillName}" not in this division`);
+      const { error } = await supabase
+        .from('member_skills')
+        .upsert({ member_id: vars.memberId, skill_id: skill.id, level: vars.level },
+                { onConflict: 'member_id,skill_id' });
       if (error) throw error;
-      return (data ?? []).map((r) => r.name as string);
+      await supabase.from('activity_log').insert({
+        team_id: vars.teamId,
+        actor_id: vars.actorId,
+        actor_name: vars.actorName,
+        verb: 'graded',
+        what: `${vars.memberName}'s ${vars.skillName} at ${vars.level}`,
+        tone: 'accent',
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['members'] });
+      qc.invalidateQueries({ queryKey: ['my-member'] });
+      qc.invalidateQueries({ queryKey: ['activity'] });
     },
   });
 }
 
-export function useSkills(unitId: string | undefined) {
-  return useQuery({
-    queryKey: ['skills', unitId],
-    enabled: !!unitId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('skills')
-        .select('name')
-        .eq('unit_id', unitId!)
-        .order('name');
+export function useRemoveMemberSkill() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      memberId: string; divisionId: string; skillName: string;
+      actorId: string; actorName: string; memberName: string; teamId: string;
+    }) => {
+      const { data: skill } = await supabase
+        .from('skills').select('id')
+        .eq('division_id', vars.divisionId).eq('name', vars.skillName).maybeSingle();
+      if (!skill) return;
+      const { error } = await supabase
+        .from('member_skills')
+        .delete()
+        .eq('member_id', vars.memberId)
+        .eq('skill_id', skill.id);
       if (error) throw error;
-      return (data ?? []).map((s) => s.name as string);
+      await supabase.from('activity_log').insert({
+        team_id: vars.teamId,
+        actor_id: vars.actorId,
+        actor_name: vars.actorName,
+        verb: 'removed skill',
+        what: `${vars.memberName}'s ${vars.skillName}`,
+        tone: null,
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['members'] });
+      qc.invalidateQueries({ queryKey: ['my-member'] });
+      qc.invalidateQueries({ queryKey: ['activity'] });
     },
   });
 }
 
-export function useSlots(unitId: string | undefined) {
-  return useQuery({
-    queryKey: ['slots', unitId],
-    enabled: !!unitId,
-    queryFn: async (): Promise<Slot[]> => {
-      const { data, error } = await supabase
-        .from('slots_view')
-        .select('*')
-        .eq('unit_id', unitId!)
-        .order('urgent', { ascending: false })
-        .order('start_at', { ascending: true });
+export function useAddSkill() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { divisionId: string; name: string }) => {
+      const { error } = await supabase.from('skills').insert({ division_id: vars.divisionId, name: vars.name });
       if (error) throw error;
-      return data as Slot[];
     },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['skills'] }); },
   });
 }
 
-export function useActivity(unitId: string | undefined) {
-  return useQuery({
-    queryKey: ['activity', unitId],
-    enabled: !!unitId,
-    queryFn: async (): Promise<ActivityItem[]> => {
-      const { data, error } = await supabase
-        .from('activity_log')
-        .select('*')
-        .eq('unit_id', unitId!)
-        .order('created_at', { ascending: false })
-        .limit(50);
+export function useDeleteSkill() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { divisionId: string; name: string }) => {
+      const { error } = await supabase.from('skills').delete().eq('division_id', vars.divisionId).eq('name', vars.name);
       if (error) throw error;
-      return data as ActivityItem[];
     },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['skills'] }); },
   });
 }
+
+// ---------------------------------------------------------------------------
+// Mutations — slots
+// ---------------------------------------------------------------------------
 
 export function useCreateSlot() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (vars: {
-      unitId: string;
+      teamId: string;
+      divisionId: string;
       title: string;
       urgent: boolean;
       state: 'draft' | 'published';
@@ -197,7 +738,7 @@ export function useCreateSlot() {
       const { data: slot, error: sErr } = await supabase
         .from('slots')
         .insert({
-          unit_id: vars.unitId,
+          team_id: vars.teamId,
           title: vars.title,
           urgent: vars.urgent,
           state: vars.state,
@@ -217,7 +758,7 @@ export function useCreateSlot() {
         const names = vars.skills.map((s) => s.name);
         const { data: skillRows } = await supabase
           .from('skills').select('id, name')
-          .eq('unit_id', vars.unitId).in('name', names);
+          .eq('division_id', vars.divisionId).in('name', names);
         if (skillRows && skillRows.length) {
           const byName = new Map(skillRows.map((s: any) => [s.name, s.id]));
           await supabase.from('slot_skills').insert(
@@ -236,7 +777,7 @@ export function useCreateSlot() {
         );
       }
       await supabase.from('activity_log').insert({
-        unit_id: vars.unitId,
+        team_id: vars.teamId,
         actor_id: vars.createdBy,
         actor_name: vars.actorName,
         verb: vars.urgent ? 'posted an urgent call-up' : 'created duty slot',
@@ -257,7 +798,7 @@ export function useAssignToSlot() {
   return useMutation({
     mutationFn: async (vars: {
       slotId: string; memberIds: string[]; assignedBy: string;
-      unitId: string; actorName: string; slotTitle: string; memberNames: string[];
+      teamId: string; actorName: string; slotTitle: string; memberNames: string[];
     }) => {
       if (!vars.memberIds.length) return;
       const { error } = await supabase.from('slot_assignees').insert(
@@ -267,7 +808,7 @@ export function useAssignToSlot() {
       );
       if (error) throw error;
       await supabase.from('activity_log').insert({
-        unit_id: vars.unitId,
+        team_id: vars.teamId,
         actor_id: vars.assignedBy,
         actor_name: vars.actorName,
         verb: 'assigned',
@@ -287,7 +828,7 @@ export function useUnassignFromSlot() {
   return useMutation({
     mutationFn: async (vars: {
       slotId: string; memberId: string; actorId: string;
-      unitId: string; actorName: string; slotTitle: string; memberName: string;
+      teamId: string; actorName: string; slotTitle: string; memberName: string;
     }) => {
       const { error } = await supabase
         .from('slot_assignees')
@@ -296,7 +837,7 @@ export function useUnassignFromSlot() {
         .eq('member_id', vars.memberId);
       if (error) throw error;
       await supabase.from('activity_log').insert({
-        unit_id: vars.unitId,
+        team_id: vars.teamId,
         actor_id: vars.actorId,
         actor_name: vars.actorName,
         verb: 'unassigned',
@@ -316,7 +857,8 @@ export function useUpdateSlot() {
   return useMutation({
     mutationFn: async (vars: {
       slotId: string;
-      unitId: string;
+      teamId: string;
+      divisionId: string;
       patch: {
         title?: string;
         urgent?: boolean;
@@ -352,7 +894,7 @@ export function useUpdateSlot() {
           const names = vars.replaceSkills.map((s) => s.name);
           const { data: skillRows } = await supabase
             .from('skills').select('id, name')
-            .eq('unit_id', vars.unitId).in('name', names);
+            .eq('division_id', vars.divisionId).in('name', names);
           if (skillRows && skillRows.length) {
             const byName = new Map(skillRows.map((s: any) => [s.name, s.id]));
             await supabase.from('slot_skills').insert(
@@ -366,7 +908,7 @@ export function useUpdateSlot() {
       }
 
       await supabase.from('activity_log').insert({
-        unit_id: vars.unitId,
+        team_id: vars.teamId,
         actor_id: vars.actorId,
         actor_name: vars.actorName,
         verb: 'edited slot',
@@ -386,7 +928,7 @@ export function useUpdateSlotState() {
   return useMutation({
     mutationFn: async (vars: {
       slotId: string; state: 'draft' | 'published' | 'completed' | 'cancelled';
-      actorId: string; unitId: string; actorName: string; slotTitle: string;
+      actorId: string; teamId: string; actorName: string; slotTitle: string;
     }) => {
       const { error } = await supabase
         .from('slots')
@@ -394,7 +936,7 @@ export function useUpdateSlotState() {
         .eq('id', vars.slotId);
       if (error) throw error;
       await supabase.from('activity_log').insert({
-        unit_id: vars.unitId,
+        team_id: vars.teamId,
         actor_id: vars.actorId,
         actor_name: vars.actorName,
         verb: `marked slot ${vars.state}`,
@@ -409,130 +951,25 @@ export function useUpdateSlotState() {
   });
 }
 
-export function useUpdateStatus() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (vars: {
-      memberId: string;
-      status: Status;
-      note: string | null;
-      until: string | null;
-      setBy: string;
-      actorName: string;
-      memberName: string;
-      unitId: string;
-    }) => {
-      const { error } = await supabase
-        .from('members')
-        .update({
-          status: vars.status,
-          status_note: vars.note,
-          status_until: vars.until,
-          status_set_by: vars.setBy,
-          status_set_at: new Date().toISOString(),
-        })
-        .eq('id', vars.memberId);
-      if (error) throw error;
-
-      await supabase.from('activity_log').insert({
-        unit_id: vars.unitId,
-        actor_id: vars.setBy,
-        actor_name: vars.actorName,
-        verb: `set ${vars.memberName}'s status to`,
-        what: vars.status + (vars.until ? ` (until ${vars.until})` : ''),
-        tone: 'accent',
-      });
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['members'] });
-      qc.invalidateQueries({ queryKey: ['activity'] });
-    },
-  });
-}
-
-export function useSetMemberSkill() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (vars: {
-      memberId: string; unitId: string; skillName: string; level: SkillLevel;
-      actorId: string; actorName: string; memberName: string;
-    }) => {
-      const { data: skill, error: sErr } = await supabase
-        .from('skills').select('id')
-        .eq('unit_id', vars.unitId).eq('name', vars.skillName).maybeSingle();
-      if (sErr) throw sErr;
-      if (!skill) throw new Error(`Skill "${vars.skillName}" not in this unit`);
-      const { error } = await supabase
-        .from('member_skills')
-        .upsert({ member_id: vars.memberId, skill_id: skill.id, level: vars.level },
-                { onConflict: 'member_id,skill_id' });
-      if (error) throw error;
-      await supabase.from('activity_log').insert({
-        unit_id: vars.unitId,
-        actor_id: vars.actorId,
-        actor_name: vars.actorName,
-        verb: 'graded',
-        what: `${vars.memberName}'s ${vars.skillName} at ${vars.level}`,
-        tone: 'accent',
-      });
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['members'] });
-      qc.invalidateQueries({ queryKey: ['my-member'] });
-      qc.invalidateQueries({ queryKey: ['activity'] });
-    },
-  });
-}
-
-export function useRemoveMemberSkill() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (vars: {
-      memberId: string; unitId: string; skillName: string;
-      actorId: string; actorName: string; memberName: string;
-    }) => {
-      const { data: skill } = await supabase
-        .from('skills').select('id')
-        .eq('unit_id', vars.unitId).eq('name', vars.skillName).maybeSingle();
-      if (!skill) return;
-      const { error } = await supabase
-        .from('member_skills')
-        .delete()
-        .eq('member_id', vars.memberId)
-        .eq('skill_id', skill.id);
-      if (error) throw error;
-      await supabase.from('activity_log').insert({
-        unit_id: vars.unitId,
-        actor_id: vars.actorId,
-        actor_name: vars.actorName,
-        verb: 'removed skill',
-        what: `${vars.memberName}'s ${vars.skillName}`,
-        tone: null,
-      });
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['members'] });
-      qc.invalidateQueries({ queryKey: ['my-member'] });
-      qc.invalidateQueries({ queryKey: ['activity'] });
-    },
-  });
-}
+// ---------------------------------------------------------------------------
+// Mutations — member lifecycle
+// ---------------------------------------------------------------------------
 
 export function useDeleteMember() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (vars: {
       memberId: string; memberName: string;
-      actorId: string; actorName: string; unitId: string;
+      actorId: string; actorName: string; teamId: string;
     }) => {
       const { error } = await supabase.from('members').delete().eq('id', vars.memberId);
       if (error) throw error;
       await supabase.from('activity_log').insert({
-        unit_id: vars.unitId,
+        team_id: vars.teamId,
         actor_id: vars.actorId,
         actor_name: vars.actorName,
         verb: 'removed',
-        what: `${vars.memberName} from the unit`,
+        what: `${vars.memberName} from the division`,
         tone: null,
       });
     },
@@ -544,81 +981,23 @@ export function useDeleteMember() {
   });
 }
 
-export function usePromoteMember() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (vars: {
-      memberId: string; isCommander: boolean;
-      actorId: string; actorName: string; memberName: string; unitId: string;
-    }) => {
-      const { error } = await supabase
-        .from('members')
-        .update({ is_commander: vars.isCommander })
-        .eq('id', vars.memberId);
-      if (error) throw error;
-      await supabase.from('activity_log').insert({
-        unit_id: vars.unitId,
-        actor_id: vars.actorId,
-        actor_name: vars.actorName,
-        verb: vars.isCommander ? 'promoted' : 'demoted',
-        what: `${vars.memberName} ${vars.isCommander ? 'to commander' : 'from commander'}`,
-        tone: 'accent',
-      });
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['members'] });
-      qc.invalidateQueries({ queryKey: ['activity'] });
-    },
-  });
-}
-
-export function useUnitByInvite(code: string | null) {
-  return useQuery({
-    queryKey: ['unit-by-invite', code],
-    enabled: !!code,
-    queryFn: async (): Promise<Unit | null> => {
-      const { data, error } = await supabase
-        .from('units')
-        .select('id, name, short_name, crest, invite_code')
-        .eq('invite_code', code!)
-        .maybeSingle();
-      if (error) throw error;
-      return (data as Unit | null);
-    },
-  });
-}
-
-export function useJoinRequests(unitId: string | undefined) {
-  return useQuery({
-    queryKey: ['join-requests', unitId],
-    enabled: !!unitId,
-    queryFn: async (): Promise<JoinRequest[]> => {
-      const { data, error } = await supabase
-        .from('join_requests')
-        .select('*')
-        .eq('unit_id', unitId!)
-        .eq('state', 'pending')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data as JoinRequest[];
-    },
-  });
-}
+// ---------------------------------------------------------------------------
+// Mutations — join requests
+// ---------------------------------------------------------------------------
 
 export function useSubmitJoinRequest() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (vars: {
-      unitId: string; name: string; phone: string;
-      roleName: string | null; skillNames: string[]; note: string | null;
+      teamId: string; name: string; phone: string;
+      skillNames: string[]; note: string | null;
     }) => {
       const { data, error } = await supabase
         .from('join_requests')
         .insert({
-          unit_id: vars.unitId,
+          team_id: vars.teamId,
           name: vars.name,
           phone: vars.phone,
-          role_name: vars.roleName,
           skill_names: vars.skillNames,
           note: vars.note,
         })
@@ -635,28 +1014,21 @@ export function useApproveJoinRequest() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (vars: {
-      requestId: string; unitId: string; actorId: string; actorName: string;
-      name: string; phone: string; roleName: string | null; skillNames: string[];
+      requestId: string; teamId: string; divisionId: string;
+      actorId: string; actorName: string;
+      name: string; phone: string; skillNames: string[];
     }) => {
       const initials = vars.name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
       const tone = Math.floor(Math.random() * 8);
-      let roleId: string | null = null;
-      if (vars.roleName) {
-        const { data: r } = await supabase
-          .from('roles').select('id')
-          .eq('unit_id', vars.unitId).eq('name', vars.roleName).maybeSingle();
-        roleId = r?.id ?? null;
-      }
+
       const { data: m, error: mErr } = await supabase
         .from('members')
         .insert({
-          unit_id: vars.unitId,
+          division_id: vars.divisionId,
           name: vars.name,
           initials,
           tone,
           phone: vars.phone,
-          role_id: roleId,
-          is_commander: false,
           joined: new Date().toISOString().slice(0, 7),
           last_seen: 'just joined',
           status: 'released',
@@ -665,10 +1037,17 @@ export function useApproveJoinRequest() {
         .single();
       if (mErr) throw mErr;
 
+      // Add as soldier to the team
+      await supabase.from('team_members').insert({
+        team_id: vars.teamId,
+        member_id: m.id,
+        role: 'soldier',
+      });
+
       if (vars.skillNames.length) {
         const { data: skillRows } = await supabase
           .from('skills').select('id, name')
-          .eq('unit_id', vars.unitId).in('name', vars.skillNames);
+          .eq('division_id', vars.divisionId).in('name', vars.skillNames);
         if (skillRows && skillRows.length) {
           await supabase.from('member_skills').insert(
             skillRows.map((s: any) => ({ member_id: m.id, skill_id: s.id })),
@@ -686,7 +1065,7 @@ export function useApproveJoinRequest() {
         .eq('id', vars.requestId);
 
       await supabase.from('activity_log').insert({
-        unit_id: vars.unitId,
+        team_id: vars.teamId,
         actor_id: vars.actorId,
         actor_name: vars.actorName,
         verb: 'approved join request',
@@ -706,7 +1085,7 @@ export function useRejectJoinRequest() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (vars: {
-      requestId: string; unitId: string; actorId: string; actorName: string; name: string;
+      requestId: string; teamId: string; actorId: string; actorName: string; name: string;
     }) => {
       const { error } = await supabase
         .from('join_requests')
@@ -718,7 +1097,7 @@ export function useRejectJoinRequest() {
         .eq('id', vars.requestId);
       if (error) throw error;
       await supabase.from('activity_log').insert({
-        unit_id: vars.unitId,
+        team_id: vars.teamId,
         actor_id: vars.actorId,
         actor_name: vars.actorName,
         verb: 'rejected join request',
@@ -733,123 +1112,22 @@ export function useRejectJoinRequest() {
   });
 }
 
-export function useAddRole() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (vars: { unitId: string; name: string }) => {
-      const { count } = await supabase.from('roles').select('*', { count: 'exact', head: true }).eq('unit_id', vars.unitId);
-      const { error } = await supabase.from('roles').insert({
-        unit_id: vars.unitId, name: vars.name, sort_idx: count ?? 0,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['roles'] }); },
-  });
-}
-
-export function useDeleteRole() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (vars: { unitId: string; name: string }) => {
-      const { count } = await supabase
-        .from('members')
-        .select('*', { count: 'exact', head: true })
-        .eq('unit_id', vars.unitId)
-        .eq('role_id', (await supabase.from('roles').select('id').eq('unit_id', vars.unitId).eq('name', vars.name).single()).data?.id);
-      if ((count ?? 0) > 0) {
-        throw new Error(`Role "${vars.name}" is in use by ${count} member(s).`);
-      }
-      const { error } = await supabase.from('roles').delete().eq('unit_id', vars.unitId).eq('name', vars.name);
-      if (error) throw error;
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['roles'] }); },
-  });
-}
-
-export function useAddSkill() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (vars: { unitId: string; name: string }) => {
-      const { error } = await supabase.from('skills').insert({ unit_id: vars.unitId, name: vars.name });
-      if (error) throw error;
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['skills'] }); },
-  });
-}
-
-export function useDeleteSkill() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (vars: { unitId: string; name: string }) => {
-      const { error } = await supabase.from('skills').delete().eq('unit_id', vars.unitId).eq('name', vars.name);
-      if (error) throw error;
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['skills'] }); },
-  });
-}
-
-export function useMemberDeploymentWindows(memberId: string | undefined) {
-  return useQuery({
-    queryKey: ['deployment-windows', memberId],
-    enabled: !!memberId,
-    queryFn: async (): Promise<DeploymentWindow[]> => {
-      const { data, error } = await supabase
-        .from('deployment_windows_view')
-        .select('*')
-        .eq('member_id', memberId!)
-        .order('start_date', { ascending: false });
-      if (error) throw error;
-      return data as DeploymentWindow[];
-    },
-  });
-}
-
-export function useMyDeploymentWindows(userId: string | undefined) {
-  // Same query as commander side; kept under a separate key so reservist + commander
-  // can subscribe independently without sharing a cache slot.
-  return useQuery({
-    queryKey: ['my-deployment-windows', userId],
-    enabled: !!userId,
-    queryFn: async (): Promise<DeploymentWindow[]> => {
-      const { data, error } = await supabase
-        .from('deployment_windows_view')
-        .select('*')
-        .eq('member_id', userId!)
-        .order('start_date', { ascending: false });
-      if (error) throw error;
-      return data as DeploymentWindow[];
-    },
-  });
-}
-
-export function useDeploymentPicks(windowId: string | undefined) {
-  return useQuery({
-    queryKey: ['deployment-picks', windowId],
-    enabled: !!windowId,
-    queryFn: async (): Promise<DeploymentPick[]> => {
-      const { data, error } = await supabase
-        .from('deployment_picks')
-        .select('*')
-        .eq('window_id', windowId!)
-        .order('date');
-      if (error) throw error;
-      return data as DeploymentPick[];
-    },
-  });
-}
+// ---------------------------------------------------------------------------
+// Mutations — deployment windows + picks
+// ---------------------------------------------------------------------------
 
 export function useCreateDeploymentWindow() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (vars: {
-      memberId: string; unitId: string;
+      memberId: string; teamId: string;
       label: string; startDate: string; endDate: string; notes: string | null;
       createdBy: string; actorName: string; memberName: string;
     }) => {
       const { data, error } = await supabase
         .from('deployment_windows')
         .insert({
-          member_id: vars.memberId, unit_id: vars.unitId,
+          member_id: vars.memberId, team_id: vars.teamId,
           label: vars.label, start_date: vars.startDate, end_date: vars.endDate,
           notes: vars.notes, created_by: vars.createdBy,
         })
@@ -857,7 +1135,7 @@ export function useCreateDeploymentWindow() {
         .single();
       if (error) throw error;
       await supabase.from('activity_log').insert({
-        unit_id: vars.unitId, actor_id: vars.createdBy, actor_name: vars.actorName,
+        team_id: vars.teamId, actor_id: vars.createdBy, actor_name: vars.actorName,
         verb: 'opened deployment window',
         what: `${vars.memberName} · ${vars.label} (${vars.startDate} → ${vars.endDate})`,
         tone: 'accent',
@@ -876,7 +1154,7 @@ export function useUpdateDeploymentWindow() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (vars: {
-      windowId: string; unitId: string; actorId: string; actorName: string;
+      windowId: string; teamId: string; actorId: string; actorName: string;
       patch: { label?: string; startDate?: string; endDate?: string; notes?: string | null; state?: 'open' | 'closed' };
     }) => {
       const row: Record<string, unknown> = {};
@@ -889,7 +1167,7 @@ export function useUpdateDeploymentWindow() {
       const { error } = await supabase.from('deployment_windows').update(row).eq('id', vars.windowId);
       if (error) throw error;
       await supabase.from('activity_log').insert({
-        unit_id: vars.unitId, actor_id: vars.actorId, actor_name: vars.actorName,
+        team_id: vars.teamId, actor_id: vars.actorId, actor_name: vars.actorName,
         verb: vars.patch.state === 'closed' ? 'closed deployment window' : 'edited deployment window',
         what: null, tone: 'accent',
       });
@@ -908,7 +1186,6 @@ export function useProposeDayPick() {
     mutationFn: async (vars: {
       windowId: string; date: string; reservistNote: string | null;
     }) => {
-      // Upsert keyed by (window_id, date): re-propose resets commander fields.
       const { error } = await supabase
         .from('deployment_picks')
         .upsert({
@@ -951,7 +1228,7 @@ export function useResolvePick() {
     mutationFn: async (vars: {
       pickId: string; nextState: 'approved' | 'rejected';
       commanderNote: string | null;
-      actorId: string; actorName: string; unitId: string; memberName: string; date: string;
+      actorId: string; actorName: string; teamId: string; memberName: string; date: string;
     }) => {
       const { error } = await supabase
         .from('deployment_picks')
@@ -962,7 +1239,7 @@ export function useResolvePick() {
         .eq('id', vars.pickId);
       if (error) throw error;
       await supabase.from('activity_log').insert({
-        unit_id: vars.unitId, actor_id: vars.actorId, actor_name: vars.actorName,
+        team_id: vars.teamId, actor_id: vars.actorId, actor_name: vars.actorName,
         verb: vars.nextState === 'approved' ? 'approved deployment day' : 'rejected deployment day',
         what: `${vars.memberName} · ${vars.date}`,
         tone: vars.nextState === 'approved' ? 'accent' : null,
@@ -977,48 +1254,12 @@ export function useResolvePick() {
   });
 }
 
-export function useApprovedPicksForUnit(unitId: string | undefined) {
-  return useQuery({
-    queryKey: ['approved-picks', unitId],
-    enabled: !!unitId,
-    queryFn: async (): Promise<{ member_id: string; date: string }[]> => {
-      // Step 1: fetch all deployment windows for the unit to get their member_id mapping.
-      const { data: windows, error: wErr } = await supabase
-        .from('deployment_windows')
-        .select('id, member_id')
-        .eq('unit_id', unitId!);
-      if (wErr) throw wErr;
-      if (!windows || windows.length === 0) return [];
-
-      // Build a map from window_id → member_id.
-      const windowToMember = new Map<string, string>(
-        (windows as { id: string; member_id: string }[]).map((w) => [w.id, w.member_id]),
-      );
-      const windowIds = [...windowToMember.keys()];
-
-      // Step 2: fetch approved picks for those windows.
-      const { data: picks, error: pErr } = await supabase
-        .from('deployment_picks')
-        .select('window_id, date')
-        .in('window_id', windowIds)
-        .eq('state', 'approved');
-      if (pErr) throw pErr;
-
-      // Project: attach member_id from the map.
-      return ((picks ?? []) as { window_id: string; date: string }[]).flatMap((p) => {
-        const member_id = windowToMember.get(p.window_id);
-        return member_id ? [{ member_id, date: p.date }] : [];
-      });
-    },
-  });
-}
-
 export function useDirectAddPick() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (vars: {
       windowId: string; date: string;
-      actorId: string; actorName: string; unitId: string; memberName: string;
+      actorId: string; actorName: string; teamId: string; memberName: string;
     }) => {
       const { error } = await supabase
         .from('deployment_picks')
@@ -1029,7 +1270,7 @@ export function useDirectAddPick() {
         }, { onConflict: 'window_id,date' });
       if (error) throw error;
       await supabase.from('activity_log').insert({
-        unit_id: vars.unitId, actor_id: vars.actorId, actor_name: vars.actorName,
+        team_id: vars.teamId, actor_id: vars.actorId, actor_name: vars.actorName,
         verb: 'recorded deployment day',
         what: `${vars.memberName} · ${vars.date}`,
         tone: 'accent',
@@ -1040,102 +1281,6 @@ export function useDirectAddPick() {
       qc.invalidateQueries({ queryKey: ['deployment-windows'] });
       qc.invalidateQueries({ queryKey: ['my-deployment-windows'] });
       qc.invalidateQueries({ queryKey: ['activity'] });
-    },
-  });
-}
-
-export interface DayAggregateMember {
-  memberId: string;
-  memberName: string;
-  initials: string;
-  tone: number;
-  status: import('./types').Status;
-  reasons: DayReason[];
-}
-
-export type DayReason =
-  | { kind: 'pick' }
-  | { kind: 'slot'; slotTitle: string };
-
-export function useUnitDayAggregate(unitId: string | undefined, dateISO: string) {
-  return useQuery({
-    queryKey: ['unit-day', unitId, dateISO],
-    enabled: !!unitId && !!dateISO,
-    queryFn: async (): Promise<DayAggregateMember[]> => {
-      // Build day boundaries (start = 00:00:00, end = 23:59:59.999 local → ISO)
-      const dayStart = new Date(`${dateISO}T00:00:00`);
-      const dayEnd   = new Date(`${dateISO}T23:59:59.999`);
-      const dayStartISO = dayStart.toISOString();
-      const dayEndISO   = dayEnd.toISOString();
-
-      // 1. Approved deployment picks for this date
-      const { data: picks, error: picksErr } = await supabase
-        .from('deployment_picks')
-        .select('id, window_id, date, state, deployment_windows!inner(member_id, unit_id, members!inner(id, name, initials, tone, status))')
-        .eq('state', 'approved')
-        .eq('date', dateISO);
-      if (picksErr) throw picksErr;
-
-      // 2. Published slot assignees whose slot overlaps with this day
-      const { data: assignees, error: assigneesErr } = await supabase
-        .from('slot_assignees')
-        .select('member_id, slots!inner(id, title, state, start_at, end_at, unit_id), members!inner(id, name, initials, tone, status)')
-        .eq('slots.state', 'published')
-        .eq('slots.unit_id', unitId!)
-        .lte('slots.start_at', dayEndISO)
-        .or(`end_at.gte.${dayStartISO},end_at.is.null`, { referencedTable: 'slots' });
-      if (assigneesErr) throw assigneesErr;
-
-      const map = new Map<string, DayAggregateMember>();
-
-      // Process picks
-      for (const pick of (picks ?? []) as any[]) {
-        const win = pick.deployment_windows;
-        if (!win) continue;
-        if (win.unit_id !== unitId) continue;
-        const member = win.members;
-        if (!member) continue;
-        const memberId: string = member.id;
-        if (!map.has(memberId)) {
-          map.set(memberId, {
-            memberId,
-            memberName: member.name,
-            initials: member.initials,
-            tone: member.tone,
-            status: member.status,
-            reasons: [],
-          });
-        }
-        map.get(memberId)!.reasons.push({ kind: 'pick' });
-      }
-
-      // Process slot assignees
-      for (const row of (assignees ?? []) as any[]) {
-        const slot = row.slots;
-        const member = row.members;
-        if (!slot || !member) continue;
-        const memberId: string = member.id;
-        if (!map.has(memberId)) {
-          map.set(memberId, {
-            memberId,
-            memberName: member.name,
-            initials: member.initials,
-            tone: member.tone,
-            status: member.status,
-            reasons: [],
-          });
-        }
-        // Avoid duplicate slot reasons if somehow returned twice
-        const existing = map.get(memberId)!.reasons;
-        const alreadyHasSlot = existing.some(
-          (r) => r.kind === 'slot' && r.slotTitle === slot.title,
-        );
-        if (!alreadyHasSlot) {
-          existing.push({ kind: 'slot', slotTitle: slot.title });
-        }
-      }
-
-      return Array.from(map.values()).sort((a, b) => a.memberName.localeCompare(b.memberName));
     },
   });
 }

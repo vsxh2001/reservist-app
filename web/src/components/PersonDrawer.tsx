@@ -12,6 +12,7 @@ import {
   useUpdateTeamMembership, useRemoveTeamMembership, useTeamsForMember,
 } from '../lib/queries';
 import { useAuth } from '../lib/auth';
+import { normalizePhoneToE164IL } from '../lib/phone';
 
 interface Props {
   person: Member;
@@ -50,6 +51,9 @@ export function PersonDrawer({ person, team, allSkills, divisionId, onClose, onT
 
   // Teams the current commander commands (to determine which teams they can manage)
   const myTeams = useTeamsForMember(user?.id);
+
+  // Normalized phone for tap-to-call / WhatsApp deep links. `null` => fall back to toast.
+  const e164 = normalizePhoneToE164IL(person.phone);
 
   useEffect(() => {
     setTab('profile');
@@ -173,8 +177,27 @@ export function PersonDrawer({ person, team, allSkills, divisionId, onClose, onT
               </div>
             )}
             <div style={{ marginTop: 12, display: 'flex', gap: 6 }}>
-              <Button variant="primary" size="sm" icon="phone" onClick={() => onToast(`Calling ${person.name}…`)}>Call</Button>
-              <Button size="sm" icon="whatsapp" onClick={() => onToast(`Opening WhatsApp with ${person.name}…`)}>WhatsApp</Button>
+              {e164 ? (
+                <a className="btn" data-variant="primary" data-size="sm"
+                   href={`tel:+${e164}`} aria-label={`Call ${person.name}`}>
+                  <Icon name="phone" />
+                  Call
+                </a>
+              ) : (
+                <Button variant="primary" size="sm" icon="phone"
+                        onClick={() => onToast(`Calling ${person.name}…`)}>Call</Button>
+              )}
+              {e164 ? (
+                <a className="btn" data-size="sm"
+                   href={`https://wa.me/${e164}`} target="_blank" rel="noopener noreferrer"
+                   aria-label={`WhatsApp ${person.name}`}>
+                  <Icon name="whatsapp" />
+                  WhatsApp
+                </a>
+              ) : (
+                <Button size="sm" icon="whatsapp"
+                        onClick={() => onToast(`Opening WhatsApp with ${person.name}…`)}>WhatsApp</Button>
+              )}
               <Button size="sm" variant="ghost" icon="copy"
                       onClick={() => { navigator.clipboard?.writeText(person.phone); onToast('Phone copied'); }} />
             </div>
@@ -265,7 +288,16 @@ export function PersonDrawer({ person, team, allSkills, divisionId, onClose, onT
                 <div className="drawer-contact">
                   <span>{person.phone.replace('+972 ', '0').replace(/-/g, ' ')}</span>
                   <IconButton icon="copy" tip="Copy" onClick={() => { navigator.clipboard?.writeText(person.phone); onToast('Phone copied'); }} />
-                  <IconButton icon="whatsapp" tip="WhatsApp" tone="whatsapp" onClick={() => onToast(`Opening WhatsApp with ${person.name}…`)} />
+                  {e164 ? (
+                    <a className="action-btn" data-tip="WhatsApp" data-tone="whatsapp"
+                       href={`https://wa.me/${e164}`} target="_blank" rel="noopener noreferrer"
+                       aria-label={`WhatsApp ${person.name}`}>
+                      <Icon name="whatsapp" size={14} />
+                    </a>
+                  ) : (
+                    <IconButton icon="whatsapp" tip="WhatsApp" tone="whatsapp"
+                                onClick={() => onToast(`Opening WhatsApp with ${person.name}…`)} />
+                  )}
                 </div>
               </div>
 

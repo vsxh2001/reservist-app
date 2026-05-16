@@ -99,3 +99,68 @@ jobs:
       - name: Stop Supabase
         if: always()
         run: supabase stop --no-backup
+
+  e2e:
+    name: e2e (Playwright smoke)
+    runs-on: ubuntu-latest
+    needs: integration
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web deps
+        working-directory: web
+        run: npm ci
+
+      - name: Install Supabase CLI
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -sL https://github.com/supabase/cli/releases/download/v2.98.2/supabase_linux_amd64.tar.gz \
+            | tar -xz -C "$HOME/.local/bin" supabase
+          chmod +x "$HOME/.local/bin/supabase"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Start Supabase stack
+        run: supabase start --exclude imgproxy,inbucket,pooler,realtime,storage-api,studio,vector,edge-runtime,mcp 2>&1 | tail -20
+        # Mirror the integration job's exclusion list. The E2E smoke only
+        # needs db (postgres), rest (PostgREST), and auth (GoTrue, started transitively).
+
+      - name: Apply migrations and seed
+        run: supabase db reset --workdir .
+        # `supabase start` on a fresh stack already applies migrations + seed,
+        # but reset makes the state explicit and idempotent across reruns.
+
+      - name: Install Playwright (chromium)
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        working-directory: web
+        run: npm run test:e2e
+        env:
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlLWRlbW8iLCJpYXQiOjE2NDE3NjkyMDAsImV4cCI6MTc5OTUzNTYwMH0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE
+          SUPABASE_JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
+          CI: '1'
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            web/test-results/
+            web/playwright-report/
+          if-no-files-found: ignore
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup

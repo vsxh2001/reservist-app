@@ -74,6 +74,8 @@ export interface Member {
   status_until: string | null;
   status_set_at: string;
   is_division_admin: boolean;
+  /** PRD §7.2 — when true, the member's phone is shown to peers in the same division. */
+  phone_visible_to_peers: boolean;
   skills: MemberSkill[];
   teams: TeamMembership[];
 }

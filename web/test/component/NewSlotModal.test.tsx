@@ -250,33 +250,23 @@ describe('NewSlotModal', () => {
   });
 
   it('does not call onClose when the mutation rejects', async () => {
-    // The component's onClick handler does not catch the rejection from
-    // mutateAsync; we install a temporary process-level handler so vitest
-    // does not flag the expected rejection.
-    const swallow = (reason: unknown) => {
-      if (reason instanceof Error && reason.message === 'NewSlotModal-test-boom') return;
-      // Re-throw anything unexpected by emitting through the default path.
-      throw reason;
-    };
-    process.on('unhandledRejection', swallow);
-
+    // The component now catches the mutateAsync rejection, surfaces it via
+    // onToast, and leaves the modal mounted (no onClose) so the user can fix
+    // input and retry.
     mockCreateSlot.mutateAsync.mockRejectedValueOnce(new Error('NewSlotModal-test-boom'));
     const user = userEvent.setup();
     const { onClose, onToast } = renderModal({ open: true });
 
-    try {
-      await user.click(screen.getByRole('button', { name: /Publish slot/i }));
+    await user.click(screen.getByRole('button', { name: /Publish slot/i }));
 
-      await waitFor(() => {
-        expect(mockCreateSlot.mutateAsync).toHaveBeenCalledTimes(1);
-      });
-      // Let the rejected await propagate / settle.
-      await new Promise((r) => setTimeout(r, 0));
-      expect(onClose).not.toHaveBeenCalled();
-      expect(onToast).not.toHaveBeenCalled();
-    } finally {
-      process.off('unhandledRejection', swallow);
-    }
+    await waitFor(() => {
+      expect(mockCreateSlot.mutateAsync).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(onToast).toHaveBeenCalledWith(expect.stringMatching(/Failed to create slot/));
+    });
+    expect(onToast).toHaveBeenCalledWith(expect.stringContaining('NewSlotModal-test-boom'));
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('cancel button closes the modal without firing the mutation', async () => {

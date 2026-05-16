@@ -109,22 +109,28 @@ export function NewSlotModal({
     const endAt = endD.toISOString();
     const hrs = Math.round((endD.getTime() - startD.getTime()) / 3600000);
 
-    await createSlot.mutateAsync({
-      teamId,
-      divisionId,
-      title: title || (urgent ? 'Urgent call-up' : 'New duty slot'),
-      urgent,
-      state,
-      startAt,
-      endAt,
-      duration: `${hrs}h`,
-      location: location || null,
-      skills: requiredSkills,
-      needed,
-      assigneeIds: picked,
-      createdBy: user.id,
-      actorName: user.name,
-    });
+    try {
+      await createSlot.mutateAsync({
+        teamId,
+        divisionId,
+        title: title || (urgent ? 'Urgent call-up' : 'New duty slot'),
+        urgent,
+        state,
+        startAt,
+        endAt,
+        duration: `${hrs}h`,
+        location: location || null,
+        skills: requiredSkills,
+        needed,
+        assigneeIds: picked,
+        createdBy: user.id,
+        actorName: user.name,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      onToast(`Failed to create slot: ${message}`);
+      return;
+    }
     onClose();
     onToast(
       state === 'draft'

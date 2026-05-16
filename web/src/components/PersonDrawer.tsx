@@ -94,15 +94,20 @@ export function PersonDrawer({ person, allSkills, onClose, onToast }: Props) {
 
   const submitNewWindow = async () => {
     if (!user) return;
-    await createWindow.mutateAsync({
-      memberId: person.id, unitId: person.unit_id,
-      label: nwLabel.trim(), startDate: nwStart, endDate: nwEnd,
-      notes: nwNotes.trim() ? nwNotes.trim() : null,
-      createdBy: user.id, actorName: user.name, memberName: person.name,
-    });
-    setNewWinOpen(false);
-    setNwLabel(''); setNwStart(''); setNwEnd(''); setNwNotes('');
-    onToast('Deployment window opened');
+    try {
+      await createWindow.mutateAsync({
+        memberId: person.id, unitId: person.unit_id,
+        label: nwLabel.trim(), startDate: nwStart, endDate: nwEnd,
+        notes: nwNotes.trim() ? nwNotes.trim() : null,
+        createdBy: user.id, actorName: user.name, memberName: person.name,
+      });
+      setNewWinOpen(false);
+      setNwLabel(''); setNwStart(''); setNwEnd(''); setNwNotes('');
+      onToast('Deployment window opened');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Could not open window';
+      onToast(`Error: ${msg}`);
+    }
   };
 
   const recentActivity: { dot: string | null; body: JSX.Element; when: string }[] = [
@@ -284,7 +289,7 @@ export function PersonDrawer({ person, allSkills, onClose, onToast }: Props) {
                     <input className="input" placeholder="Notes (optional)" value={nwNotes} onChange={(e) => setNwNotes(e.target.value)} />
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
                       <Button size="sm" variant="primary" icon="check"
-                              disabled={!nwLabel.trim() || !nwStart || !nwEnd || createWindow.isPending}
+                              disabled={!nwLabel.trim() || !nwStart || !nwEnd || nwEnd < nwStart || createWindow.isPending}
                               onClick={submitNewWindow}>
                         Open window
                       </Button>

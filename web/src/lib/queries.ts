@@ -1428,6 +1428,29 @@ export function useUpdateTeam() {
 }
 
 /**
+ * PRD §7.6 — flip the per-team `show_unit_schedule` flag.
+ * When false, reservists only see slots they are personally assigned to
+ * (plus urgent slots — filter lives in ReservistDashboard.tsx).
+ */
+export function useSetTeamShowUnitSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { teamId: string; value: boolean }) => {
+      const { error } = await supabase
+        .from('teams')
+        .update({ show_unit_schedule: vars.value })
+        .eq('id', vars.teamId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['teams-for-division'] });
+      qc.invalidateQueries({ queryKey: ['teams-for-member'] });
+      qc.invalidateQueries({ queryKey: ['team'] });
+    },
+  });
+}
+
+/**
  * Grant or revoke division-admin status for a member.
  * Self-revoke is blocked: a caller must ensure memberId !== actorId before calling.
  */

@@ -95,6 +95,8 @@ export interface Team {
   member_count: number;
   commander_count: number;
   project_name: string;
+  /** PRD §7.6 — when false, reservists only see slots they are assigned to (plus urgent slots). */
+  show_unit_schedule: boolean;
 }
 
 /** True iff the team's invite is past its expiry. `null` expiry = never expires. */

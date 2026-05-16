@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button } from './atoms';
 import { Icon } from './Icon';
 import { supabase } from '../lib/supabase';
-import { useAddSkill, useDeleteSkill } from '../lib/queries';
+import { useAddSkill, useDeleteSkill, useSetTeamShowUnitSchedule } from '../lib/queries';
 import { usePrefs } from '../lib/prefs';
 import { useAuth } from '../lib/auth';
 import {
@@ -60,6 +60,7 @@ export function SettingsScreen({ team, divisionId, skills, onToast, onRefresh }:
 
   const addSkill = useAddSkill();
   const delSkill = useDeleteSkill();
+  const setShowUnitSchedule = useSetTeamShowUnitSchedule();
 
   // ── Notifications state ──────────────────────────────────────────────────
   const [pushSub, setPushSub] = useState<PushSubscription | null | 'loading'>('loading');
@@ -151,6 +152,17 @@ export function SettingsScreen({ team, divisionId, skills, onToast, onRefresh }:
     }
   };
 
+  const setShowAll = async (value: boolean) => {
+    if (team.show_unit_schedule === value) return;
+    try {
+      await setShowUnitSchedule.mutateAsync({ teamId: team.id, value });
+      onRefresh();
+      onToast(value ? 'Reservists now see all team slots' : 'Reservists now only see their own slots');
+    } catch (e: any) {
+      onToast(e.message ?? 'Failed to update visibility');
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       <Section title="Team">
@@ -218,6 +230,29 @@ export function SettingsScreen({ team, divisionId, skills, onToast, onRefresh }:
           <div className="filter-group">
             <button data-on={prefs.dir === 'ltr' ? '1' : '0'} onClick={() => { prefs.setDir('ltr'); prefs.setLang('en'); }}>LTR / English</button>
             <button data-on={prefs.dir === 'rtl' ? '1' : '0'} onClick={() => { prefs.setDir('rtl'); prefs.setLang('he'); }}>RTL / עברית</button>
+          </div>
+        </div>
+      </Section>
+
+      <Section title="Reservist visibility">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 0' }}>
+          <div style={{ flex: 1, fontSize: 13 }}>
+            Show all team slots to reservists
+            <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 2 }}>
+              PRD §7.6 — when off, reservists only see slots they are assigned to. Urgent slots are always visible.
+            </div>
+          </div>
+          <div className="filter-group">
+            <button
+              data-on={team.show_unit_schedule ? '1' : '0'}
+              disabled={setShowUnitSchedule.isPending}
+              onClick={() => { void setShowAll(true); }}
+            >On</button>
+            <button
+              data-on={!team.show_unit_schedule ? '1' : '0'}
+              disabled={setShowUnitSchedule.isPending}
+              onClick={() => { void setShowAll(false); }}
+            >Off</button>
           </div>
         </div>
       </Section>

@@ -89,8 +89,18 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
     showToast(`Status set to ${STATUS_LABEL[pending]}`);
   };
 
-  const teamSlots = (slots.data ?? []).filter((s) => !team || s.team_id === team.id);
-  const upcoming = teamSlots.filter((s) => s.state === 'published' && new Date(s.start_at) >= new Date(Date.now() - 86400000));
+  // PRD §7.6 — when the team's `show_unit_schedule` flag is off, reservists
+  // only see slots they are personally assigned to. Urgent slots are always
+  // visible regardless of the flag (so call-ups still reach the reservist).
+  const myMemberId = me.data?.id;
+  const visibleSlots = (slots.data ?? []).filter((s) => {
+    if (team && s.team_id !== team.id) return false;
+    if (team && team.show_unit_schedule === false) {
+      return s.urgent === true || (myMemberId != null && s.assignee_ids.includes(myMemberId));
+    }
+    return true;
+  });
+  const upcoming = visibleSlots.filter((s) => s.state === 'published' && new Date(s.start_at) >= new Date(Date.now() - 86400000));
   const urgent = upcoming.filter((s) => s.urgent);
   const regular = upcoming.filter((s) => !s.urgent);
 

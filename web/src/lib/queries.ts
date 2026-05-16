@@ -837,3 +837,173 @@ export function useDeploymentPicks(windowId: string | undefined) {
     },
   });
 }
+
+export function useCreateDeploymentWindow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      memberId: string; unitId: string;
+      label: string; startDate: string; endDate: string; notes: string | null;
+      createdBy: string; actorName: string; memberName: string;
+    }) => {
+      const { data, error } = await supabase
+        .from('deployment_windows')
+        .insert({
+          member_id: vars.memberId, unit_id: vars.unitId,
+          label: vars.label, start_date: vars.startDate, end_date: vars.endDate,
+          notes: vars.notes, created_by: vars.createdBy,
+        })
+        .select('id')
+        .single();
+      if (error) throw error;
+      await supabase.from('activity_log').insert({
+        unit_id: vars.unitId, actor_id: vars.createdBy, actor_name: vars.actorName,
+        verb: 'opened deployment window',
+        what: `${vars.memberName} · ${vars.label} (${vars.startDate} → ${vars.endDate})`,
+        tone: 'accent',
+      });
+      return data.id as string;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['deployment-windows'] });
+      qc.invalidateQueries({ queryKey: ['my-deployment-windows'] });
+      qc.invalidateQueries({ queryKey: ['activity'] });
+    },
+  });
+}
+
+export function useUpdateDeploymentWindow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      windowId: string; unitId: string; actorId: string; actorName: string;
+      patch: { label?: string; startDate?: string; endDate?: string; notes?: string | null; state?: 'open' | 'closed' };
+    }) => {
+      const row: Record<string, unknown> = {};
+      if (vars.patch.label     !== undefined) row.label      = vars.patch.label;
+      if (vars.patch.startDate !== undefined) row.start_date = vars.patch.startDate;
+      if (vars.patch.endDate   !== undefined) row.end_date   = vars.patch.endDate;
+      if (vars.patch.notes     !== undefined) row.notes      = vars.patch.notes;
+      if (vars.patch.state     !== undefined) row.state      = vars.patch.state;
+      if (Object.keys(row).length === 0) return;
+      const { error } = await supabase.from('deployment_windows').update(row).eq('id', vars.windowId);
+      if (error) throw error;
+      await supabase.from('activity_log').insert({
+        unit_id: vars.unitId, actor_id: vars.actorId, actor_name: vars.actorName,
+        verb: vars.patch.state === 'closed' ? 'closed deployment window' : 'edited deployment window',
+        what: null, tone: 'accent',
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['deployment-windows'] });
+      qc.invalidateQueries({ queryKey: ['my-deployment-windows'] });
+      qc.invalidateQueries({ queryKey: ['activity'] });
+    },
+  });
+}
+
+export function useProposeDayPick() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      windowId: string; date: string; reservistNote: string | null;
+    }) => {
+      // Upsert keyed by (window_id, date): re-propose resets commander fields.
+      const { error } = await supabase
+        .from('deployment_picks')
+        .upsert({
+          window_id: vars.windowId, date: vars.date,
+          state: 'proposed', reservist_note: vars.reservistNote,
+          commander_note: null, resolved_at: null, resolved_by: null,
+          proposed_at: new Date().toISOString(),
+        }, { onConflict: 'window_id,date' });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['deployment-picks'] });
+      qc.invalidateQueries({ queryKey: ['deployment-windows'] });
+      qc.invalidateQueries({ queryKey: ['my-deployment-windows'] });
+    },
+  });
+}
+
+export function useWithdrawDayPick() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { pickId: string }) => {
+      const { error } = await supabase
+        .from('deployment_picks')
+        .update({ state: 'withdrawn', resolved_at: new Date().toISOString() })
+        .eq('id', vars.pickId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['deployment-picks'] });
+      qc.invalidateQueries({ queryKey: ['deployment-windows'] });
+      qc.invalidateQueries({ queryKey: ['my-deployment-windows'] });
+    },
+  });
+}
+
+export function useResolvePick() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      pickId: string; nextState: 'approved' | 'rejected';
+      commanderNote: string | null;
+      actorId: string; actorName: string; unitId: string; memberName: string; date: string;
+    }) => {
+      const { error } = await supabase
+        .from('deployment_picks')
+        .update({
+          state: vars.nextState, commander_note: vars.commanderNote,
+          resolved_at: new Date().toISOString(), resolved_by: vars.actorId,
+        })
+        .eq('id', vars.pickId);
+      if (error) throw error;
+      await supabase.from('activity_log').insert({
+        unit_id: vars.unitId, actor_id: vars.actorId, actor_name: vars.actorName,
+        verb: vars.nextState === 'approved' ? 'approved deployment day' : 'rejected deployment day',
+        what: `${vars.memberName} · ${vars.date}`,
+        tone: vars.nextState === 'approved' ? 'accent' : null,
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['deployment-picks'] });
+      qc.invalidateQueries({ queryKey: ['deployment-windows'] });
+      qc.invalidateQueries({ queryKey: ['my-deployment-windows'] });
+      qc.invalidateQueries({ queryKey: ['activity'] });
+    },
+  });
+}
+
+export function useDirectAddPick() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      windowId: string; date: string;
+      actorId: string; actorName: string; unitId: string; memberName: string;
+    }) => {
+      const { error } = await supabase
+        .from('deployment_picks')
+        .upsert({
+          window_id: vars.windowId, date: vars.date,
+          state: 'approved', proposed_at: new Date().toISOString(),
+          resolved_at: new Date().toISOString(), resolved_by: vars.actorId,
+        }, { onConflict: 'window_id,date' });
+      if (error) throw error;
+      await supabase.from('activity_log').insert({
+        unit_id: vars.unitId, actor_id: vars.actorId, actor_name: vars.actorName,
+        verb: 'recorded deployment day',
+        what: `${vars.memberName} · ${vars.date}`,
+        tone: 'accent',
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['deployment-picks'] });
+      qc.invalidateQueries({ queryKey: ['deployment-windows'] });
+      qc.invalidateQueries({ queryKey: ['my-deployment-windows'] });
+      qc.invalidateQueries({ queryKey: ['activity'] });
+    },
+  });
+}

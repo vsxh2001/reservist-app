@@ -47,3 +47,8 @@ yarn-error.log*
 .cert
 .cert.pem
 .key.pem
+
+# Playwright (E2E tests)
+web/test-results/
+web/playwright-report/
+web/playwright/.cache/

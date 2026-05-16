@@ -24,6 +24,7 @@ export function JoinScreen({ code, onCancel }: Props) {
   const [skills, setSkills] = useState<string[]>([]);
   const [note, setNote] = useState('');
   const [sent, setSent] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     const divisionId = team.data?.division_id;
@@ -43,14 +44,20 @@ export function JoinScreen({ code, onCancel }: Props) {
 
   const doSubmit = async () => {
     if (!team.data) return;
-    await submit.mutateAsync({
-      teamId: team.data.id,
-      name: name.trim(),
-      phone: phone.trim(),
-      skillNames: skills,
-      note: note.trim() || null,
-    });
-    setSent(true);
+    setSubmitError(null);
+    try {
+      await submit.mutateAsync({
+        teamId: team.data.id,
+        name: name.trim(),
+        phone: phone.trim(),
+        skillNames: skills,
+        note: note.trim() || null,
+      });
+      setSent(true);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setSubmitError(`Couldn't send request: ${message}`);
+    }
   };
 
   return (
@@ -172,6 +179,17 @@ export function JoinScreen({ code, onCancel }: Props) {
                 Send request
               </Button>
             </div>
+            {submitError && (
+              <div role="alert" style={{
+                marginTop: 10,
+                padding: '8px 10px', borderRadius: 7,
+                background: 'var(--urgent-bg)', color: 'var(--urgent-deep)',
+                border: '1px solid var(--urgent)',
+                fontSize: 12, lineHeight: 1.4,
+              }}>
+                {submitError}
+              </div>
+            )}
           </>
         )}
       </div>

@@ -1,9 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from './atoms';
 import { Icon } from './Icon';
 import { supabase } from '../lib/supabase';
 import { useAddSkill, useDeleteSkill } from '../lib/queries';
 import { usePrefs } from '../lib/prefs';
+import { useAuth } from '../lib/auth';
+import {
+  subscribeToPush,
+  unsubscribeFromPush,
+  currentSubscription,
+  sendTestPush,
+} from '../lib/push';
 import type { Team } from '../lib/types';
 
 interface Props {
@@ -24,10 +31,49 @@ function randomCode(): string {
 export function SettingsScreen({ team, divisionId, skills, onToast, onRefresh }: Props) {
   const [busy, setBusy] = useState(false);
   const prefs = usePrefs();
+  const { user } = useAuth();
   const inviteLink = `${window.location.origin}/join/${team.invite_code}`;
 
   const addSkill = useAddSkill();
   const delSkill = useDeleteSkill();
+
+  // ── Notifications state ──────────────────────────────────────────────────
+  const [pushSub, setPushSub] = useState<PushSubscription | null | 'loading'>('loading');
+  const [pushBusy, setPushBusy] = useState(false);
+
+  useEffect(() => {
+    currentSubscription().then((sub) => setPushSub(sub));
+  }, []);
+
+  const handleEnablePush = async () => {
+    if (!user) { onToast('Sign in to enable notifications'); return; }
+    setPushBusy(true);
+    const result = await subscribeToPush(user.id);
+    setPushBusy(false);
+    if (result.ok) {
+      const sub = await currentSubscription();
+      setPushSub(sub);
+      onToast('Push notifications enabled');
+    } else {
+      onToast(result.reason ?? 'Failed to enable push');
+    }
+  };
+
+  const handleDisablePush = async () => {
+    if (!user) return;
+    setPushBusy(true);
+    await unsubscribeFromPush(user.id);
+    setPushSub(null);
+    setPushBusy(false);
+    onToast('Push notifications disabled');
+  };
+
+  const handleTestPush = async () => {
+    setPushBusy(true);
+    await sendTestPush();
+    setPushBusy(false);
+    onToast('Test notification sent — check your device');
+  };
 
   const [newSkill, setNewSkill] = useState('');
 
@@ -131,6 +177,38 @@ export function SettingsScreen({ team, divisionId, skills, onToast, onRefresh }:
             <button data-on={prefs.dir === 'rtl' ? '1' : '0'} onClick={() => { prefs.setDir('rtl'); prefs.setLang('he'); }}>RTL / עברית</button>
           </div>
         </div>
+      </Section>
+
+      <Section title="Notifications">
+        {pushSub === 'loading' ? (
+          <div style={{ fontSize: 12.5, color: 'var(--ink-soft)' }}>Checking notification status…</div>
+        ) : pushSub ? (
+          <>
+            <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', marginBottom: 10 }}>
+              Push notifications are <strong>enabled</strong> on this device. You will receive alerts
+              for urgent call-ups and deployment pick decisions.
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <Button size="sm" variant="ghost" disabled={pushBusy} onClick={handleDisablePush}>
+                Disable push
+              </Button>
+              <Button size="sm" variant="outline" disabled={pushBusy} onClick={handleTestPush}>
+                Send test push
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', marginBottom: 10 }}>
+              Enable push notifications to get alerts for urgent call-ups and deployment pick
+              decisions — even when the app is closed.
+              {' '}On iOS, install the app to your Home Screen first (iOS 16.4+).
+            </div>
+            <Button size="sm" variant="primary" icon="bell" disabled={pushBusy || !user} onClick={handleEnablePush}>
+              Enable push
+            </Button>
+          </>
+        )}
       </Section>
 
       <Section title="Privacy">

@@ -241,43 +241,31 @@ describe('JoinScreen', () => {
   it('on mutation rejection, does not transition to the success state', async () => {
     inviteState = { data: makeTeam(), isLoading: false };
 
-    // JoinScreen does `await submit.mutateAsync(...)` with no try/catch — so
-    // a rejection would propagate as an unhandled rejection from the click
-    // handler. We swallow that at the test boundary via a process-level
-    // listener so the assertion below can observe the "no success UI"
-    // behavior cleanly.
+    // JoinScreen now catches mutateAsync rejections in doSubmit and surfaces
+    // them via an inline error region under the submit button. No unhandled
+    // rejection should escape the click handler.
     const failure = new Error('insert failed: duplicate phone');
-    const seen: unknown[] = [];
-    const onUnhandled = (reason: unknown) => {
-      seen.push(reason);
-    };
-    process.on('unhandledRejection', onUnhandled);
     mutateAsyncMock.mockRejectedValue(failure);
 
-    try {
-      render(<JoinScreen code="ALPHA-001" onCancel={vi.fn()} />);
+    render(<JoinScreen code="ALPHA-001" onCancel={vi.fn()} />);
 
-      await userEvent.type(screen.getByPlaceholderText(/Tamar Levi/i), 'Tamar Levi');
-      await userEvent.type(screen.getByPlaceholderText(/\+972/), '+972501234567');
-      await userEvent.click(screen.getByRole('button', { name: /Send request/i }));
+    await userEvent.type(screen.getByPlaceholderText(/Tamar Levi/i), 'Tamar Levi');
+    await userEvent.type(screen.getByPlaceholderText(/\+972/), '+972501234567');
+    await userEvent.click(screen.getByRole('button', { name: /Send request/i }));
 
-      await waitFor(() => {
-        expect(mutateAsyncMock).toHaveBeenCalledTimes(1);
-      });
+    await waitFor(() => {
+      expect(mutateAsyncMock).toHaveBeenCalledTimes(1);
+    });
 
-      // Give the microtask queue a tick to surface the unhandled rejection.
-      await new Promise((r) => setTimeout(r, 0));
-
-      // The mutation rejected, so the success branch (sent=true) must NOT show.
-      expect(screen.queryByRole('heading', { name: /Request sent/i })).not.toBeInTheDocument();
-      // The form is still mounted with the Send request button available.
-      expect(screen.getByRole('button', { name: /Send request/i })).toBeInTheDocument();
-      // The rejection surfaced (this is the user-observable "error" today —
-      // JoinScreen has no inline error UI; the burden is on global handlers).
-      expect(seen).toContain(failure);
-    } finally {
-      process.off('unhandledRejection', onUnhandled);
-    }
+    // The mutation rejected, so the success branch (sent=true) must NOT show.
+    expect(screen.queryByRole('heading', { name: /Request sent/i })).not.toBeInTheDocument();
+    // The form is still mounted with the Send request button available.
+    expect(screen.getByRole('button', { name: /Send request/i })).toBeInTheDocument();
+    // The inline error region appears with the failure message.
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/Couldn't send request/);
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent(/duplicate phone/);
   });
 
   it('Back button on the not-found state invokes onCancel', async () => {

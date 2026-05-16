@@ -8,6 +8,7 @@ import {
 } from '../lib/types';
 import { useAssignToSlot } from '../lib/queries';
 import { useAuth } from '../lib/auth';
+import { CrossTeamRecruitDrawer } from './CrossTeamRecruitDrawer';
 
 const fmtPhone = (p: string) => p.replace('+972 ', '0').replace(/-/g, ' ');
 
@@ -149,6 +150,7 @@ export function Roster(props: Props) {
   const { user } = useAuth();
   const assignToSlot = useAssignToSlot();
   const [popOpen, setPopOpen] = useState(false);
+  const [recruitOpen, setRecruitOpen] = useState(false);
   const popRef = useRef<HTMLDivElement | null>(null);
 
   // Close popover on outside click / Esc.
@@ -299,6 +301,7 @@ export function Roster(props: Props) {
             {visible.length} of {members.length}
           </span>
           <Button variant="ghost" size="sm" icon="copy" onClick={copyPhones}>Copy phones</Button>
+          <Button variant="ghost" size="sm" icon="plus" onClick={() => setRecruitOpen(true)}>Recruit</Button>
         </div>
       </div>
 
@@ -438,6 +441,13 @@ export function Roster(props: Props) {
           </div>
           <button onClick={() => setSelected([])}><Icon name="x" size={12}/></button>
         </div>
+      )}
+
+      {recruitOpen && (
+        <CrossTeamRecruitDrawer
+          onClose={() => setRecruitOpen(false)}
+          onToast={onToast}
+        />
       )}
     </>
   );

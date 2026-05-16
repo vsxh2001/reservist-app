@@ -60,4 +60,11 @@ export default tseslint.config(
       globals: { ...globals.node },
     },
   },
+  {
+    // Node.js sidecar scripts — ESM modules that run in Node, not the browser.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+  },
 );

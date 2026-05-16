@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   web:
-    name: web (typecheck + unit tests)
+    name: web (lint + typecheck + unit + build)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -33,11 +33,12 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Lint
+        run: npm run lint
+
       - name: Typecheck
         run: npx tsc --noEmit
 
-      # Integration suite needs a running Supabase stack — skipped on CI for now.
-      # When a hosted/staging Supabase lands, wire test:integration in a separate job.
       - name: Unit tests
         run: npm run test:unit
         env:
@@ -46,3 +47,55 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  integration:
+    name: integration (Supabase stack + REST roundtrips)
+    runs-on: ubuntu-latest
+    needs: web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web deps
+        working-directory: web
+        run: npm ci
+
+      - name: Install Supabase CLI
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -sL https://github.com/supabase/cli/releases/download/v2.98.2/supabase_linux_amd64.tar.gz \
+            | tar -xz -C "$HOME/.local/bin" supabase
+          chmod +x "$HOME/.local/bin/supabase"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Start Supabase stack
+        run: supabase start --exclude imgproxy,inbucket,pooler,realtime,storage-api,studio,vector,edge-runtime,mcp 2>&1 | tail -20
+        # Exclude services not used by the test suite to cut the pull/boot time.
+        # Required services: db (postgres), rest (PostgREST), auth (GoTrue is started transitively).
+
+      - name: Capture Supabase env into web/.env
+        working-directory: web
+        run: |
+          ANON_KEY=$(supabase status -o env --workdir .. | grep '^ANON_KEY=' | cut -d'"' -f2)
+          API_URL=$(supabase status -o env --workdir .. | grep '^API_URL=' | cut -d'"' -f2)
+          {
+            echo "VITE_SUPABASE_URL=$API_URL"
+            echo "VITE_SUPABASE_ANON_KEY=$ANON_KEY"
+          } > .env
+          echo "Anon key length: ${#ANON_KEY}"
+
+      - name: Run integration tests
+        working-directory: web
+        run: npm run test:integration
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup

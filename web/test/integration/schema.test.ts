@@ -6,7 +6,6 @@ describe('Supabase schema contracts', () => {
 
   beforeAll(async () => {
     if (!ANON_KEY) {
-      // eslint-disable-next-line no-console
       console.warn('VITE_SUPABASE_ANON_KEY missing — integration tests will fail');
     }
     if (!(await supabaseReachable())) {

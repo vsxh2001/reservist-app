@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from './supabase';
 import type {
   ActivityItem, DeploymentPick, DeploymentWindow, JoinRequest,
-  Member, MemberSkill, Slot, SlotSkill, SkillLevel, Status, Unit,
+  Member, Slot, SlotSkill, SkillLevel, Status, Unit,
 } from './types';
 
 export function useUnit() {

@@ -1,6 +1,6 @@
 // web/src/components/DeploymentWindowDrawer.tsx
 import { useEffect, useMemo, useState } from 'react';
-import { Button, IconButton } from './atoms';
+import { Button } from './atoms';
 import { Icon } from './Icon';
 import { DayCell } from './DayCell';
 import {

@@ -1,5 +1,5 @@
 // web/src/components/DeploymentWindowDrawer.tsx
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button, IconButton } from './atoms';
 import { Icon } from './Icon';
 import { DayCell } from './DayCell';
@@ -35,6 +35,17 @@ export function DeploymentWindowDrawer({ window: w, memberName, onClose, onToast
   const [endDate, setEndDate] = useState(w.end_date);
   const [notes, setNotes] = useState(w.notes ?? '');
 
+  useEffect(() => {
+    setEditingMeta(false);
+    setLabel(w.label);
+    setStartDate(w.start_date);
+    setEndDate(w.end_date);
+    setNotes(w.notes ?? '');
+    setSelected(null);
+    setSelectedDate(null);
+    setNoteDraft('');
+  }, [w.id]);
+
   const byDate = useMemo(() => {
     const m = new Map<string, DeploymentPick>();
     for (const p of picks.data ?? []) m.set(p.date, p);
@@ -42,6 +53,7 @@ export function DeploymentWindowDrawer({ window: w, memberName, onClose, onToast
   }, [picks.data]);
 
   const cellTap = (dateISO: string) => {
+    if (w.state === 'closed') return;
     const pick = byDate.get(dateISO);
     if (!pick) {
       setSelected(null);
@@ -172,7 +184,7 @@ export function DeploymentWindowDrawer({ window: w, memberName, onClose, onToast
                 {m.toLocaleString('en-US', { month: 'long', year: 'numeric' })}
               </h4>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
-                {['M','T','W','T','F','S','S'].map((d, i) => (
+                {['Mo','Tu','We','Th','Fr','Sa','Su'].map((d, i) => (
                   <div key={i} style={{
                     fontFamily: 'var(--mono)', fontSize: 10,
                     color: 'var(--ink-mute)', textAlign: 'center',

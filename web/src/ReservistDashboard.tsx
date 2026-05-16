@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Avatar, Button, SkillChip, StatusPill } from './components/atoms';
 import { Icon } from './components/Icon';
+import { DeploymentPickScreen } from './components/DeploymentPickScreen';
 import { useAuth } from './lib/auth';
 import {
-  useMyMember, useMySlots, useSelfUpdateStatus, useUnit,
+  useMyDeploymentWindows, useMyMember, useMySlots, useSelfUpdateStatus, useUnit,
 } from './lib/queries';
 import { useRealtime } from './lib/realtime';
-import { STATUS_LABEL, type Status } from './lib/types';
+import { STATUS_LABEL, type DeploymentWindow, type Status } from './lib/types';
 
 function fmtWhen(iso: string): string {
   const d = new Date(iso);
@@ -23,6 +24,16 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
   const unit = useUnit();
   const me = useMyMember(user?.id);
   const slots = useMySlots(user?.id);
+  const windows = useMyDeploymentWindows(user?.id);
+  const [activeWindow, setActiveWindow] = useState<DeploymentWindow | null>(null);
+
+  const nextWindow = useMemo(() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    return (windows.data ?? [])
+      .filter((w) => w.state === 'open' && new Date(w.end_date) >= today)
+      .sort((a, b) => a.start_date.localeCompare(b.start_date))[0] ?? null;
+  }, [windows.data]);
+
   useRealtime(unit.data?.id);
 
   const update = useSelfUpdateStatus();
@@ -42,6 +53,16 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
   }
   if (!me.data) {
     return <Splash text="Profile not found. Maybe ask a commander to re-invite you." />;
+  }
+
+  if (activeWindow) {
+    return (
+      <DeploymentPickScreen
+        window={activeWindow}
+        onClose={() => setActiveWindow(null)}
+        onToast={showToast}
+      />
+    );
   }
 
   const startEdit = () => {
@@ -112,6 +133,36 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
             </div>
           </div>
         </section>
+
+        {nextWindow && (
+          <section style={{
+            display: 'flex', alignItems: 'center', gap: 14,
+            padding: 16, marginBottom: 14,
+            background: 'var(--card)', border: '1px solid var(--accent)', borderRadius: 12,
+            cursor: 'pointer',
+          }} onClick={() => setActiveWindow(nextWindow)}>
+            <div style={{
+              width: 44, height: 44, borderRadius: 10,
+              background: 'var(--accent)', color: 'var(--card)',
+              display: 'grid', placeItems: 'center', flexShrink: 0,
+            }}>
+              <Icon name="calendar" size={20}/>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontFamily: 'var(--mono)', fontSize: 10.5, textTransform: 'uppercase',
+                letterSpacing: '.08em', color: 'var(--ink-mute)',
+              }}>My next deployment</div>
+              <div style={{ fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 400, marginTop: 2 }}>
+                {nextWindow.label}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 2, fontFamily: 'var(--mono)' }}>
+                {nextWindow.start_date} → {nextWindow.end_date} · {nextWindow.approved_count} approved · {nextWindow.proposed_count} proposed
+              </div>
+            </div>
+            <Icon name="chevRight" size={16} />
+          </section>
+        )}
 
         {/* Status card */}
         <Card title="My status" right={!editing && <button className="filter-clear" onClick={startEdit}>Change</button>}>

@@ -144,3 +144,49 @@ export interface JoinRequest {
   resolved_at: string | null;
   resolved_by: string | null;
 }
+
+export type WindowState = 'open' | 'closed';
+export type PickState   = 'proposed' | 'approved' | 'rejected' | 'withdrawn';
+
+export interface DeploymentWindow {
+  id: string;
+  member_id: string;
+  unit_id: string;
+  label: string;
+  start_date: string;
+  end_date: string;
+  notes: string | null;
+  state: WindowState;
+  created_by: string | null;
+  created_at: string;
+  proposed_count: number;
+  approved_count: number;
+  rejected_count: number;
+  withdrawn_count: number;
+}
+
+export interface DeploymentPick {
+  id: string;
+  window_id: string;
+  date: string;
+  state: PickState;
+  reservist_note: string | null;
+  commander_note: string | null;
+  proposed_at: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+}
+
+export interface PicksCoverage {
+  proposed: number;
+  approved: number;
+  rejected: number;
+  withdrawn: number;
+  total: number;
+}
+
+export function picksCoverage(picks: DeploymentPick[]): PicksCoverage {
+  const c: PicksCoverage = { proposed: 0, approved: 0, rejected: 0, withdrawn: 0, total: picks.length };
+  for (const p of picks) c[p.state] += 1;
+  return c;
+}

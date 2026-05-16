@@ -8,8 +8,10 @@ import {
   findMemberConflicts,
   meetsSkillReq,
   memberMatchesAllSkillReqs,
+  picksCoverage,
   type MemberSkill,
   type SlotSkill,
+  type DeploymentPick,
 } from '../src/lib/types';
 
 describe('skill level tokens', () => {
@@ -183,5 +185,28 @@ describe('findMemberConflicts', () => {
     const s2 = { ...baseSlot, id: 's2', title: 'Second', start_at: '2026-06-01T12:00:00Z', end_at: '2026-06-01T16:00:00Z' };
     const c = findMemberConflicts(memberId, '2026-06-01T08:00:00Z', '2026-06-01T18:00:00Z', [baseSlot, s2]);
     expect(c.map((x) => x.title).sort()).toEqual(['Existing slot', 'Second']);
+  });
+});
+
+describe('picksCoverage', () => {
+  const make = (state: DeploymentPick['state']): DeploymentPick => ({
+    id: state, window_id: 'w', date: '2026-05-10', state,
+    reservist_note: null, commander_note: null,
+    proposed_at: '2026-05-09T00:00:00Z',
+    resolved_at: null, resolved_by: null,
+  });
+
+  it('counts all states', () => {
+    const c = picksCoverage([
+      make('proposed'), make('proposed'),
+      make('approved'),
+      make('rejected'),
+      make('withdrawn'),
+    ]);
+    expect(c).toEqual({ proposed: 2, approved: 1, rejected: 1, withdrawn: 1, total: 5 });
+  });
+
+  it('returns zero counts for empty input', () => {
+    expect(picksCoverage([])).toEqual({ proposed: 0, approved: 0, rejected: 0, withdrawn: 0, total: 0 });
   });
 });

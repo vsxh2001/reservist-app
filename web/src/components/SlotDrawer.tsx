@@ -4,7 +4,7 @@ import { Avatar, Button, IconButton, SkillChip, StatusPill } from './atoms';
 import {
   SKILL_LEVELS, SKILL_LEVEL_LABEL,
   memberMatchesAllSkillReqs,
-  findMemberConflicts,
+  findMemberConflicts, findDeploymentConflicts,
   type Member, type SkillLevel, type Slot, type SlotSkill,
 } from '../lib/types';
 import { useAssignToSlot, useUnassignFromSlot, useUpdateSlot, useUpdateSlotState } from '../lib/queries';
@@ -15,6 +15,7 @@ interface Props {
   members: Member[];
   skills: string[];
   allSlots: Slot[];
+  approvedPicks: { member_id: string; date: string }[];
   onClose: () => void;
   onClone: (slot: Slot) => void;
   onToast: (msg: string) => void;
@@ -41,7 +42,7 @@ function isoToLocalTime(iso: string): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-export function SlotDrawer({ slot, members, skills: allSkills, allSlots, onClose, onClone, onToast }: Props) {
+export function SlotDrawer({ slot, members, skills: allSkills, allSlots, approvedPicks, onClose, onClone, onToast }: Props) {
   const { user } = useAuth();
   const assign = useAssignToSlot();
   const unassign = useUnassignFromSlot();
@@ -408,16 +409,23 @@ export function SlotDrawer({ slot, members, skills: allSkills, allSlots, onClose
                         </div>
                       )}
                       {candidates.map((m) => {
-                        const conflicts = findMemberConflicts(m.id, slot.start_at, slot.end_at, allSlots, slot.id);
+                        const slotConflicts = findMemberConflicts(m.id, slot.start_at, slot.end_at, allSlots, slot.id);
+                        const deployConflicts = findDeploymentConflicts(m.id, slot.start_at, slot.end_at, approvedPicks);
+                        const totalConflicts = slotConflicts.length + deployConflicts.length;
+                        const slotTitles = slotConflicts.map((c) => `Already on: ${c.title}`);
+                        const deployTitles = deployConflicts.map((c) => `Deployment pick on ${c.date}`);
+                        const tooltipText = totalConflicts
+                          ? [...slotTitles, ...deployTitles].join('; ')
+                          : undefined;
                         return (
                           <div key={m.id} className="who-card"
                                data-on={picks.includes(m.id) ? '1' : '0'}
                                onClick={() => togglePick(m.id)}
-                               title={conflicts.length ? `Already on: ${conflicts.map((c) => c.title).join(', ')}` : undefined}
-                               style={conflicts.length ? { borderColor: 'var(--urgent)' } : undefined}>
+                               title={tooltipText}
+                               style={totalConflicts ? { borderColor: 'var(--urgent)' } : undefined}>
                             <Avatar initials={m.initials} tone={m.tone} size="sm" status={m.status}/>
                             <span className="nm">{m.name}</span>
-                            {conflicts.length > 0 && (
+                            {totalConflicts > 0 && (
                               <span style={{
                                 display: 'inline-flex', alignItems: 'center', gap: 3,
                                 fontSize: 10, fontFamily: 'var(--mono)',
@@ -426,7 +434,7 @@ export function SlotDrawer({ slot, members, skills: allSkills, allSlots, onClose
                                 padding: '1px 5px', borderRadius: 4,
                                 letterSpacing: '.04em', textTransform: 'uppercase', fontWeight: 600,
                               }}>
-                                <Icon name="urgent" size={9} /> {conflicts.length}
+                                <Icon name="urgent" size={9} /> {totalConflicts}
                               </span>
                             )}
                             <StatusPill status={m.status}/>

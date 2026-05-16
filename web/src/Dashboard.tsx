@@ -8,11 +8,12 @@ import { ActivityScreen } from './components/ActivityScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 import { RequestsScreen } from './components/RequestsScreen';
 import { CalendarScreen } from './components/CalendarScreen';
+import { CommanderDayView } from './components/CommanderDayView';
 import { NewSlotModal } from './components/NewSlotModal';
 import { Button } from './components/atoms';
 import { Icon } from './components/Icon';
 import {
-  useActivity, useJoinRequests, useMembers, useRoles, useSkills, useSlots, useUnit,
+  useActivity, useApprovedPicksForUnit, useJoinRequests, useMembers, useRoles, useSkills, useSlots, useUnit,
 } from './lib/queries';
 import { useRealtime } from './lib/realtime';
 import { useQueryClient } from '@tanstack/react-query';
@@ -23,6 +24,7 @@ const titleFor: Record<Screen, { title: string; em: string }> = {
   slots:    { title: 'Open & upcoming', em: 'duty slots' },
   activity: { title: 'Unit', em: 'activity' },
   calendar: { title: 'Unit', em: 'calendar' },
+  day:      { title: 'Unit', em: 'day view' },
   reviews:  { title: 'Commander', em: 'reviews' },
   settings: { title: 'Unit', em: 'settings' },
   requests: { title: 'Join', em: 'requests' },
@@ -37,6 +39,7 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
   const slots = useSlots(unit.data?.id);
   const activity = useActivity(unit.data?.id);
   const joinRequests = useJoinRequests(unit.data?.id);
+  const approvedPicks = useApprovedPicksForUnit(unit.data?.id);
   useRealtime(unit.data?.id);
 
   const [active, setActive] = useState<Screen>('roster');
@@ -225,6 +228,9 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
               onSlotClick={setSlotDrawer}
             />
           )}
+          {active === 'day' && unit.data && (
+            <CommanderDayView unitId={unit.data.id} />
+          )}
         </div>
 
         {person && (
@@ -242,6 +248,7 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
             members={members.data ?? []}
             skills={skills.data ?? []}
             allSlots={slots.data ?? []}
+            approvedPicks={approvedPicks.data ?? []}
             onClose={() => setSlotDrawer(null)}
             onClone={(s) => {
               setSlotDrawer(null);
@@ -257,6 +264,7 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
           members={members.data ?? []}
           skills={skills.data ?? []}
           slots={slots.data ?? []}
+          approvedPicks={approvedPicks.data ?? []}
           unitId={unit.data.id}
           preselected={modal.preselected}
           cloneFrom={modal.cloneFrom ?? null}

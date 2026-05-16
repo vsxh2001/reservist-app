@@ -32,6 +32,7 @@ export function Sidebar({ unit, members, slots, pendingRequests, active, onNav, 
     { id: 'roster',   label: 'Roster',     icon: 'roster',   count: members.length },
     { id: 'slots',    label: 'Duty slots', icon: 'slots',    count: openSlots, urgent: hasUrgent },
     { id: 'calendar', label: 'Calendar',   icon: 'calendar' },
+    { id: 'day',      label: 'Day view',   icon: 'clock' },
     { id: 'activity', label: 'Activity',   icon: 'activity' },
   ];
   const nav2: Item[] = [

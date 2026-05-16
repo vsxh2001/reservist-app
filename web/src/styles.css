@@ -1411,3 +1411,145 @@ button { font-family: inherit; }
   pointer-events: none;
   z-index: 100;
 }
+
+/* ──────────────────────────────────────────────
+   Commander Day View
+   ────────────────────────────────────────────── */
+.day-view {
+  padding: var(--gap-lg);
+  max-inline-size: 720px;
+  min-inline-size: 0;
+}
+
+.day-view-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--gap);
+  margin-block-end: var(--gap-lg);
+}
+
+.day-view-picker-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  color: var(--ink-soft);
+}
+
+.day-view-date-input {
+  border: none;
+  background: transparent;
+  font-family: var(--sans);
+  font-size: var(--fs-body);
+  color: var(--ink);
+  outline: none;
+  cursor: pointer;
+  min-block-size: 40px;
+  padding: 0;
+  /* Remove default arrow styling in some browsers */
+  -webkit-appearance: none;
+}
+
+.day-view-date-input::-webkit-calendar-picker-indicator {
+  opacity: 0.5;
+  cursor: pointer;
+}
+
+.day-view-count {
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+}
+
+.day-view-count strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.day-view-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 24px;
+  color: var(--ink-mute);
+  font-size: var(--fs-sm);
+  text-align: center;
+}
+
+.day-view-empty p {
+  margin: 0;
+}
+
+.day-view-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--urgent-bg);
+  color: var(--urgent-deep);
+  border-radius: var(--radius);
+  font-size: var(--fs-sm);
+}
+
+.day-view-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.day-view-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: var(--row-pad-y) var(--row-pad-x);
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--line-soft);
+  min-block-size: 60px;
+  box-shadow: var(--shadow-sm);
+}
+
+.day-view-row:hover {
+  border-color: var(--line);
+  background: var(--card-soft);
+}
+
+.day-view-row-body {
+  flex: 1;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: center;
+}
+
+.day-view-row-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.day-view-name {
+  font-size: var(--fs-body);
+  font-weight: 500;
+  color: var(--ink);
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day-view-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}

@@ -126,7 +126,7 @@ export interface ActivityItem {
   created_at: string;
 }
 
-export type Screen = 'roster' | 'slots' | 'activity' | 'calendar' | 'reviews' | 'settings' | 'requests';
+export type Screen = 'roster' | 'slots' | 'activity' | 'calendar' | 'day' | 'reviews' | 'settings' | 'requests';
 
 export type JoinState = 'pending' | 'approved' | 'rejected';
 
@@ -189,4 +189,38 @@ export function picksCoverage(picks: DeploymentPick[]): PicksCoverage {
   const c: PicksCoverage = { proposed: 0, approved: 0, rejected: 0, withdrawn: 0, total: picks.length };
   for (const p of picks) c[p.state] += 1;
   return c;
+}
+
+/**
+ * Deployment-pick conflict detection.
+ *
+ * Each approved pick is treated as a 24-hour block from local-midnight of `pick.date`
+ * to local-midnight of the following day.  The check is half-open: [pickStart, pickEnd).
+ *
+ * The slot window is also half-open: [startAt, endAt OR startAt+1h).
+ *
+ * Returns the subset of `picks` whose block overlaps the slot window for `memberId`.
+ */
+export function findDeploymentConflicts(
+  memberId: string,
+  startAt: string,
+  endAt: string | null,
+  picks: { member_id: string; date: string }[],
+): { date: string }[] {
+  const aStart = Date.parse(startAt);
+  const aEnd = endAt ? Date.parse(endAt) : aStart + 3_600_000; // treat null as +1 h
+
+  return picks
+    .filter((p) => {
+      if (p.member_id !== memberId) return false;
+      // Build a local-midnight block for pick.date.
+      // Date.parse('YYYY-MM-DD') returns UTC midnight on most engines; to get LOCAL
+      // midnight we construct via the Date constructor parts.
+      const [yyyy, mm, dd] = p.date.split('-').map(Number);
+      const pickStart = new Date(yyyy, mm - 1, dd).getTime();       // local midnight
+      const pickEnd   = new Date(yyyy, mm - 1, dd + 1).getTime();   // next local midnight
+      // Half-open overlap: [aStart, aEnd) ∩ [pickStart, pickEnd) is non-empty iff:
+      return aStart < pickEnd && pickStart < aEnd;
+    })
+    .map(({ date }) => ({ date }));
 }

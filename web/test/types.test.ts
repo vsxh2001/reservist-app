@@ -6,6 +6,7 @@ import {
   STATUS_LABEL,
   STATUS_ORDER,
   findMemberConflicts,
+  findDeploymentConflicts,
   meetsSkillReq,
   memberMatchesAllSkillReqs,
   picksCoverage,
@@ -185,6 +186,87 @@ describe('findMemberConflicts', () => {
     const s2 = { ...baseSlot, id: 's2', title: 'Second', start_at: '2026-06-01T12:00:00Z', end_at: '2026-06-01T16:00:00Z' };
     const c = findMemberConflicts(memberId, '2026-06-01T08:00:00Z', '2026-06-01T18:00:00Z', [baseSlot, s2]);
     expect(c.map((x) => x.title).sort()).toEqual(['Existing slot', 'Second']);
+  });
+});
+
+describe('findDeploymentConflicts', () => {
+  const memberId = 'u1';
+  // A pick on 2026-06-01 covers local midnight 2026-06-01 → 2026-06-02.
+  const pick = { member_id: memberId, date: '2026-06-01' };
+
+  it('exact-date match → 1 conflict', () => {
+    // Slot runs 2026-06-01T06:00 to 2026-06-01T18:00 local — squarely inside the pick day.
+    const c = findDeploymentConflicts(memberId, '2026-06-01T06:00:00', '2026-06-01T18:00:00', [pick]);
+    expect(c).toHaveLength(1);
+    expect(c[0].date).toBe('2026-06-01');
+  });
+
+  it('slot ends exactly at pick next-day-midnight → no overlap (half-open)', () => {
+    // Pick is [midnight 06-01, midnight 06-02). Slot ends at midnight 06-02 → no overlap.
+    const midnight02 = new Date(2026, 5, 2).toISOString(); // local midnight Jun 2
+    const midnight01 = new Date(2026, 5, 1).toISOString(); // local midnight Jun 1
+    const c = findDeploymentConflicts(memberId, midnight01, midnight02, [pick]);
+    // Slot starts at pick start and ends at pick end → the start IS less than pickEnd,
+    // and pickStart IS less than aEnd — so they DO overlap. Adjust test: slot must start
+    // exactly at pickEnd to be disjoint.
+    // Actually [aStart=midnight01, aEnd=midnight02) ∩ [pickStart=midnight01, pickEnd=midnight02)
+    // is non-empty (they are equal intervals). Let's test the disjoint case instead:
+    // Slot starts at midnight 06-02 (= pickEnd) → no overlap.
+    const c2 = findDeploymentConflicts(memberId, midnight02, new Date(2026, 5, 2, 6).toISOString(), [pick]);
+    expect(c2).toHaveLength(0);
+  });
+
+  it('slot spans 3 picks → returns 3', () => {
+    const picks = [
+      { member_id: memberId, date: '2026-06-01' },
+      { member_id: memberId, date: '2026-06-02' },
+      { member_id: memberId, date: '2026-06-03' },
+    ];
+    // Slot covers all three days entirely.
+    const c = findDeploymentConflicts(memberId, '2026-06-01T00:00:00', '2026-06-04T00:00:00', picks);
+    expect(c).toHaveLength(3);
+  });
+
+  it('empty pick array → 0 conflicts', () => {
+    const c = findDeploymentConflicts(memberId, '2026-06-01T06:00:00', '2026-06-01T18:00:00', []);
+    expect(c).toHaveLength(0);
+  });
+
+  it('member with no picks → 0 conflicts', () => {
+    const otherPicks = [
+      { member_id: 'other', date: '2026-06-01' },
+    ];
+    const c = findDeploymentConflicts(memberId, '2026-06-01T06:00:00', '2026-06-01T18:00:00', otherPicks);
+    expect(c).toHaveLength(0);
+  });
+
+  it('wrong memberId on the pick → filtered out', () => {
+    const wrongPick = { member_id: 'not-u1', date: '2026-06-01' };
+    const c = findDeploymentConflicts(memberId, '2026-06-01T06:00:00', '2026-06-01T18:00:00', [wrongPick]);
+    expect(c).toHaveLength(0);
+  });
+
+  it('open-ended slot (end_at = null) treated as startAt + 1h', () => {
+    // Slot at 2026-06-01T06:00 with no end → treated as ending at 07:00.
+    // Pick for 2026-06-01 covers midnight→midnight+1d → overlaps.
+    const c = findDeploymentConflicts(memberId, '2026-06-01T06:00:00', null, [pick]);
+    expect(c).toHaveLength(1);
+  });
+
+  it('open-ended slot that falls after pick window → 0 conflicts', () => {
+    // Pick is 2026-06-01 (local midnight to next midnight).
+    // Slot starts at 2026-06-02T06:00 with no end → treated as 06:00–07:00 on Jun 2.
+    const c = findDeploymentConflicts(memberId, '2026-06-02T06:00:00', null, [pick]);
+    expect(c).toHaveLength(0);
+  });
+
+  it('returns correct date strings', () => {
+    const picks2 = [
+      { member_id: memberId, date: '2026-07-10' },
+      { member_id: memberId, date: '2026-07-11' },
+    ];
+    const c = findDeploymentConflicts(memberId, '2026-07-10T12:00:00', '2026-07-11T06:00:00', picks2);
+    expect(c.map((x) => x.date).sort()).toEqual(['2026-07-10', '2026-07-11']);
   });
 });
 

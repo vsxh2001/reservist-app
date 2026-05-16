@@ -15,7 +15,10 @@ export function useRealtime(unitId: string | undefined) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'slots', filter: `unit_id=eq.${unitId}` },
         () => qc.invalidateQueries({ queryKey: ['slots'] }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'slot_assignees' },
-        () => qc.invalidateQueries({ queryKey: ['slots'] }))
+        () => {
+          qc.invalidateQueries({ queryKey: ['slots'] });
+          qc.invalidateQueries({ queryKey: ['unit-day'] });
+        })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'deployment_windows', filter: `unit_id=eq.${unitId}` },
         () => {
           qc.invalidateQueries({ queryKey: ['deployment-windows'] });
@@ -27,6 +30,7 @@ export function useRealtime(unitId: string | undefined) {
           qc.invalidateQueries({ queryKey: ['deployment-picks'] });
           qc.invalidateQueries({ queryKey: ['deployment-windows'] });
           qc.invalidateQueries({ queryKey: ['my-deployment-windows'] });
+          qc.invalidateQueries({ queryKey: ['unit-day'] });
         })
       .subscribe();
     return () => { supabase.removeChannel(ch); };

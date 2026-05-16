@@ -4,7 +4,7 @@ import { Avatar, Button, SkillChip, StatusPill } from './atoms';
 import {
   SKILL_LEVELS, SKILL_LEVEL_LABEL,
   memberMatchesAllSkillReqs, meetsSkillReq,
-  findMemberConflicts,
+  findMemberConflicts, findDeploymentConflicts,
   type Member, type SkillLevel, type Slot, type SlotSkill,
 } from '../lib/types';
 import { useCreateSlot } from '../lib/queries';
@@ -16,6 +16,7 @@ interface Props {
   members: Member[];
   skills: string[];
   slots: Slot[];
+  approvedPicks: { member_id: string; date: string }[];
   unitId: string;
   preselected: string[];
   cloneFrom?: Slot | null;
@@ -32,7 +33,7 @@ const cycleNext = (cur: SkillLevel | undefined): SkillLevel | undefined => {
 };
 
 export function NewSlotModal({
-  open, urgent: defaultUrgent, members, skills: allSkills, slots, unitId,
+  open, urgent: defaultUrgent, members, skills: allSkills, slots, approvedPicks, unitId,
   preselected, cloneFrom, onClose, onToast,
 }: Props) {
   const { user } = useAuth();
@@ -269,18 +270,27 @@ export function NewSlotModal({
                   } catch { return null; }
                 })();
                 return candidates.map((m) => {
-                  const conflicts = startAtISO && endAtISO
+                  const slotConflicts = startAtISO && endAtISO
                     ? findMemberConflicts(m.id, startAtISO, endAtISO, slots)
                     : [];
+                  const deployConflicts = startAtISO
+                    ? findDeploymentConflicts(m.id, startAtISO, endAtISO, approvedPicks)
+                    : [];
+                  const totalConflicts = slotConflicts.length + deployConflicts.length;
+                  const slotTitles = slotConflicts.map((c) => `Already on: ${c.title}`);
+                  const deployTitles = deployConflicts.map((c) => `Deployment pick on ${c.date}`);
+                  const tooltipText = totalConflicts
+                    ? [...slotTitles, ...deployTitles].join('; ')
+                    : undefined;
                   return (
                     <div key={m.id} className="who-card"
                          data-on={picked.includes(m.id) ? '1' : '0'}
                          onClick={() => toggle(m.id)}
-                         title={conflicts.length ? `Already on: ${conflicts.map((c) => c.title).join(', ')}` : undefined}
-                         style={conflicts.length ? { borderColor: 'var(--urgent)' } : undefined}>
+                         title={tooltipText}
+                         style={totalConflicts ? { borderColor: 'var(--urgent)' } : undefined}>
                       <Avatar initials={m.initials} tone={m.tone} size="sm" status={m.status}/>
                       <span className="nm">{m.name}</span>
-                      {conflicts.length > 0 && (
+                      {totalConflicts > 0 && (
                         <span style={{
                           display: 'inline-flex', alignItems: 'center', gap: 3,
                           fontSize: 10, fontFamily: 'var(--mono)',
@@ -289,7 +299,7 @@ export function NewSlotModal({
                           padding: '1px 5px', borderRadius: 4,
                           letterSpacing: '.04em', textTransform: 'uppercase', fontWeight: 600,
                         }}>
-                          <Icon name="urgent" size={9} /> {conflicts.length}
+                          <Icon name="urgent" size={9} /> {totalConflicts}
                         </span>
                       )}
                       <StatusPill status={m.status}/>

@@ -977,6 +977,42 @@ export function useResolvePick() {
   });
 }
 
+export function useApprovedPicksForUnit(unitId: string | undefined) {
+  return useQuery({
+    queryKey: ['approved-picks', unitId],
+    enabled: !!unitId,
+    queryFn: async (): Promise<{ member_id: string; date: string }[]> => {
+      // Step 1: fetch all deployment windows for the unit to get their member_id mapping.
+      const { data: windows, error: wErr } = await supabase
+        .from('deployment_windows')
+        .select('id, member_id')
+        .eq('unit_id', unitId!);
+      if (wErr) throw wErr;
+      if (!windows || windows.length === 0) return [];
+
+      // Build a map from window_id → member_id.
+      const windowToMember = new Map<string, string>(
+        (windows as { id: string; member_id: string }[]).map((w) => [w.id, w.member_id]),
+      );
+      const windowIds = [...windowToMember.keys()];
+
+      // Step 2: fetch approved picks for those windows.
+      const { data: picks, error: pErr } = await supabase
+        .from('deployment_picks')
+        .select('window_id, date')
+        .in('window_id', windowIds)
+        .eq('state', 'approved');
+      if (pErr) throw pErr;
+
+      // Project: attach member_id from the map.
+      return ((picks ?? []) as { window_id: string; date: string }[]).flatMap((p) => {
+        const member_id = windowToMember.get(p.window_id);
+        return member_id ? [{ member_id, date: p.date }] : [];
+      });
+    },
+  });
+}
+
 export function useDirectAddPick() {
   const qc = useQueryClient();
   return useMutation({
@@ -1004,6 +1040,102 @@ export function useDirectAddPick() {
       qc.invalidateQueries({ queryKey: ['deployment-windows'] });
       qc.invalidateQueries({ queryKey: ['my-deployment-windows'] });
       qc.invalidateQueries({ queryKey: ['activity'] });
+    },
+  });
+}
+
+export interface DayAggregateMember {
+  memberId: string;
+  memberName: string;
+  initials: string;
+  tone: number;
+  status: import('./types').Status;
+  reasons: DayReason[];
+}
+
+export type DayReason =
+  | { kind: 'pick' }
+  | { kind: 'slot'; slotTitle: string };
+
+export function useUnitDayAggregate(unitId: string | undefined, dateISO: string) {
+  return useQuery({
+    queryKey: ['unit-day', unitId, dateISO],
+    enabled: !!unitId && !!dateISO,
+    queryFn: async (): Promise<DayAggregateMember[]> => {
+      // Build day boundaries (start = 00:00:00, end = 23:59:59.999 local → ISO)
+      const dayStart = new Date(`${dateISO}T00:00:00`);
+      const dayEnd   = new Date(`${dateISO}T23:59:59.999`);
+      const dayStartISO = dayStart.toISOString();
+      const dayEndISO   = dayEnd.toISOString();
+
+      // 1. Approved deployment picks for this date
+      const { data: picks, error: picksErr } = await supabase
+        .from('deployment_picks')
+        .select('id, window_id, date, state, deployment_windows!inner(member_id, unit_id, members!inner(id, name, initials, tone, status))')
+        .eq('state', 'approved')
+        .eq('date', dateISO);
+      if (picksErr) throw picksErr;
+
+      // 2. Published slot assignees whose slot overlaps with this day
+      const { data: assignees, error: assigneesErr } = await supabase
+        .from('slot_assignees')
+        .select('member_id, slots!inner(id, title, state, start_at, end_at, unit_id), members!inner(id, name, initials, tone, status)')
+        .eq('slots.state', 'published')
+        .eq('slots.unit_id', unitId!)
+        .lte('slots.start_at', dayEndISO)
+        .or(`end_at.gte.${dayStartISO},end_at.is.null`, { referencedTable: 'slots' });
+      if (assigneesErr) throw assigneesErr;
+
+      const map = new Map<string, DayAggregateMember>();
+
+      // Process picks
+      for (const pick of (picks ?? []) as any[]) {
+        const win = pick.deployment_windows;
+        if (!win) continue;
+        if (win.unit_id !== unitId) continue;
+        const member = win.members;
+        if (!member) continue;
+        const memberId: string = member.id;
+        if (!map.has(memberId)) {
+          map.set(memberId, {
+            memberId,
+            memberName: member.name,
+            initials: member.initials,
+            tone: member.tone,
+            status: member.status,
+            reasons: [],
+          });
+        }
+        map.get(memberId)!.reasons.push({ kind: 'pick' });
+      }
+
+      // Process slot assignees
+      for (const row of (assignees ?? []) as any[]) {
+        const slot = row.slots;
+        const member = row.members;
+        if (!slot || !member) continue;
+        const memberId: string = member.id;
+        if (!map.has(memberId)) {
+          map.set(memberId, {
+            memberId,
+            memberName: member.name,
+            initials: member.initials,
+            tone: member.tone,
+            status: member.status,
+            reasons: [],
+          });
+        }
+        // Avoid duplicate slot reasons if somehow returned twice
+        const existing = map.get(memberId)!.reasons;
+        const alreadyHasSlot = existing.some(
+          (r) => r.kind === 'slot' && r.slotTitle === slot.title,
+        );
+        if (!alreadyHasSlot) {
+          existing.push({ kind: 'slot', slotTitle: slot.title });
+        }
+      }
+
+      return Array.from(map.values()).sort((a, b) => a.memberName.localeCompare(b.memberName));
     },
   });
 }

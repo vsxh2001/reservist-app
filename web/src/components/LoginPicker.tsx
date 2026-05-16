@@ -3,36 +3,36 @@ import { Avatar, Button, StatusPill } from './atoms';
 import { Icon } from './Icon';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
-import { useActiveTeam } from '../lib/team-context';
-import type { Status, TeamMembership } from '../lib/types';
 
 const MOCK_FLAG = import.meta.env.VITE_MOCK_AUTH === '1';
 
-interface PickMember {
+/**
+ * Shape returned by the `list_mock_auth_members` RPC. Only the seeded
+ * test auth users (`@test.local`) appear here. RLS-safe: anon callable.
+ */
+interface MockMember {
   id: string;
   name: string;
   initials: string;
   tone: number;
-  teams: TeamMembership[];
-  status: Status;
+  division_id: string;
+  auth_user_id: string;
+  email: string;
 }
 
 export function LoginPicker() {
   const { signInWithGoogle, signInAsMock } = useAuth();
-  const { setTeamId } = useActiveTeam();
-  const [list, setList] = useState<PickMember[] | null>(null);
+  const [list, setList] = useState<MockMember[] | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!MOCK_FLAG) return;
-    supabase.from('members_view')
-      .select('id, name, initials, tone, teams, status')
-      .order('name')
+    supabase.rpc('list_mock_auth_members')
       .then(({ data, error }) => {
         if (error) console.error(error);
-        setList((data as PickMember[]) ?? []);
+        setList((data as MockMember[]) ?? []);
       });
   }, []);
 
@@ -43,15 +43,15 @@ export function LoginPicker() {
     return list.filter((m) => m.name.toLowerCase().includes(s));
   }, [list, q]);
 
-  const commanders = (filtered ?? []).filter((m) => m.teams.some((t) => t.role === 'commander'));
-  const reservists = (filtered ?? []).filter((m) => !m.teams.some((t) => t.role === 'commander'));
-
-  const proceedMock = () => {
+  const proceedMock = async () => {
     const c = list?.find((x) => x.id === picked);
     if (!c) return;
-    signInAsMock({ id: c.id, name: c.name });
-    const firstTeamId = c.teams[0]?.team_id;
-    if (firstTeamId) setTeamId(firstTeamId);
+    setBusy(true);
+    try {
+      await signInAsMock({ id: c.id, name: c.name, email: c.email });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const startGoogle = async () => {
@@ -132,15 +132,13 @@ export function LoginPicker() {
               </div>
             ) : (
               <div style={{ maxHeight: 320, overflow: 'auto', margin: '0 -4px' }}>
-                {commanders.length > 0 && <SectionHeader label="Commanders" />}
-                <List members={commanders} picked={picked} setPicked={setPicked} />
-                {reservists.length > 0 && <SectionHeader label={`Reservists (${reservists.length})`} />}
-                <List members={reservists} picked={picked} setPicked={setPicked} />
+                <SectionHeader label={`Test users (${(filtered ?? []).length})`} />
+                <List members={filtered ?? []} picked={picked} setPicked={setPicked} />
               </div>
             )}
 
             <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
-              <Button variant="outline" icon="check" disabled={!picked} onClick={proceedMock}>
+              <Button variant="outline" icon="check" disabled={!picked || busy} onClick={proceedMock}>
                 Continue as mock
               </Button>
             </div>
@@ -173,38 +171,32 @@ function SectionHeader({ label }: { label: string }) {
   );
 }
 
-function List({ members, picked, setPicked }: { members: PickMember[]; picked: string | null; setPicked: (id: string) => void }) {
+function List({ members, picked, setPicked }: { members: MockMember[]; picked: string | null; setPicked: (id: string) => void }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '0 4px' }}>
-      {members.map((m) => {
-        const isCommander = m.teams.some((t) => t.role === 'commander');
-        return (
-          <button key={m.id} onClick={() => setPicked(m.id)} style={{
-            appearance: 'none', textAlign: 'left',
-            display: 'flex', alignItems: 'center', gap: 12,
-            padding: '10px 12px',
-            background: m.id === picked ? 'var(--accent-tint)' : 'var(--card)',
-            border: '1px solid ' + (m.id === picked ? 'var(--accent)' : 'var(--line-strong)'),
-            borderRadius: 8, cursor: 'pointer',
-            font: 'inherit',
-          }}>
-            <Avatar initials={m.initials} tone={m.tone} status={m.status} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 500, fontSize: 14 }}>
-                {m.name}
-                {isCommander && <span style={{
-                  marginInlineStart: 6, fontSize: 10, padding: '1px 5px',
-                  background: 'var(--accent-tint)', color: 'var(--accent-deep)',
-                  borderRadius: 3, fontFamily: 'var(--mono)',
-                  textTransform: 'uppercase', letterSpacing: '.06em',
-                  verticalAlign: 1, fontWeight: 600,
-                }}>CMDR</span>}
-              </div>
+      {members.map((m) => (
+        <button key={m.id} onClick={() => setPicked(m.id)} style={{
+          appearance: 'none', textAlign: 'left',
+          display: 'flex', alignItems: 'center', gap: 12,
+          padding: '10px 12px',
+          background: m.id === picked ? 'var(--accent-tint)' : 'var(--card)',
+          border: '1px solid ' + (m.id === picked ? 'var(--accent)' : 'var(--line-strong)'),
+          borderRadius: 8, cursor: 'pointer',
+          font: 'inherit',
+        }}>
+          <Avatar initials={m.initials} tone={m.tone} status="available" />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 500, fontSize: 14 }}>
+              {m.name}
+              <span style={{
+                marginInlineStart: 8, fontSize: 11, color: 'var(--ink-mute)',
+                fontFamily: 'var(--mono)',
+              }}>{m.email}</span>
             </div>
-            <StatusPill status={m.status} />
-          </button>
-        );
-      })}
+          </div>
+          <StatusPill status="available" />
+        </button>
+      ))}
     </div>
   );
 }

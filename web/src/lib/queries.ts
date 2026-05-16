@@ -1458,3 +1458,55 @@ export function useSetDivisionAdmin() {
     },
   });
 }
+
+// ---------------------------------------------------------------------------
+// Mutations — bulk-cancel slots in a date range
+// ---------------------------------------------------------------------------
+
+/**
+ * Cancel all draft/published slots for a team whose `start_at` falls within
+ * the half-open interval [fromISO, toISO]. Returns the count of cancelled
+ * slots. A single activity_log row is written summarising the bulk action;
+ * per-slot state changes are not individually logged (the trigger-less
+ * convention follows `useUpdateSlotState`, which also writes one row per
+ * call).
+ */
+export function useBulkCancelSlots() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      teamId: string;
+      fromISO: string;
+      toISO: string;
+      actorId: string;
+      actorName: string;
+    }): Promise<number> => {
+      const { data, error } = await supabase
+        .from('slots')
+        .update({ state: 'cancelled' })
+        .eq('team_id', vars.teamId)
+        .in('state', ['draft', 'published'])
+        .gte('start_at', vars.fromISO)
+        .lte('start_at', vars.toISO)
+        .select('id');
+      if (error) throw error;
+      const count = (data ?? []).length;
+      if (count > 0) {
+        await supabase.from('activity_log').insert({
+          team_id: vars.teamId,
+          actor_id: vars.actorId,
+          actor_name: vars.actorName,
+          verb: 'bulk-cancelled slots',
+          what: `${count} slot${count === 1 ? '' : 's'} in range`,
+          tone: 'urgent',
+        });
+      }
+      return count;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['slots'] });
+      qc.invalidateQueries({ queryKey: ['my-slots'] });
+      qc.invalidateQueries({ queryKey: ['activity'] });
+    },
+  });
+}

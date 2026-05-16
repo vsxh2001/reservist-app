@@ -6,6 +6,7 @@ import { useAuth } from './lib/auth';
 import { useActiveTeam } from './lib/team-context';
 import {
   useMyDeploymentWindows, useMyMember, useMySlots, useSelfUpdateStatus,
+  useSetPhoneVisibility,
 } from './lib/queries';
 import { useRealtime } from './lib/realtime';
 import { STATUS_LABEL, type DeploymentWindow, type Status } from './lib/types';
@@ -40,6 +41,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
   useRealtime(team?.id);
 
   const update = useSelfUpdateStatus();
+  const setPhoneVisibility = useSetPhoneVisibility();
   const [editing, setEditing] = useState(false);
   const [pending, setPending] = useState<Status>('available');
   const [note, setNote] = useState('');
@@ -262,6 +264,42 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
               </div>
             </div>
           )}
+        </Card>
+
+        {/* Phone visibility opt-in (PRD §7.2) */}
+        <Card title="Phone visibility">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 0' }}>
+            <div style={{ flex: 1, fontSize: 13 }}>
+              Share my phone with division members
+              <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 2 }}>
+                PRD §7.2 — when off, only commanders and division admins can see your phone.
+              </div>
+            </div>
+            <div className="filter-group">
+              <button
+                data-on={me.data.phone_visible_to_peers ? '1' : '0'}
+                disabled={setPhoneVisibility.isPending}
+                onClick={() => {
+                  if (!me.data || me.data.phone_visible_to_peers) return;
+                  setPhoneVisibility.mutate(
+                    { memberId: me.data.id, visible: true },
+                    { onSuccess: () => showToast('Phone shared with division') },
+                  );
+                }}
+              >On</button>
+              <button
+                data-on={!me.data.phone_visible_to_peers ? '1' : '0'}
+                disabled={setPhoneVisibility.isPending}
+                onClick={() => {
+                  if (!me.data || !me.data.phone_visible_to_peers) return;
+                  setPhoneVisibility.mutate(
+                    { memberId: me.data.id, visible: false },
+                    { onSuccess: () => showToast('Phone hidden from peers') },
+                  );
+                }}
+              >Off</button>
+            </div>
+          </div>
         </Card>
 
         {/* My upcoming duty */}

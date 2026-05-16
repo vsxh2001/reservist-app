@@ -39,8 +39,10 @@ export const SERVICE_ROLE_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU';
 
 // Fixed test principal UUIDs — must match seed.sql §P.
-export const COMMANDER_AUTH_USER_ID = 'a0000000-0000-0000-0000-000000000001';
-export const SOLDIER_AUTH_USER_ID   = 'b0000000-0000-0000-0000-000000000001';
+export const COMMANDER_AUTH_USER_ID       = 'a0000000-0000-0000-0000-000000000001'; // Yoni Avraham, M6 Carmel
+export const SOLDIER_AUTH_USER_ID         = 'b0000000-0000-0000-0000-000000000001'; // Eitan Cohen, M6 Carmel
+export const BRAVO_COMMANDER_AUTH_USER_ID = 'd0000000-0000-0000-0000-000000000001'; // Asaf Doron, M6 Bravo-6
+export const ALPHA_COMMANDER_AUTH_USER_ID = 'e0000000-0000-0000-0000-000000000001'; // Tomer Bachar, Mahlaka 7 Alpha-7
 
 // ─────────────────────────────────────────────────────────────
 // mintJwtForAuthUser

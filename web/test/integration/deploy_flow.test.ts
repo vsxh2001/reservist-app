@@ -348,18 +348,33 @@ describe('Deployment flow under RLS (multi-actor)', () => {
   });
 
   // ─────────────────────────────────────────────────────────────
-  // 11. SKIPPED: commander-of-a-different-team isolation.
-  // The seed only mints auth users for the M6 commander (Yoni) and the
-  // M6 soldier (Eitan). The Bravo-6 commander (Asaf Doron) and the
-  // Alpha-7 commander (Tomer Bachar) have no auth_user_id, so we cannot
-  // mint a JWT for them. Service-role would bypass RLS and therefore not
-  // exercise the policy.
+  // 11. Commander-of-a-different-team isolation.
+  // The Alpha-7 commander (Tomer Bachar, Mahlaka 7) is in a different
+  // *division* than M6. RLS `members_view` scoping uses
+  // current_division_id(), so Tomer's queries against M6's deployment
+  // tables should return empty / be denied.
   //
-  // To enable this case, seed.sql §P would need to add an auth user for
-  // a commander outside M6 (Asaf Doron or Tomer Bachar). Flagged for
-  // follow-up.
+  // Bravo-6 commander (Asaf Doron) is in the *same* division as M6 but a
+  // different team — that's also a useful case for the slot/pick UPDATE
+  // policies. Asserted via UPDATE attempt below.
   // ─────────────────────────────────────────────────────────────
-  it.skip('commander of a different team cannot see picks in M6 (needs second-team auth user in seed)', () => {
-    // Intentionally empty — see comment above.
+  it('Alpha-7 commander (different division) cannot read M6 picks', async () => {
+    const AS_ALPHA = { as: { asAuthUserId: 'e0000000-0000-0000-0000-000000000001' } } as const;
+    const rows = await rest<{ id: string }[]>(
+      `/deployment_picks?window_id=eq.${windowId}&select=id`,
+      AS_ALPHA,
+    );
+    // Cross-division: RLS should hide every row.
+    expect(rows).toHaveLength(0);
+  });
+
+  it('Bravo-6 commander (same division, different team) cannot read M6 picks', async () => {
+    const AS_BRAVO = { as: { asAuthUserId: 'd0000000-0000-0000-0000-000000000001' } } as const;
+    const rows = await rest<{ id: string }[]>(
+      `/deployment_picks?window_id=eq.${windowId}&select=id`,
+      AS_BRAVO,
+    );
+    // Same division but caller is not a commander of M6's team — RLS should hide.
+    expect(rows).toHaveLength(0);
   });
 });

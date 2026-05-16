@@ -7,6 +7,19 @@ export interface SessionUser {
   name: string;
 }
 
+/**
+ * Argument shape for the dev-only mock-auth picker. We need the email
+ * to drive GoTrue's `signInWithPassword` against the seeded `@test.local`
+ * auth users (password is the literal string `'unused'`, set in seed.sql §P).
+ * Producing a real session — not just a localStorage shim — is required so
+ * the RLS-tightened queries downstream actually return data.
+ */
+export interface MockSignInUser {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export type AuthStatus = 'loading' | 'no-session' | 'no-link' | 'linked';
 
 interface AuthCtx {
@@ -14,7 +27,7 @@ interface AuthCtx {
   authUser: AuthUser | null;
   status: AuthStatus;
   signInWithGoogle: () => Promise<void>;
-  signInAsMock: (u: SessionUser) => void;
+  signInAsMock: (u: MockSignInUser) => Promise<void>;
   signOut: () => Promise<void>;
   /** Forces a re-resolution of the auth.users → members link (call after claim). */
   refreshLink: () => Promise<void>;
@@ -23,6 +36,12 @@ interface AuthCtx {
 const Ctx = createContext<AuthCtx | null>(null);
 const MOCK_KEY = 'reservist.mockUser';
 const MOCK_FLAG = import.meta.env.VITE_MOCK_AUTH === '1';
+/**
+ * Password baked into seed.sql §P for every `@test.local` auth user:
+ *   encrypted_password = crypt('unused', gen_salt('bf'))
+ * Used only by the dev-only mock picker. Never used in production.
+ */
+const MOCK_PASSWORD = 'unused';
 
 async function resolveMember(authUserId: string): Promise<SessionUser | null> {
   const { data, error } = await supabase
@@ -96,15 +115,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   };
 
-  const signInAsMock = (u: SessionUser) => {
+  const signInAsMock = async (u: MockSignInUser) => {
     if (!MOCK_FLAG) {
       console.warn('Mock sign-in attempted without VITE_MOCK_AUTH=1');
       return;
     }
-    localStorage.setItem(MOCK_KEY, JSON.stringify(u));
-    setUser(u);
-    setAuthUser(null);
-    setStatus('linked');
+    // Drive a real GoTrue session so RLS-protected queries actually return
+    // rows. The seeded `@test.local` users use password 'unused' (seed.sql §P).
+    const { error } = await supabase.auth.signInWithPassword({
+      email: u.email,
+      password: MOCK_PASSWORD,
+    });
+    if (error) {
+      console.error('Mock sign-in failed:', error);
+      throw error;
+    }
+    // The onAuthStateChange listener wired up in the effect will call
+    // applySession() and resolve the members row → status='linked'.
+    // We still write the mock localStorage key so the flow has a
+    // belt-and-suspenders fallback if the listener fires late.
+    localStorage.setItem(MOCK_KEY, JSON.stringify({ id: u.id, name: u.name }));
   };
 
   const signOut = async () => {

@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { Avatar, StatusPill, Tag } from './atoms';
 import { Icon } from './Icon';
-import { useUnitDayAggregate } from '../lib/queries';
+import { useTeamDayAggregate } from '../lib/queries';
 import { isoDay } from '../lib/calendarUtils';
 
 interface Props {
-  unitId: string;
+  teamId: string;
 }
 
-export function CommanderDayView({ unitId }: Props) {
+export function CommanderDayView({ teamId }: Props) {
   const [dateISO, setDateISO] = useState<string>(() => isoDay(new Date()));
-  const { data, isLoading, error } = useUnitDayAggregate(unitId, dateISO);
+  const { data, isLoading, error } = useTeamDayAggregate(teamId, dateISO);
 
   return (
     <div className="day-view">

@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { Button } from './atoms';
 import { Icon } from './Icon';
 import { supabase } from '../lib/supabase';
-import { useAddRole, useAddSkill, useDeleteRole, useDeleteSkill } from '../lib/queries';
+import { useAddSkill, useDeleteSkill } from '../lib/queries';
 import { usePrefs } from '../lib/prefs';
-import type { Unit } from '../lib/types';
+import type { Team } from '../lib/types';
 
 interface Props {
-  unit: Unit;
-  roles: string[];
+  team: Team;
+  divisionId: string;
   skills: string[];
   onToast: (msg: string) => void;
   onRefresh: () => void;
@@ -21,22 +21,19 @@ function randomCode(): string {
   return s.slice(0, 4) + '-' + s.slice(4);
 }
 
-export function SettingsScreen({ unit, roles, skills, onToast, onRefresh }: Props) {
+export function SettingsScreen({ team, divisionId, skills, onToast, onRefresh }: Props) {
   const [busy, setBusy] = useState(false);
   const prefs = usePrefs();
-  const inviteLink = `${window.location.origin}/join/${unit.invite_code}`;
+  const inviteLink = `${window.location.origin}/join/${team.invite_code}`;
 
-  const addRole = useAddRole();
-  const delRole = useDeleteRole();
   const addSkill = useAddSkill();
   const delSkill = useDeleteSkill();
 
-  const [newRole, setNewRole] = useState('');
   const [newSkill, setNewSkill] = useState('');
 
   const regenerate = async () => {
     setBusy(true);
-    const { error } = await supabase.from('units').update({ invite_code: randomCode() }).eq('id', unit.id);
+    const { error } = await supabase.from('teams').update({ invite_code: randomCode() }).eq('id', team.id);
     setBusy(false);
     if (error) { onToast('Failed to regenerate'); return; }
     onRefresh();
@@ -48,23 +45,11 @@ export function SettingsScreen({ unit, roles, skills, onToast, onRefresh }: Prop
     onToast('Invite link copied');
   };
 
-  const doAddRole = async () => {
-    const n = newRole.trim();
-    if (!n) return;
-    try {
-      await addRole.mutateAsync({ unitId: unit.id, name: n });
-      setNewRole('');
-      onToast(`Role "${n}" added`);
-    } catch (e: any) {
-      onToast(e.message ?? 'Failed to add role');
-    }
-  };
-
   const doAddSkill = async () => {
     const n = newSkill.trim();
     if (!n) return;
     try {
-      await addSkill.mutateAsync({ unitId: unit.id, name: n });
+      await addSkill.mutateAsync({ divisionId, name: n });
       setNewSkill('');
       onToast(`Skill "${n}" added`);
     } catch (e: any) {
@@ -72,18 +57,9 @@ export function SettingsScreen({ unit, roles, skills, onToast, onRefresh }: Prop
     }
   };
 
-  const doDelRole = async (name: string) => {
-    try {
-      await delRole.mutateAsync({ unitId: unit.id, name });
-      onToast(`Role "${name}" removed`);
-    } catch (e: any) {
-      onToast(e.message ?? 'Failed to remove role');
-    }
-  };
-
   const doDelSkill = async (name: string) => {
     try {
-      await delSkill.mutateAsync({ unitId: unit.id, name });
+      await delSkill.mutateAsync({ divisionId, name });
       onToast(`Skill "${name}" removed`);
     } catch (e: any) {
       onToast(e.message ?? 'Failed to remove skill');
@@ -92,46 +68,39 @@ export function SettingsScreen({ unit, roles, skills, onToast, onRefresh }: Prop
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <Section title="Unit">
-        <Field label="Name">{unit.name}</Field>
-        <Field label="Short name">{unit.short_name}</Field>
+      <Section title="Team">
+        <Field label="Name">{team.name}</Field>
+        <Field label="Project">{team.project_name}</Field>
+        <Field label="Members">{team.member_count}</Field>
+        <Field label="Commanders">{team.commander_count}</Field>
       </Section>
 
       <Section title="Invite link">
         <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginBottom: 10 }}>
           Anyone with this link can request to join. Per PRD §10, a commander must approve new joiners before the roster becomes visible (approval flow not yet built).
         </div>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '10px 12px', background: 'var(--paper-deep)',
-          border: '1px solid var(--line-soft)', borderRadius: 8,
-          fontFamily: 'var(--mono)', fontSize: 13,
-        }}>
-          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{inviteLink}</span>
-          <Button size="sm" variant="ghost" icon="copy" onClick={copyLink}>Copy</Button>
-          <Button size="sm" variant="outline" disabled={busy} onClick={regenerate}>Regenerate</Button>
-        </div>
+        {team.invite_code ? (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '10px 12px', background: 'var(--paper-deep)',
+            border: '1px solid var(--line-soft)', borderRadius: 8,
+            fontFamily: 'var(--mono)', fontSize: 13,
+          }}>
+            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{inviteLink}</span>
+            <Button size="sm" variant="ghost" icon="copy" onClick={copyLink}>Copy</Button>
+            <Button size="sm" variant="outline" disabled={busy} onClick={regenerate}>Regenerate</Button>
+          </div>
+        ) : (
+          <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', fontStyle: 'italic' }}>
+            No invite code set for this team.
+          </div>
+        )}
       </Section>
 
-      <Section title={`Roles (${roles.length})`}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-          {roles.map((r) => (
-            <EditableTag key={r} label={r} onRemove={() => doDelRole(r)} />
-          ))}
+      <Section title={`Skill tags (${skills.length}) · division-wide`}>
+        <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginBottom: 10 }}>
+          Skills are shared across all teams in this division.
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <input className="input" placeholder="New role name"
-                 value={newRole}
-                 onChange={(e) => setNewRole(e.target.value)}
-                 onKeyDown={(e) => e.key === 'Enter' && doAddRole()}
-                 style={{ flex: 1 }} />
-          <Button size="sm" variant="primary" icon="plus" disabled={!newRole.trim() || addRole.isPending} onClick={doAddRole}>
-            Add role
-          </Button>
-        </div>
-      </Section>
-
-      <Section title={`Skill tags (${skills.length})`}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
           {skills.map((s) => (
             <EditableTag key={s} label={s} onRemove={() => doDelSkill(s)} />

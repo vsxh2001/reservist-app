@@ -4,22 +4,25 @@ import { Avatar, Button, IconButton, SkillChip, StatusPill } from './atoms';
 import { DeploymentWindowDrawer } from './DeploymentWindowDrawer';
 import {
   SKILL_LEVELS, SKILL_LEVEL_LABEL, STATUS_LABEL,
-  type DeploymentWindow, type Member, type SkillLevel, type Status,
+  type DeploymentWindow, type Member, type SkillLevel, type Status, type Team, type TeamRole,
 } from '../lib/types';
 import {
   useCreateDeploymentWindow, useDeleteMember, useMemberDeploymentWindows,
-  usePromoteMember, useRemoveMemberSkill, useSetMemberSkill, useUpdateStatus,
+  useRemoveMemberSkill, useSetMemberSkill, useUpdateStatus,
+  useUpdateTeamMembership, useRemoveTeamMembership, useTeamsForMember,
 } from '../lib/queries';
 import { useAuth } from '../lib/auth';
 
 interface Props {
   person: Member;
+  team: Team;
   allSkills: string[];
+  divisionId: string;
   onClose: () => void;
   onToast: (msg: string) => void;
 }
 
-export function PersonDrawer({ person, allSkills, onClose, onToast }: Props) {
+export function PersonDrawer({ person, team, allSkills, divisionId, onClose, onToast }: Props) {
   const { user } = useAuth();
   const [tab, setTab] = useState<'profile' | 'activity' | 'reviews'>('profile');
   const [editingStatus, setEditingStatus] = useState(false);
@@ -27,12 +30,13 @@ export function PersonDrawer({ person, allSkills, onClose, onToast }: Props) {
   const [note, setNote] = useState<string>(person.status_note ?? '');
   const [until, setUntil] = useState<string>(person.status_until ?? '');
   const updateStatus = useUpdateStatus();
-  const promote = usePromoteMember();
+  const updateMembership = useUpdateTeamMembership();
+  const removeMembership = useRemoveTeamMembership();
   const remove = useDeleteMember();
   const setSkill = useSetMemberSkill();
   const removeSkill = useRemoveMemberSkill();
   const createWindow = useCreateDeploymentWindow();
-  const windows = useMemberDeploymentWindows(person.id);
+  const windows = useMemberDeploymentWindows(person.id, team.id);
   const [openingWindow, setOpeningWindow] = useState<DeploymentWindow | null>(null);
   const [newWinOpen, setNewWinOpen] = useState(false);
   const [nwLabel, setNwLabel] = useState('');
@@ -41,6 +45,11 @@ export function PersonDrawer({ person, allSkills, onClose, onToast }: Props) {
   const [nwNotes, setNwNotes] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editingSkills, setEditingSkills] = useState(false);
+  const [showAddTeam, setShowAddTeam] = useState(false);
+  const [confirmRemoveTeamId, setConfirmRemoveTeamId] = useState<string | null>(null);
+
+  // Teams the current commander commands (to determine which teams they can manage)
+  const myTeams = useTeamsForMember(user?.id);
 
   useEffect(() => {
     setTab('profile');
@@ -48,6 +57,8 @@ export function PersonDrawer({ person, allSkills, onClose, onToast }: Props) {
     setPendingStatus(person.status);
     setNote(person.status_note ?? '');
     setUntil(person.status_until ?? '');
+    setShowAddTeam(false);
+    setConfirmRemoveTeamId(null);
   }, [person.id]);
 
   const commitStatus = async () => {
@@ -60,7 +71,7 @@ export function PersonDrawer({ person, allSkills, onClose, onToast }: Props) {
       setBy: user.id,
       actorName: user.name,
       memberName: person.name,
-      unitId: person.unit_id,
+      teamId: team.id,
     });
     setEditingStatus(false);
     onToast(`Status set to ${STATUS_LABEL[pendingStatus]}`);
@@ -73,30 +84,49 @@ export function PersonDrawer({ person, allSkills, onClose, onToast }: Props) {
       memberName: person.name,
       actorId: user.id,
       actorName: user.name,
-      unitId: person.unit_id,
+      teamId: team.id,
     });
-    onToast(`${person.name} removed from unit`);
+    onToast(`${person.name} removed from division`);
     onClose();
   };
 
-  const togglePromote = async () => {
+  const toggleRole = async (teamId: string, currentRole: TeamRole) => {
     if (!user) return;
-    await promote.mutateAsync({
-      memberId: person.id,
-      isCommander: !person.is_commander,
-      actorId: user.id,
-      actorName: user.name,
-      memberName: person.name,
-      unitId: person.unit_id,
+    const newRole: TeamRole = currentRole === 'commander' ? 'soldier' : 'commander';
+    await updateMembership.mutateAsync({
+      teamId, memberId: person.id, role: newRole,
+      actorId: user.id, actorName: user.name, memberName: person.name,
     });
-    onToast(person.is_commander ? `${person.name} demoted` : `${person.name} promoted to commander`);
+    onToast(newRole === 'commander' ? `${person.name} promoted to commander` : `${person.name} demoted to soldier`);
+  };
+
+  const doRemoveFromTeam = async (teamId: string) => {
+    if (!user) return;
+    await removeMembership.mutateAsync({
+      teamId, memberId: person.id,
+      actorId: user.id, actorName: user.name, memberName: person.name,
+    });
+    setConfirmRemoveTeamId(null);
+    onToast(`${person.name} removed from team`);
+    // If removed from the currently-viewed team, close the drawer
+    if (teamId === team.id) onClose();
+  };
+
+  const addToTeam = async (targetTeamId: string) => {
+    if (!user) return;
+    await updateMembership.mutateAsync({
+      teamId: targetTeamId, memberId: person.id, role: 'soldier',
+      actorId: user.id, actorName: user.name, memberName: person.name,
+    });
+    setShowAddTeam(false);
+    onToast(`${person.name} added to team`);
   };
 
   const submitNewWindow = async () => {
     if (!user) return;
     try {
       await createWindow.mutateAsync({
-        memberId: person.id, unitId: person.unit_id,
+        memberId: person.id, teamId: team.id,
         label: nwLabel.trim(), startDate: nwStart, endDate: nwEnd,
         notes: nwNotes.trim() ? nwNotes.trim() : null,
         createdBy: user.id, actorName: user.name, memberName: person.name,
@@ -118,6 +148,10 @@ export function PersonDrawer({ person, allSkills, onClose, onToast }: Props) {
     { dot: null,     body: <>Joined the unit</>, when: person.joined ?? '—' },
   ];
 
+  // Teams person is NOT already on, filtered to teams the commander manages
+  const personTeamIds = new Set(person.teams.map((tm) => tm.team_id));
+  const addableTeams = (myTeams.data ?? []).filter((t) => !personTeamIds.has(t.id));
+
   return (
     <>
       <div className="drawer-overlay" data-open="1" onClick={onClose} />
@@ -128,7 +162,7 @@ export function PersonDrawer({ person, allSkills, onClose, onToast }: Props) {
             <h3 className="name">
               {person.name.split(' ')[0]} <em>{person.name.split(' ').slice(1).join(' ')}</em>
             </h3>
-            {person.is_commander && (
+            {person.teams.find((tm) => tm.team_id === team.id)?.role === 'commander' && (
               <div className="role-line">
                 <span style={{
                   fontFamily: 'var(--mono)', fontSize: 10,
@@ -256,20 +290,137 @@ export function PersonDrawer({ person, allSkills, onClose, onToast }: Props) {
                     onSet={(name, level) => {
                       if (!user) return;
                       setSkill.mutate({
-                        memberId: person.id, unitId: person.unit_id,
+                        memberId: person.id, divisionId,
                         skillName: name, level,
                         actorId: user.id, actorName: user.name, memberName: person.name,
+                        teamId: team.id,
                       }, { onSuccess: () => onToast(`${name} → ${SKILL_LEVEL_LABEL[level]}`) });
                     }}
                     onRemove={(name) => {
                       if (!user) return;
                       removeSkill.mutate({
-                        memberId: person.id, unitId: person.unit_id,
+                        memberId: person.id, divisionId,
                         skillName: name,
                         actorId: user.id, actorName: user.name, memberName: person.name,
+                        teamId: team.id,
                       }, { onSuccess: () => onToast(`Removed ${name}`) });
                     }}
                   />
+                )}
+              </div>
+
+              <div className="drawer-section">
+                <h4>Team memberships
+                  <span className="edit" onClick={() => setShowAddTeam((v) => !v)}>
+                    {showAddTeam ? 'Cancel' : '+ Add to a team'}
+                  </span>
+                </h4>
+
+                {showAddTeam && (
+                  <div style={{ marginBlockEnd: 10 }}>
+                    {addableTeams.length === 0 ? (
+                      <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', fontStyle: 'italic' }}>
+                        No other teams available to add to.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {addableTeams.map((t) => (
+                          <button key={t.id}
+                                  disabled={updateMembership.isPending}
+                                  onClick={() => addToTeam(t.id)}
+                                  style={{
+                                    display: 'flex', alignItems: 'center', gap: 10,
+                                    appearance: 'none', border: '1px dashed var(--line-strong)',
+                                    background: 'var(--card)', font: 'inherit', textAlign: 'start',
+                                    padding: '8px 10px', borderRadius: 7, cursor: 'pointer',
+                                    minBlockSize: 40,
+                                  }}>
+                            <span style={{ fontSize: 18 }}>{t.crest}</span>
+                            <span style={{ fontSize: 12.5, color: 'var(--ink)' }}>{t.name}</span>
+                            <span style={{ fontSize: 11, color: 'var(--ink-soft)', fontFamily: 'var(--mono)', marginInlineStart: 'auto' }}>
+                              {t.project_name}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {person.teams.length === 0 ? (
+                  <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', fontStyle: 'italic' }}>
+                    Not on any teams.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {person.teams.map((tm) => {
+                      const tInfo = (myTeams.data ?? []).find((t) => t.id === tm.team_id);
+                      const teamName = tInfo?.name ?? tm.team_id;
+                      const isViewedTeam = tm.team_id === team.id;
+                      const isConfirmingRemove = confirmRemoveTeamId === tm.team_id;
+
+                      return (
+                        <div key={tm.team_id} style={{
+                          padding: '10px 12px', borderRadius: 8,
+                          background: isViewedTeam ? 'var(--accent-tint)' : 'var(--paper-deep)',
+                          border: '1px solid ' + (isViewedTeam ? 'color-mix(in srgb, var(--accent) 30%, transparent)' : 'var(--line-soft)'),
+                          display: 'flex', flexDirection: 'column', gap: 6,
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{teamName}</span>
+                            <span style={{
+                              fontFamily: 'var(--mono)', fontSize: 10,
+                              padding: '1px 6px', borderRadius: 4,
+                              textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600,
+                              background: tm.role === 'commander' ? 'var(--accent-tint)' : 'var(--card-soft)',
+                              color: tm.role === 'commander' ? 'var(--accent-deep)' : 'var(--ink-soft)',
+                            }}>
+                              {tm.role}
+                            </span>
+                          </div>
+                          {!isConfirmingRemove ? (
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <Button size="sm" variant="ghost"
+                                      disabled={updateMembership.isPending || person.id === user?.id}
+                                      onClick={() => toggleRole(tm.team_id, tm.role)}>
+                                {tm.role === 'commander' ? 'Demote' : 'Promote to commander'}
+                              </Button>
+                              <Button size="sm" variant="ghost" icon="x"
+                                      disabled={removeMembership.isPending || person.id === user?.id}
+                                      onClick={() => setConfirmRemoveTeamId(tm.team_id)}
+                                      style={{ color: 'var(--urgent-deep)', marginInlineStart: 'auto' }}>
+                                Remove
+                              </Button>
+                            </div>
+                          ) : (
+                            <div style={{
+                              padding: 8, borderRadius: 6,
+                              background: 'var(--urgent-bg)', border: '1px solid var(--urgent)',
+                              display: 'flex', flexDirection: 'column', gap: 6,
+                            }}>
+                              <div style={{ fontSize: 12, color: 'var(--urgent-deep)' }}>
+                                Remove <b>{person.name}</b> from <b>{teamName}</b>?
+                                {isViewedTeam && <> This will close this drawer.</>}
+                              </div>
+                              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                                <Button size="sm" variant="ghost" onClick={() => setConfirmRemoveTeamId(null)}>Cancel</Button>
+                                <Button size="sm" variant="urgent" icon="x"
+                                        disabled={removeMembership.isPending}
+                                        onClick={() => doRemoveFromTeam(tm.team_id)}>
+                                  Confirm
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                          {person.id === user?.id && (
+                            <div style={{ fontSize: 11, color: 'var(--ink-soft)', fontFamily: 'var(--mono)' }}>
+                              You can't modify your own membership.
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
 
@@ -345,28 +496,7 @@ export function PersonDrawer({ person, allSkills, onClose, onToast }: Props) {
               </div>
 
               <div className="drawer-section">
-                <h4>Permissions</h4>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-                  <div style={{ flex: 1 }}>
-                    {person.is_commander
-                      ? <>This member is a <b>commander</b> of this unit.</>
-                      : <>This member is a <b>reservist</b> (no commander rights).</>}
-                  </div>
-                  <Button size="sm" variant={person.is_commander ? 'ghost' : 'outline'}
-                          disabled={promote.isPending || person.id === user?.id}
-                          onClick={togglePromote}>
-                    {person.is_commander ? 'Demote' : 'Promote to commander'}
-                  </Button>
-                </div>
-                {person.id === user?.id && (
-                  <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 6, fontFamily: 'var(--mono)' }}>
-                    You can't demote yourself. Ask another commander.
-                  </div>
-                )}
-              </div>
-
-              <div className="drawer-section">
-                <h4>Remove from unit</h4>
+                <h4>Remove from division</h4>
                 <div style={{ fontSize: 12, color: 'var(--ink-soft)', lineHeight: 1.5, marginBlockEnd: 10 }}>
                   Deletes the profile, skill assignments, and slot bookings. Activity entries authored by this member stay logged but anonymized. PRD §8.1 — full personal-data removal.
                 </div>
@@ -461,6 +591,7 @@ export function PersonDrawer({ person, allSkills, onClose, onToast }: Props) {
           <DeploymentWindowDrawer
             window={openingWindow}
             memberName={person.name}
+            teamId={team.id}
             onClose={() => setOpeningWindow(null)}
             onToast={onToast}
           />

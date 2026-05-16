@@ -64,7 +64,7 @@ export function SlotsScreen({ slots, members, onUrgent, onNewSlot, onSlotClick, 
     if (!user) return;
     await updateState.mutateAsync({
       slotId: s.id, state: 'published', actorId: user.id,
-      unitId: s.unit_id, actorName: user.name, slotTitle: s.title,
+      teamId: s.team_id, actorName: user.name, slotTitle: s.title,
     });
     onToast(`Published "${s.title}"`);
   };

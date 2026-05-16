@@ -2,6 +2,7 @@ node_modules
 dist
 dist-ssr
 build
+.worktrees
 
 # Local env files (anon key technically public, but keep hygiene)
 .env

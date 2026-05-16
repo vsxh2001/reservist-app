@@ -482,3 +482,47 @@ join (values
 -- ── O. Invite expiry backfill (PRD §7.1 default 7 days)
 update teams set invite_expires_at = now() + interval '7 days' where invite_code is not null;
 
+-- ── P. Auth users for integration tests (deterministic UUIDs, RLS tightening)
+-- These rows let tests mint JWTs without a real OAuth flow.
+-- Commander: Yoni Avraham — auth UUID a0000000-0000-0000-0000-000000000001
+-- Soldier:   Eitan Cohen  — auth UUID b0000000-0000-0000-0000-000000000001
+insert into auth.users (
+  id, instance_id, aud, role, email,
+  encrypted_password, email_confirmed_at,
+  created_at, updated_at,
+  raw_app_meta_data, raw_user_meta_data,
+  is_super_admin, confirmation_token, recovery_token,
+  email_change_token_new, email_change
+)
+values
+  (
+    'a0000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated', 'authenticated',
+    'commander-yoni@test.local',
+    crypt('unused', gen_salt('bf')),
+    now(), now(), now(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{}'::jsonb,
+    false, '', '', '', ''
+  ),
+  (
+    'b0000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated', 'authenticated',
+    'soldier-eitan@test.local',
+    crypt('unused', gen_salt('bf')),
+    now(), now(), now(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{}'::jsonb,
+    false, '', '', '', ''
+  )
+on conflict (id) do nothing;
+
+-- Link auth users to member rows
+update members set auth_user_id = 'a0000000-0000-0000-0000-000000000001'
+where name = 'Yoni Avraham';
+
+update members set auth_user_id = 'b0000000-0000-0000-0000-000000000001'
+where name = 'Eitan Cohen';
+

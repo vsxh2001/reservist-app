@@ -197,3 +197,28 @@ from units, (values
   ('Maya Ben-David', 'set status to', 'Unavailable (abroad)', null, 1440),
   ('Hadar Stern', 'joined the unit', null, 'accent', 4320)
 ) as a(actor, verb, what, tone, mins);
+
+-- Sample deployment window for demo
+with avi as (select id, unit_id from members where name = 'Avi Mizrahi'),
+     creator as (select id from members where name = 'Yoni Avraham'),
+     w as (
+       insert into deployment_windows (member_id, unit_id, label, start_date, end_date, notes, state, created_by)
+       select avi.id, avi.unit_id, 'Spring stretch', date '2026-05-10', date '2026-05-31',
+              'Talked Sunday — 21-day stretch. Avi will alternate with Uri.',
+              'open', (select id from creator)
+       from avi
+       returning id
+     )
+insert into deployment_picks (window_id, date, state, reservist_note, commander_note, resolved_at, resolved_by)
+select w.id, d, st, rnote, cnote,
+       case when st in ('approved','rejected') then now() else null end,
+       case when st in ('approved','rejected') then (select id from members where name = 'Yoni Avraham') else null end
+from w, (values
+  (date '2026-05-10', 'approved'::pick_state_enum,  null,                 'good, you anchor day 1'),
+  (date '2026-05-11', 'approved'::pick_state_enum,  null,                 null),
+  (date '2026-05-12', 'approved'::pick_state_enum,  null,                 null),
+  (date '2026-05-17', 'proposed'::pick_state_enum,  'family obligation am', null),
+  (date '2026-05-18', 'proposed'::pick_state_enum,  null,                 null),
+  (date '2026-05-24', 'rejected'::pick_state_enum,  null,                 'need you off — overlap with Uri'),
+  (date '2026-05-25', 'proposed'::pick_state_enum,  null,                 null)
+) as p(d, st, rnote, cnote);

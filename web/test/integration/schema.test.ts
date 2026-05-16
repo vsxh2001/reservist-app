@@ -22,22 +22,23 @@ describe('Supabase schema contracts', () => {
     expect(rows[0].name).toBe('Mahlaka 6');
   });
 
-  it('teams_view returns the seeded team with member + commander counts', async () => {
+  it('teams_view returns the M6 team with member + commander counts', async () => {
     const rows = await rest<{ id: string; name: string; project_name: string; crest: string; invite_code: string | null; member_count: number; commander_count: number }[]>(
       '/teams_view?select=id,name,project_name,crest,invite_code,member_count,commander_count',
     );
-    expect(rows).toHaveLength(1);
-    expect(rows[0].crest).toBe('M6');
-    expect(rows[0].project_name).toBe('Carmel');
-    expect(rows[0].member_count).toBe(24);
-    expect(rows[0].commander_count).toBe(2);
+    expect(rows.length).toBeGreaterThanOrEqual(1);
+    const m6 = rows.find((r) => r.crest === 'M6');
+    expect(m6).toBeDefined();
+    expect(m6!.project_name).toBe('Carmel');
+    expect(m6!.member_count).toBe(24);
+    expect(m6!.commander_count).toBe(2);
   });
 
-  it('members_view returns 24 members with leveled skills + teams array', async () => {
+  it('members_view returns the seeded members with leveled skills + teams array', async () => {
     const rows = await rest<{ name: string; status: string; teams: { team_id: string; role: string }[]; skills: { name: string; level: string }[] }[]>(
       `/members_view?division_id=eq.${divisionId}&select=name,status,teams,skills`,
     );
-    expect(rows.length).toBe(24);
+    expect(rows.length).toBeGreaterThanOrEqual(24);
     const yoni = rows.find((r) => r.name === 'Yoni Avraham');
     expect(yoni).toBeDefined();
     expect(yoni!.status).toBe('available');

@@ -16,13 +16,12 @@
 //   • commander-yoni@test.local  → Yoni Avraham   (commander of M6 Carmel)
 //   • soldier-eitan@test.local   → Eitan Cohen    (soldier in M6 Carmel)
 //
-// Policy notes surfaced for follow-up:
-//   • The current `self or commander update deployment_pick` policy lets a
-//     window owner (soldier) update any field, including `state`, on their
-//     own picks. There is no DB-level state-machine that restricts soldiers
-//     from approving / un-approving their own picks. App-level guards must
-//     enforce that. Tests 5 and 8 below verify the *actual* current
-//     behavior and explicitly flag the gap (search "POLICY GAP").
+// State-machine enforcement (PRD §7.6):
+//   A BEFORE UPDATE trigger (enforce_deployment_pick_state_machine) ensures:
+//     • Commanders of the window's team may perform any state transition.
+//     • Window owners (soldiers) may only do proposed → withdrawn.
+//     • All other state transitions by soldiers are blocked (errcode 42501).
+//   Tests 5 and 8 assert the new gate — these were formerly flagged POLICY GAP.
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getMemberIdByName, getTeamId, rest, restStatus, supabaseReachable } from './_supabase.js';
@@ -187,44 +186,28 @@ describe('Deployment flow under RLS (multi-actor)', () => {
   });
 
   // ─────────────────────────────────────────────────────────────
-  // 5. POLICY GAP: soldier "cannot" approve own pick.
+  // 5. Soldier cannot approve own pick.
   //
-  // The brief expects RLS to deny this (only commander can transition to
-  // approved/rejected). The current `self or commander update deployment_pick`
-  // policy uses (member_id = current_member_id() OR is_commander_of(...)) in
-  // both USING and WITH CHECK and does NOT inspect the new `state` value, so
-  // the window owner CAN currently set state='approved' on their own pick.
-  //
-  // We assert the *actual* current behavior here, then immediately roll the
-  // pick back to 'proposed' via service role so downstream tests in this
-  // file see a consistent starting state. The mismatch is flagged in the
-  // final report so the policy can be tightened in a follow-up.
+  // The state-machine trigger (enforce_deployment_pick_state_machine) blocks
+  // any state transition from a non-commander caller except proposed→withdrawn.
+  // Attempting proposed→approved as the window owner must fail with errcode
+  // 42501 ("insufficient_privilege") surfaced by PostgREST as a 4xx response.
   // ─────────────────────────────────────────────────────────────
-  it('POLICY GAP: soldier can currently approve their own pick (should be commander-only)', async () => {
+  it('soldier cannot approve own pick', async () => {
     const r = await restStatus(`/deployment_picks?id=eq.${pickIdApprove}`, {
       method: 'PATCH',
       body: JSON.stringify({ state: 'approved' }),
       ...AS_SOLDIER,
     });
-    // Document actual behavior: PostgREST returns 2xx (204 by default or 200
-    // with return=representation). If a future migration adds a state-machine
-    // trigger or tightens the policy this becomes 4xx — flip the assertion
-    // then.
-    expect(r.status).toBeLessThan(300);
+    // Trigger raises errcode 42501 → PostgREST returns 403 or 400.
+    expect(r.status).toBeGreaterThanOrEqual(400);
 
-    // Verify the soldier write went through.
+    // Verify the pick state was not changed.
     const check = await rest<{ state: string }[]>(
       `/deployment_picks?id=eq.${pickIdApprove}&select=state`,
       AS_SVCR,
     );
-    expect(check[0].state).toBe('approved');
-
-    // Roll back so test 6 (commander approves) has a 'proposed' pick to act on.
-    await rest(`/deployment_picks?id=eq.${pickIdApprove}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ state: 'proposed', resolved_at: null, resolved_by: null }),
-      ...AS_SVCR,
-    });
+    expect(check[0].state).toBe('proposed');
   });
 
   // ─────────────────────────────────────────────────────────────
@@ -267,36 +250,27 @@ describe('Deployment flow under RLS (multi-actor)', () => {
   });
 
   // ─────────────────────────────────────────────────────────────
-  // 8. POLICY GAP: soldier "cannot" un-approve.
+  // 8. Soldier cannot un-approve a resolved pick.
   //
-  // Same gap as test 5 — window owner can flip an already-approved pick
-  // back to 'proposed'. Document actual behavior; flag for follow-up.
-  // Rolls back to 'approved' afterwards so test 9 can start fresh.
+  // After a commander approves, the trigger blocks the soldier from flipping
+  // the pick back to 'proposed' (approved→proposed is not in the allowed
+  // soldier transition set). The pick must remain approved.
   // ─────────────────────────────────────────────────────────────
-  it('POLICY GAP: soldier can currently un-approve a resolved pick (should be commander-only)', async () => {
+  it('soldier cannot un-approve resolved pick', async () => {
     const r = await restStatus(`/deployment_picks?id=eq.${pickIdApprove}`, {
       method: 'PATCH',
       body: JSON.stringify({ state: 'proposed' }),
       ...AS_SOLDIER,
     });
-    expect(r.status).toBeLessThan(300);
+    // Trigger raises errcode 42501 → PostgREST returns 403 or 400.
+    expect(r.status).toBeGreaterThanOrEqual(400);
 
+    // Verify approved state is preserved.
     const check = await rest<{ state: string }[]>(
       `/deployment_picks?id=eq.${pickIdApprove}&select=state`,
       AS_SVCR,
     );
-    expect(check[0].state).toBe('proposed');
-
-    // Restore approved state via service role to keep the narrative clean.
-    await rest(`/deployment_picks?id=eq.${pickIdApprove}`, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        state: 'approved',
-        resolved_by: commanderId,
-        resolved_at: new Date().toISOString(),
-      }),
-      ...AS_SVCR,
-    });
+    expect(check[0].state).toBe('approved');
   });
 
   // ─────────────────────────────────────────────────────────────

@@ -257,3 +257,225 @@ from w, (values
 
 -- ── Division admin seed: mark Yoni Avraham as division admin
 update members set is_division_admin = true where name = 'Yoni Avraham';
+
+-- ═════════════════════════════════════════════════════════════════════════
+-- Multi-project / multi-team extension
+-- Adds:
+--   • Project 'Mahlaka 7' (sibling of Carmel under same division)
+--       └─ Team 'Alpha-7'
+--   • Team 'Bravo-6' under the existing 'Carmel' project (project has 2 teams)
+--   • New members + memberships + slots + activity for each new team
+--   • One cross-team member (in Bravo-6 AND Alpha-7)
+--   • Unclaimed (auth_user_id NULL) members in both new teams
+-- ═════════════════════════════════════════════════════════════════════════
+
+-- ── A. New project 'Mahlaka 7' under existing 'Mahlaka 6' division
+insert into projects (division_id, name)
+select id, 'Mahlaka 7' from divisions where name = 'Mahlaka 6';
+
+-- ── B. New team 'Alpha-7' under 'Mahlaka 7'
+insert into teams (project_id, division_id, name, short_name, crest, invite_code, established)
+select p.id, p.division_id, 'Mahlaka 7 — Alpha', 'Alpha-7', 'A7', 'alph-2026', 'Established 2024'
+from projects p
+where p.name = 'Mahlaka 7';
+
+-- ── C. New team 'Bravo-6' under existing 'Carmel'
+insert into teams (project_id, division_id, name, short_name, crest, invite_code, established)
+select p.id, p.division_id, 'Mahlaka 6 — Bravo', 'Bravo-6', 'B6', 'brav-2026', 'Established 2023'
+from projects p
+where p.name = 'Carmel';
+
+-- ── D. New members for Bravo-6 (5 members, all in 'Mahlaka 6' division)
+insert into members (division_id, name, initials, tone, phone, status, status_note, status_until, joined, last_seen, calls_this_year)
+select d.id,
+       m.name, m.initials, m.tone, m.phone,
+       m.status::status_enum, m.note, m.until,
+       m.joined, m.last_seen, m.calls
+from divisions d, (values
+  ('Asaf Doron',     'AD', 0, '+972 54-330-1100', 'available',   null,                              null::date,   '2022-02', 'active now', 3),
+  ('Mor Kaplan',     'MK', 1, '+972 50-441-2233', 'standby',     'Pre-positioned at base',          '2026-05-20', '2021-09', '1h ago',     5),
+  ('Erez Halperin',  'EH', 2, '+972 52-558-9012', 'available',   null,                              null,         '2021-06', '3h ago',     4),
+  ('Sivan Roth',     'SR', 3, '+972 54-771-3344', 'unavailable', 'Reserves leave — family event',   '2026-06-01', '2022-08', '2d ago',     2),
+  ('Ofir Lavi',      'OL', 4, '+972 53-220-5566', 'available',   null,                              null,         '2022-11', '5h ago',     3)
+) as m(name, initials, tone, phone, status, note, until, joined, last_seen, calls)
+where d.name = 'Mahlaka 6';
+
+-- ── E. New members for Alpha-7 (5 members, same division)
+insert into members (division_id, name, initials, tone, phone, status, status_note, status_until, joined, last_seen, calls_this_year)
+select d.id,
+       m.name, m.initials, m.tone, m.phone,
+       m.status::status_enum, m.note, m.until,
+       m.joined, m.last_seen, m.calls
+from divisions d, (values
+  ('Tomer Bachar',   'TB', 5, '+972 54-887-2210', 'available',   null,                              null::date,   '2023-01', 'active now', 2),
+  ('Yael Hadar',     'YH', 6, '+972 50-115-9933', 'available',   null,                              null,         '2023-04', '2h ago',     1),
+  ('Nimrod Saban',   'NM', 7, '+972 52-660-4477', 'standby',     'Held back as Alpha reserve',      '2026-05-23', '2023-02', '6h ago',     3),
+  ('Yarden Mualem',  'YM', 0, '+972 54-009-7711', 'available',   null,                              null,         '2023-06', '1d ago',     2),
+  ('Eden Tzur',      'ET', 1, '+972 53-440-8822', 'released',    'Released this week',              null,         '2023-03', '4h ago',     4)
+) as m(name, initials, tone, phone, status, note, until, joined, last_seen, calls)
+where d.name = 'Mahlaka 6';
+
+-- ── F. team_members for Bravo-6
+-- Asaf Doron = commander. Erez Halperin will be cross-team (also added to Alpha-7 below).
+insert into team_members (team_id, member_id, role)
+select t.id, m.id,
+  case m.name
+    when 'Asaf Doron' then 'commander'::team_role_enum
+    else                   'soldier'::team_role_enum
+  end
+from teams t, members m
+where t.short_name = 'Bravo-6'
+  and m.name in ('Asaf Doron', 'Mor Kaplan', 'Erez Halperin', 'Sivan Roth', 'Ofir Lavi');
+
+-- ── G. team_members for Alpha-7
+-- Tomer Bachar = commander. Erez Halperin appears here as soldier (cross-team).
+insert into team_members (team_id, member_id, role)
+select t.id, m.id,
+  case m.name
+    when 'Tomer Bachar'  then 'commander'::team_role_enum
+    when 'Erez Halperin' then 'soldier'::team_role_enum
+    else                      'soldier'::team_role_enum
+  end
+from teams t, members m
+where t.short_name = 'Alpha-7'
+  and m.name in ('Tomer Bachar', 'Yael Hadar', 'Nimrod Saban', 'Yarden Mualem', 'Eden Tzur', 'Erez Halperin');
+
+-- ── H. Member skills for new members (reuse division skills)
+insert into member_skills (member_id, skill_id)
+select m.id, s.id
+from members m
+join skills s on s.division_id = m.division_id
+join (values
+  ('Asaf Doron',     'Urban Combat'),
+  ('Asaf Doron',     'Krav Maga Inst.'),
+  ('Asaf Doron',     'Night Ops'),
+  ('Mor Kaplan',     'Drone Op.'),
+  ('Mor Kaplan',     'Comms Tech'),
+  ('Erez Halperin',  'HMMWV'),
+  ('Erez Halperin',  'Heavy Truck'),
+  ('Erez Halperin',  'Mechanic'),
+  ('Sivan Roth',     'First Aid Cert.'),
+  ('Sivan Roth',     'English (Fluent)'),
+  ('Ofir Lavi',      'Cyber'),
+  ('Ofir Lavi',      'GIS / Maps'),
+  ('Tomer Bachar',   'Urban Combat'),
+  ('Tomer Bachar',   'Sniper Cert.'),
+  ('Tomer Bachar',   'Night Ops'),
+  ('Yael Hadar',     'Combat Medic Cert.'),
+  ('Yael Hadar',     'First Aid Cert.'),
+  ('Nimrod Saban',   'Drone Op.'),
+  ('Nimrod Saban',   'Comms Tech'),
+  ('Nimrod Saban',   'English (Fluent)'),
+  ('Yarden Mualem',  'Arabic'),
+  ('Yarden Mualem',  'GIS / Maps'),
+  ('Eden Tzur',      'Russian'),
+  ('Eden Tzur',      'Urban Combat')
+) as ms(member_name, skill_name) on ms.member_name = m.name and ms.skill_name = s.name;
+
+-- Senior overrides for new members
+update member_skills ms set level = 'senior'
+from members m, skills s
+where ms.member_id = m.id and ms.skill_id = s.id
+  and (m.name, s.name) in (
+    ('Asaf Doron',     'Krav Maga Inst.'),
+    ('Asaf Doron',     'Urban Combat'),
+    ('Mor Kaplan',     'Drone Op.'),
+    ('Tomer Bachar',   'Sniper Cert.'),
+    ('Yael Hadar',     'Combat Medic Cert.'),
+    ('Erez Halperin',  'Heavy Truck')
+  );
+
+-- Junior overrides
+update member_skills ms set level = 'junior'
+from members m, skills s
+where ms.member_id = m.id and ms.skill_id = s.id
+  and (m.name, s.name) in (
+    ('Eden Tzur',      'Russian'),
+    ('Nimrod Saban',   'Comms Tech'),
+    ('Yarden Mualem',  'Arabic')
+  );
+
+-- ── I. Slots for Bravo-6 (2 published + 1 draft)
+insert into slots (team_id, title, urgent, state, start_at, end_at, duration, location, needed)
+select t.id, s.title, s.urgent, s.state::slot_state_enum,
+       s.start_at::timestamptz, s.end_at::timestamptz, s.duration, s.location, s.needed
+from teams t, (values
+  ('Bravo gate watch — North Camp',   true,  'published', '2026-05-17T20:00:00Z', '2026-05-18T08:00:00Z', '12h', 'North Camp gate',     4),
+  ('Bravo recon — Ridge 7',           false, 'published', '2026-05-23T05:00:00Z', '2026-05-23T17:00:00Z', '12h', 'Ridge 7 trailhead',   3),
+  ('Bravo training — sim day',        false, 'draft',     '2026-06-02T07:00:00Z', '2026-06-02T17:00:00Z', '10h', 'Tze''elim sim range', 5)
+) as s(title, urgent, state, start_at, end_at, duration, location, needed)
+where t.short_name = 'Bravo-6';
+
+-- ── J. Slots for Alpha-7 (2 published + 1 draft)
+insert into slots (team_id, title, urgent, state, start_at, end_at, duration, location, needed)
+select t.id, s.title, s.urgent, s.state::slot_state_enum,
+       s.start_at::timestamptz, s.end_at::timestamptz, s.duration, s.location, s.needed
+from teams t, (values
+  ('Alpha drone sweep — Sector 2',    true,  'published', '2026-05-18T22:00:00Z', '2026-05-19T04:00:00Z', '6h',  'Sector 2 OP',         3),
+  ('Alpha perimeter — Outpost Lev',   false, 'published', '2026-05-25T06:00:00Z', '2026-05-26T06:00:00Z', '24h', 'Outpost Lev',         5),
+  ('Alpha staff prep — HQ briefing',  false, 'draft',     '2026-06-04T08:00:00Z', '2026-06-04T12:00:00Z', '4h',  'HQ briefing room',    2)
+) as s(title, urgent, state, start_at, end_at, duration, location, needed)
+where t.short_name = 'Alpha-7';
+
+-- ── K. Slot skill requirements
+insert into slot_skills (slot_id, skill_id)
+select sl.id, sk.id
+from slots sl
+join teams t on t.id = sl.team_id
+join skills sk on sk.division_id = t.division_id
+join (values
+  ('Bravo gate watch — North Camp',  'Night Ops'),
+  ('Bravo gate watch — North Camp',  'Krav Maga Inst.'),
+  ('Bravo recon — Ridge 7',          'Urban Combat'),
+  ('Alpha drone sweep — Sector 2',   'Drone Op.'),
+  ('Alpha drone sweep — Sector 2',   'Night Ops'),
+  ('Alpha perimeter — Outpost Lev',  'Urban Combat')
+) as ss(slot_title, skill_name) on ss.slot_title = sl.title and ss.skill_name = sk.name;
+
+-- Senior requirement: Alpha drone sweep needs senior Drone Op.
+update slot_skills ss set min_level = 'senior'
+from slots sl, skills sk
+where ss.slot_id = sl.id and ss.skill_id = sk.id
+  and sl.title = 'Alpha drone sweep — Sector 2' and sk.name = 'Drone Op.';
+
+-- ── L. Activity log for Bravo-6
+insert into activity_log (team_id, actor_name, verb, what, tone, created_at)
+select t.id, actor, verb, what, tone, now() - (mins || ' minutes')::interval
+from teams t, (values
+  ('Asaf Doron',    'posted an urgent call-up',  'Bravo gate watch tonight',         'urgent', 18),
+  ('Mor Kaplan',    'set status to',             'Standby',                          'accent', 45),
+  ('Erez Halperin', 'joined the team',           null,                               'accent', 220),
+  ('Sivan Roth',    'set status to',             'Unavailable (family event)',       null,     900),
+  ('Ofir Lavi',     'updated phone number',      null,                               null,     2880)
+) as a(actor, verb, what, tone, mins)
+where t.short_name = 'Bravo-6';
+
+-- ── M. Activity log for Alpha-7
+insert into activity_log (team_id, actor_name, verb, what, tone, created_at)
+select t.id, actor, verb, what, tone, now() - (mins || ' minutes')::interval
+from teams t, (values
+  ('Tomer Bachar',   'posted an urgent call-up',  'Alpha drone sweep, 3 needed',     'urgent', 22),
+  ('Nimrod Saban',   'set status to',             'Standby',                          'accent', 75),
+  ('Yael Hadar',     'joined the team',           null,                               'accent', 360),
+  ('Eden Tzur',      'set status to',             'Released',                         null,     1200),
+  ('Yarden Mualem',  'updated phone number',      null,                               null,     2160),
+  ('Erez Halperin',  'joined the team',           '(cross-team from Bravo-6)',        'accent', 480)
+) as a(actor, verb, what, tone, mins)
+where t.short_name = 'Alpha-7';
+
+-- ── N. Slot assignees for new teams
+insert into slot_assignees (slot_id, member_id)
+select sl.id, m.id
+from slots sl
+join teams t on t.id = sl.team_id
+join team_members tm on tm.team_id = t.id
+join members m on m.id = tm.member_id
+join (values
+  ('Bravo gate watch — North Camp',  'Asaf Doron'),
+  ('Bravo gate watch — North Camp',  'Mor Kaplan'),
+  ('Bravo recon — Ridge 7',          'Erez Halperin'),
+  ('Alpha drone sweep — Sector 2',   'Tomer Bachar'),
+  ('Alpha drone sweep — Sector 2',   'Nimrod Saban'),
+  ('Alpha perimeter — Outpost Lev',  'Yarden Mualem')
+) as sa(slot_title, member_name) on sa.slot_title = sl.title and sa.member_name = m.name;
+

@@ -486,6 +486,9 @@ update teams set invite_expires_at = now() + interval '7 days' where invite_code
 -- These rows let tests mint JWTs without a real OAuth flow.
 -- Commander: Yoni Avraham — auth UUID a0000000-0000-0000-0000-000000000001
 -- Soldier:   Eitan Cohen  — auth UUID b0000000-0000-0000-0000-000000000001
+-- Unlinked:  no member    — auth UUID c0000000-0000-0000-0000-000000000001
+--            (used by claim_rpc tests; deliberately not linked to any member row
+--             until the claim flow links it)
 insert into auth.users (
   id, instance_id, aud, role, email,
   encrypted_password, email_confirmed_at,
@@ -516,6 +519,17 @@ values
     '{"provider":"email","providers":["email"]}'::jsonb,
     '{}'::jsonb,
     false, '', '', '', ''
+  ),
+  (
+    'c0000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated', 'authenticated',
+    'unlinked-claimer@test.local',
+    crypt('unused', gen_salt('bf')),
+    now(), now(), now(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{}'::jsonb,
+    false, '', '', '', ''
   )
 on conflict (id) do nothing;
 
@@ -525,4 +539,9 @@ where name = 'Yoni Avraham';
 
 update members set auth_user_id = 'b0000000-0000-0000-0000-000000000001'
 where name = 'Eitan Cohen';
+
+-- The 'c0000000-…' auth user is intentionally NOT linked to any member here.
+-- Integration tests for the claim-profile RPC exercise the linking flow itself.
+-- All other seeded members (24 Carmel + 5 Bravo-6 + 5 Alpha-7 = 34 total,
+-- minus 2 linked above = 32) remain unclaimed and are candidates for claim_rpc tests.
 

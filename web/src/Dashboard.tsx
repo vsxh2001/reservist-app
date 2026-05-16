@@ -12,7 +12,7 @@ import { NewSlotModal } from './components/NewSlotModal';
 import { Button } from './components/atoms';
 import { Icon } from './components/Icon';
 import {
-  useActivity, useJoinRequests, useMembers, useRoles, useSkills, useSlots, useUnit,
+  useActivity, useApprovedPicksForUnit, useJoinRequests, useMembers, useRoles, useSkills, useSlots, useUnit,
 } from './lib/queries';
 import { useRealtime } from './lib/realtime';
 import { useQueryClient } from '@tanstack/react-query';
@@ -37,6 +37,7 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
   const slots = useSlots(unit.data?.id);
   const activity = useActivity(unit.data?.id);
   const joinRequests = useJoinRequests(unit.data?.id);
+  const approvedPicks = useApprovedPicksForUnit(unit.data?.id);
   useRealtime(unit.data?.id);
 
   const [active, setActive] = useState<Screen>('roster');
@@ -242,6 +243,7 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
             members={members.data ?? []}
             skills={skills.data ?? []}
             allSlots={slots.data ?? []}
+            approvedPicks={approvedPicks.data ?? []}
             onClose={() => setSlotDrawer(null)}
             onClone={(s) => {
               setSlotDrawer(null);
@@ -257,6 +259,7 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
           members={members.data ?? []}
           skills={skills.data ?? []}
           slots={slots.data ?? []}
+          approvedPicks={approvedPicks.data ?? []}
           unitId={unit.data.id}
           preselected={modal.preselected}
           cloneFrom={modal.cloneFrom ?? null}

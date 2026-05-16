@@ -977,6 +977,42 @@ export function useResolvePick() {
   });
 }
 
+export function useApprovedPicksForUnit(unitId: string | undefined) {
+  return useQuery({
+    queryKey: ['approved-picks', unitId],
+    enabled: !!unitId,
+    queryFn: async (): Promise<{ member_id: string; date: string }[]> => {
+      // Step 1: fetch all deployment windows for the unit to get their member_id mapping.
+      const { data: windows, error: wErr } = await supabase
+        .from('deployment_windows')
+        .select('id, member_id')
+        .eq('unit_id', unitId!);
+      if (wErr) throw wErr;
+      if (!windows || windows.length === 0) return [];
+
+      // Build a map from window_id → member_id.
+      const windowToMember = new Map<string, string>(
+        (windows as { id: string; member_id: string }[]).map((w) => [w.id, w.member_id]),
+      );
+      const windowIds = [...windowToMember.keys()];
+
+      // Step 2: fetch approved picks for those windows.
+      const { data: picks, error: pErr } = await supabase
+        .from('deployment_picks')
+        .select('window_id, date')
+        .in('window_id', windowIds)
+        .eq('state', 'approved');
+      if (pErr) throw pErr;
+
+      // Project: attach member_id from the map.
+      return ((picks ?? []) as { window_id: string; date: string }[]).flatMap((p) => {
+        const member_id = windowToMember.get(p.window_id);
+        return member_id ? [{ member_id, date: p.date }] : [];
+      });
+    },
+  });
+}
+
 export function useDirectAddPick() {
   const qc = useQueryClient();
   return useMutation({

@@ -474,6 +474,62 @@ export function useTeamByInvite(code: string | null) {
 }
 
 // ---------------------------------------------------------------------------
+// Claim-profile RPCs (RLS-safe path for unlinked auth users)
+//
+// Under the RLS tightening, `members` SELECT is scoped to the caller's
+// division. A freshly-authenticated user has no member row yet, so
+// `current_division_id()` is NULL and a direct SELECT returns nothing.
+// The two RPCs below route the claim flow through SECURITY DEFINER
+// functions that gate on a team invite code + (for the mutation) on
+// the caller's auth.uid().
+// ---------------------------------------------------------------------------
+
+/** Unclaimed member shape returned by `list_unclaimed_members_by_invite`. */
+export interface UnclaimedMember {
+  id: string;
+  name: string;
+  initials: string;
+  tone: number;
+  division_id: string;
+}
+
+export function useUnclaimedMembersByInvite(inviteCode: string | null) {
+  return useQuery({
+    queryKey: ['unclaimed-members-by-invite', inviteCode],
+    enabled: !!inviteCode && inviteCode.trim().length > 0,
+    queryFn: async (): Promise<UnclaimedMember[]> => {
+      const { data, error } = await supabase.rpc('list_unclaimed_members_by_invite', {
+        p_invite_code: inviteCode!,
+      });
+      if (error) throw error;
+      return (data ?? []) as UnclaimedMember[];
+    },
+  });
+}
+
+export function useClaimMemberByInvite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      memberId: string;
+      inviteCode: string;
+      email: string | null;
+    }) => {
+      const { error } = await supabase.rpc('claim_member_by_invite', {
+        p_member_id: vars.memberId,
+        p_invite_code: vars.inviteCode,
+        p_email: vars.email,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['my-member'] });
+      qc.invalidateQueries({ queryKey: ['unclaimed-members-by-invite'] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Mutations — team membership
 // ---------------------------------------------------------------------------
 

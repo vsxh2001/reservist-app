@@ -12,6 +12,30 @@ import {
   sendTestPush,
 } from '../lib/push';
 import type { Team } from '../lib/types';
+import { isInviteExpired } from '../lib/types';
+
+const INVITE_TTL_DAYS = 7;
+const INVITE_TTL_MS = INVITE_TTL_DAYS * 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function nextExpiryIso(): string {
+  return new Date(Date.now() + INVITE_TTL_MS).toISOString();
+}
+
+function formatExpiry(iso: string | null): string {
+  if (!iso) return 'no expiry';
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, {
+    year: 'numeric', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
+/** Returns ms until expiry; negative if already expired; null if no expiry set. */
+function msToExpiry(iso: string | null): number | null {
+  if (!iso) return null;
+  return Date.parse(iso) - Date.now();
+}
 
 interface Props {
   team: Team;
@@ -79,11 +103,26 @@ export function SettingsScreen({ team, divisionId, skills, onToast, onRefresh }:
 
   const regenerate = async () => {
     setBusy(true);
-    const { error } = await supabase.from('teams').update({ invite_code: randomCode() }).eq('id', team.id);
+    const { error } = await supabase
+      .from('teams')
+      .update({ invite_code: randomCode(), invite_expires_at: nextExpiryIso() })
+      .eq('id', team.id);
     setBusy(false);
     if (error) { onToast('Failed to regenerate'); return; }
     onRefresh();
-    onToast('New invite link generated');
+    onToast('New invite link generated (valid 7 days)');
+  };
+
+  const renew = async () => {
+    setBusy(true);
+    const { error } = await supabase
+      .from('teams')
+      .update({ invite_expires_at: nextExpiryIso() })
+      .eq('id', team.id);
+    setBusy(false);
+    if (error) { onToast('Failed to renew'); return; }
+    onRefresh();
+    onToast('Invite extended by 7 days');
   };
 
   const copyLink = () => {
@@ -123,19 +162,23 @@ export function SettingsScreen({ team, divisionId, skills, onToast, onRefresh }:
 
       <Section title="Invite link">
         <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginBottom: 10 }}>
-          Anyone with this link can request to join. Per PRD §10, a commander must approve new joiners before the roster becomes visible (approval flow not yet built).
+          Anyone with this link can request to join. Links default to 7-day expiry per PRD §7.1; renew or regenerate to extend.
         </div>
         {team.invite_code ? (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '10px 12px', background: 'var(--paper-deep)',
-            border: '1px solid var(--line-soft)', borderRadius: 8,
-            fontFamily: 'var(--mono)', fontSize: 13,
-          }}>
-            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{inviteLink}</span>
-            <Button size="sm" variant="ghost" icon="copy" onClick={copyLink}>Copy</Button>
-            <Button size="sm" variant="outline" disabled={busy} onClick={regenerate}>Regenerate</Button>
-          </div>
+          <>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '10px 12px', background: 'var(--paper-deep)',
+              border: '1px solid var(--line-soft)', borderRadius: 8,
+              fontFamily: 'var(--mono)', fontSize: 13,
+            }}>
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{inviteLink}</span>
+              <Button size="sm" variant="ghost" icon="copy" onClick={copyLink}>Copy</Button>
+              <Button size="sm" variant="outline" disabled={busy} onClick={renew}>Renew</Button>
+              <Button size="sm" variant="outline" disabled={busy} onClick={regenerate}>Regenerate</Button>
+            </div>
+            <InviteExpiryBadge expiresAt={team.invite_expires_at} />
+          </>
         ) : (
           <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', fontStyle: 'italic' }}>
             No invite code set for this team.
@@ -220,6 +263,56 @@ export function SettingsScreen({ team, divisionId, skills, onToast, onRefresh }:
           </span>
         </Note>
       </Section>
+    </div>
+  );
+}
+
+function InviteExpiryBadge({ expiresAt }: { expiresAt: string | null }) {
+  if (!expiresAt) {
+    return (
+      <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 8, fontStyle: 'italic' }}>
+        No expiry set.
+      </div>
+    );
+  }
+  const expired = isInviteExpired({ invite_expires_at: expiresAt });
+  const remaining = msToExpiry(expiresAt) ?? 0;
+  const daysLeft = Math.ceil(remaining / DAY_MS);
+  const hoursLeft = Math.ceil(remaining / (60 * 60 * 1000));
+
+  // ── Colour bands ────────────────────────────────────────────────────────
+  //   expired    → urgent (red-ish accent already in theme)
+  //   <2 days    → warn-ish (accent-tint)
+  //   otherwise  → soft / muted
+  let bg = 'var(--paper-deep)';
+  let fg = 'var(--ink-soft)';
+  let border = 'var(--line-soft)';
+  let label: string;
+  if (expired) {
+    bg = 'color-mix(in srgb, var(--urgent, #c33) 14%, transparent)';
+    fg = 'var(--urgent, #c33)';
+    border = 'color-mix(in srgb, var(--urgent, #c33) 35%, transparent)';
+    label = 'Expired — regenerate to issue a new link';
+  } else if (remaining < 2 * DAY_MS) {
+    bg = 'var(--accent-tint)';
+    fg = 'var(--accent-ink)';
+    border = 'color-mix(in srgb, var(--accent) 35%, transparent)';
+    label = remaining < DAY_MS
+      ? `Expires in ${Math.max(hoursLeft, 0)}h · ${formatExpiry(expiresAt)}`
+      : `Expires in ${daysLeft} days · ${formatExpiry(expiresAt)}`;
+  } else {
+    label = `Expires in ${daysLeft} days · ${formatExpiry(expiresAt)}`;
+  }
+
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 6,
+      marginTop: 10, padding: '4px 10px', borderRadius: 999,
+      background: bg, color: fg, border: '1px solid ' + border,
+      fontSize: 11.5, fontWeight: 500,
+    }}>
+      <Icon name={expired ? 'shield' : 'check'} size={12} />
+      <span>{label}</span>
     </div>
   );
 }

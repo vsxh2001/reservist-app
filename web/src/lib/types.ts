@@ -73,6 +73,7 @@ export interface Member {
   status_note: string | null;
   status_until: string | null;
   status_set_at: string;
+  is_division_admin: boolean;
   skills: MemberSkill[];
   teams: TeamMembership[];
 }
@@ -137,7 +138,7 @@ export interface ActivityItem {
   created_at: string;
 }
 
-export type Screen = 'roster' | 'slots' | 'activity' | 'calendar' | 'day' | 'reviews' | 'settings' | 'requests';
+export type Screen = 'roster' | 'slots' | 'activity' | 'calendar' | 'day' | 'reviews' | 'settings' | 'requests' | 'admin';
 
 export type JoinState = 'pending' | 'approved' | 'rejected';
 

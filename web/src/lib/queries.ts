@@ -1284,3 +1284,177 @@ export function useDirectAddPick() {
     },
   });
 }
+
+// ---------------------------------------------------------------------------
+// Division-admin mutations — projects, teams, admin flag
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a project within a division.
+ * Activity is logged against the first team in the division (division-level ops).
+ */
+export function useCreateProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      divisionId: string; name: string; sortIdx: number;
+      actorId: string; actorName: string; unitId: string;
+    }) => {
+      const { data, error } = await supabase
+        .from('projects')
+        .insert({ division_id: vars.divisionId, name: vars.name, sort_idx: vars.sortIdx })
+        .select('id')
+        .single();
+      if (error) throw error;
+      await supabase.from('activity_log').insert({
+        team_id: vars.unitId,
+        actor_id: vars.actorId,
+        actor_name: vars.actorName,
+        verb: 'created project',
+        what: vars.name,
+        tone: 'accent',
+      });
+      return data.id as string;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: ['activity'] });
+    },
+  });
+}
+
+/** Rename a project or update its sort_idx. */
+export function useUpdateProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      projectId: string;
+      patch: { name?: string; sort_idx?: number };
+      actorId: string; actorName: string; unitId: string;
+    }) => {
+      const row: Record<string, unknown> = {};
+      if (vars.patch.name     !== undefined) row.name     = vars.patch.name;
+      if (vars.patch.sort_idx !== undefined) row.sort_idx = vars.patch.sort_idx;
+      if (Object.keys(row).length) {
+        const { error } = await supabase.from('projects').update(row).eq('id', vars.projectId);
+        if (error) throw error;
+      }
+      await supabase.from('activity_log').insert({
+        team_id: vars.unitId,
+        actor_id: vars.actorId,
+        actor_name: vars.actorName,
+        verb: 'renamed project',
+        what: vars.patch.name ?? null,
+        tone: 'accent',
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: ['activity'] });
+    },
+  });
+}
+
+/** Create a team within a project. */
+export function useCreateTeam() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      projectId: string; divisionId: string; name: string; crest: string;
+      actorId: string; actorName: string; unitId: string;
+    }) => {
+      const { data, error } = await supabase
+        .from('teams')
+        .insert({ project_id: vars.projectId, division_id: vars.divisionId, name: vars.name, crest: vars.crest })
+        .select('id')
+        .single();
+      if (error) throw error;
+      await supabase.from('activity_log').insert({
+        team_id: vars.unitId,
+        actor_id: vars.actorId,
+        actor_name: vars.actorName,
+        verb: 'created team',
+        what: vars.name,
+        tone: 'accent',
+      });
+      return data.id as string;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['teams-for-division'] });
+      qc.invalidateQueries({ queryKey: ['teams-for-member'] });
+      qc.invalidateQueries({ queryKey: ['activity'] });
+    },
+  });
+}
+
+/** Rename a team, change its crest, or move it to another project. */
+export function useUpdateTeam() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      teamId: string;
+      patch: { name?: string; crest?: string; project_id?: string };
+      actorId: string; actorName: string;
+    }) => {
+      const row: Record<string, unknown> = {};
+      if (vars.patch.name       !== undefined) row.name       = vars.patch.name;
+      if (vars.patch.crest      !== undefined) row.crest      = vars.patch.crest;
+      if (vars.patch.project_id !== undefined) row.project_id = vars.patch.project_id;
+      if (Object.keys(row).length) {
+        const { error } = await supabase.from('teams').update(row).eq('id', vars.teamId);
+        if (error) throw error;
+      }
+      await supabase.from('activity_log').insert({
+        team_id: vars.teamId,
+        actor_id: vars.actorId,
+        actor_name: vars.actorName,
+        verb: 'updated team',
+        what: vars.patch.name ?? null,
+        tone: 'accent',
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['teams-for-division'] });
+      qc.invalidateQueries({ queryKey: ['teams-for-member'] });
+      qc.invalidateQueries({ queryKey: ['team'] });
+      qc.invalidateQueries({ queryKey: ['activity'] });
+    },
+  });
+}
+
+/**
+ * Grant or revoke division-admin status for a member.
+ * Self-revoke is blocked: a caller must ensure memberId !== actorId before calling.
+ */
+export function useSetDivisionAdmin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      memberId: string; isAdmin: boolean;
+      actorId: string; actorName: string; memberName: string; unitId: string;
+    }) => {
+      if (vars.memberId === vars.actorId && !vars.isAdmin) {
+        throw new Error('Cannot revoke your own division-admin role.');
+      }
+      const { error } = await supabase
+        .from('members')
+        .update({ is_division_admin: vars.isAdmin })
+        .eq('id', vars.memberId);
+      if (error) throw error;
+      await supabase.from('activity_log').insert({
+        team_id: vars.unitId,
+        actor_id: vars.actorId,
+        actor_name: vars.actorName,
+        verb: vars.isAdmin ? 'granted division-admin to' : 'revoked division-admin from',
+        what: vars.memberName,
+        tone: 'accent',
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['members'] });
+      qc.invalidateQueries({ queryKey: ['members-in-division'] });
+      qc.invalidateQueries({ queryKey: ['my-member'] });
+      qc.invalidateQueries({ queryKey: ['activity'] });
+    },
+  });
+}

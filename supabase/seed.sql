@@ -254,3 +254,6 @@ from w, (values
   (date '2026-05-24', 'rejected'::pick_state_enum,  null,                   'need you off — overlap with Uri'),
   (date '2026-05-25', 'proposed'::pick_state_enum,  null,                   null)
 ) as p(d, st, rnote, cnote);
+
+-- ── Division admin seed: mark Yoni Avraham as division admin
+update members set is_division_admin = true where name = 'Yoni Avraham';

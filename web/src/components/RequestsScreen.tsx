@@ -2,9 +2,10 @@ import { Avatar, Button, Tag } from './atoms';
 import { Icon } from './Icon';
 import {
   useApproveJoinRequest, useJoinRequests, useRejectJoinRequest,
+  useDivision,
 } from '../lib/queries';
 import { useAuth } from '../lib/auth';
-import type { Unit } from '../lib/types';
+import type { Team } from '../lib/types';
 
 function fmtRel(iso: string): string {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
@@ -15,13 +16,14 @@ function fmtRel(iso: string): string {
 }
 
 interface Props {
-  unit: Unit;
+  team: Team;
   onToast: (msg: string) => void;
 }
 
-export function RequestsScreen({ unit, onToast }: Props) {
+export function RequestsScreen({ team, onToast }: Props) {
   const { user } = useAuth();
-  const requests = useJoinRequests(unit.id);
+  const division = useDivision();
+  const requests = useJoinRequests(team.id);
   const approve = useApproveJoinRequest();
   const reject = useRejectJoinRequest();
 
@@ -29,12 +31,12 @@ export function RequestsScreen({ unit, onToast }: Props) {
     if (!user) return;
     await approve.mutateAsync({
       requestId: r.id,
-      unitId: unit.id,
+      teamId: team.id,
+      divisionId: division.data?.id ?? team.division_id,
       actorId: user.id,
       actorName: user.name,
       name: r.name,
       phone: r.phone,
-      roleName: r.role_name,
       skillNames: r.skill_names ?? [],
     });
     onToast(`Approved ${r.name}`);
@@ -44,7 +46,7 @@ export function RequestsScreen({ unit, onToast }: Props) {
     if (!user) return;
     await reject.mutateAsync({
       requestId: r.id,
-      unitId: unit.id,
+      teamId: team.id,
       actorId: user.id,
       actorName: user.name,
       name: r.name,
@@ -73,12 +75,12 @@ export function RequestsScreen({ unit, onToast }: Props) {
         <div className="empty">
           <Icon name="users" size={32} stroke={1.2} />
           <div className="title">No pending requests</div>
-          <div>Share the invite link in <i>Settings</i> to grow the unit.</div>
+          <div>Share the invite link in <i>Settings</i> to grow the team.</div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {(requests.data ?? []).map((r) => {
-            const initials = r.name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
+            const initials = r.name.split(' ').map((p: string) => p[0]).slice(0, 2).join('').toUpperCase();
             return (
               <div key={r.id} style={{
                 border: '1px solid var(--line)',
@@ -94,11 +96,6 @@ export function RequestsScreen({ unit, onToast }: Props) {
                   <div style={{ fontSize: 12, color: 'var(--ink-soft)', fontFamily: 'var(--mono)', marginTop: 2 }}>
                     {r.phone} · requested {fmtRel(r.created_at)}
                   </div>
-                  {r.role_name && (
-                    <div style={{ marginTop: 6, fontSize: 12.5, color: 'var(--ink-2)' }}>
-                      Wants role: <b>{r.role_name}</b>
-                    </div>
-                  )}
                   {r.skill_names.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
                       {r.skill_names.map((s: string) => <Tag key={s}>{s}</Tag>)}

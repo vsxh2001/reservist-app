@@ -16,6 +16,8 @@ interface Props {
   skills: string[];
   allSlots: Slot[];
   approvedPicks: { member_id: string; date: string }[];
+  teamId: string;
+  divisionId: string;
   onClose: () => void;
   onClone: (slot: Slot) => void;
   onToast: (msg: string) => void;
@@ -42,7 +44,7 @@ function isoToLocalTime(iso: string): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-export function SlotDrawer({ slot, members, skills: allSkills, allSlots, approvedPicks, onClose, onClone, onToast }: Props) {
+export function SlotDrawer({ slot, members, skills: allSkills, allSlots, approvedPicks, teamId, divisionId, onClose, onClone, onToast }: Props) {
   const { user } = useAuth();
   const assign = useAssignToSlot();
   const unassign = useUnassignFromSlot();
@@ -117,7 +119,7 @@ export function SlotDrawer({ slot, members, skills: allSkills, allSlots, approve
       slotId: slot.id,
       memberIds: picks,
       assignedBy: user.id,
-      unitId: slot.unit_id,
+      teamId,
       actorName: user.name,
       slotTitle: slot.title,
       memberNames: names,
@@ -131,7 +133,7 @@ export function SlotDrawer({ slot, members, skills: allSkills, allSlots, approve
     if (!user) return;
     await unassign.mutateAsync({
       slotId: slot.id, memberId: m.id, actorId: user.id,
-      unitId: slot.unit_id, actorName: user.name,
+      teamId, actorName: user.name,
       slotTitle: slot.title, memberName: m.name,
     });
     onToast(`Unassigned ${m.name}`);
@@ -140,7 +142,7 @@ export function SlotDrawer({ slot, members, skills: allSkills, allSlots, approve
   const setState = async (state: 'completed' | 'cancelled' | 'published') => {
     if (!user) return;
     await updateState.mutateAsync({
-      slotId: slot.id, state, actorId: user.id, unitId: slot.unit_id,
+      slotId: slot.id, state, actorId: user.id, teamId,
       actorName: user.name, slotTitle: slot.title,
     });
     if (state === 'published') {
@@ -167,7 +169,8 @@ export function SlotDrawer({ slot, members, skills: allSkills, allSlots, approve
 
     await updateSlot.mutateAsync({
       slotId: slot.id,
-      unitId: slot.unit_id,
+      teamId,
+      divisionId,
       patch: {
         title: eTitle.trim() || slot.title,
         urgent: eUrgent,

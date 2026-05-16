@@ -14,11 +14,12 @@ import type { DeploymentPick, DeploymentWindow } from '../lib/types';
 interface Props {
   window: DeploymentWindow;
   memberName: string;
+  teamId: string;
   onClose: () => void;
   onToast: (msg: string) => void;
 }
 
-export function DeploymentWindowDrawer({ window: w, memberName, onClose, onToast }: Props) {
+export function DeploymentWindowDrawer({ window: w, memberName, teamId, onClose, onToast }: Props) {
   const { user } = useAuth();
   const picks = useDeploymentPicks(w.id);
   const resolve = useResolvePick();
@@ -71,7 +72,7 @@ export function DeploymentWindowDrawer({ window: w, memberName, onClose, onToast
       pickId: selected.id, nextState: 'approved',
       commanderNote: noteDraft.trim() ? noteDraft.trim() : null,
       actorId: user.id, actorName: user.name,
-      unitId: w.unit_id, memberName, date: selected.date,
+      teamId, memberName, date: selected.date,
     });
     onToast(`Approved ${selected.date}`);
     setSelected(null); setSelectedDate(null); setNoteDraft('');
@@ -82,7 +83,7 @@ export function DeploymentWindowDrawer({ window: w, memberName, onClose, onToast
       pickId: selected.id, nextState: 'rejected',
       commanderNote: noteDraft.trim() ? noteDraft.trim() : null,
       actorId: user.id, actorName: user.name,
-      unitId: w.unit_id, memberName, date: selected.date,
+      teamId, memberName, date: selected.date,
     });
     onToast(`Rejected ${selected.date}`);
     setSelected(null); setSelectedDate(null); setNoteDraft('');
@@ -92,7 +93,7 @@ export function DeploymentWindowDrawer({ window: w, memberName, onClose, onToast
     await direct.mutateAsync({
       windowId: w.id, date: selectedDate,
       actorId: user.id, actorName: user.name,
-      unitId: w.unit_id, memberName,
+      teamId, memberName,
     });
     onToast(`Added ${selectedDate}`);
     setSelectedDate(null);
@@ -106,7 +107,7 @@ export function DeploymentWindowDrawer({ window: w, memberName, onClose, onToast
   const saveMeta = async () => {
     if (!user) return;
     await updateWindow.mutateAsync({
-      windowId: w.id, unitId: w.unit_id,
+      windowId: w.id, teamId,
       actorId: user.id, actorName: user.name,
       patch: { label, startDate, endDate, notes: notes.trim() ? notes : null },
     });
@@ -116,7 +117,7 @@ export function DeploymentWindowDrawer({ window: w, memberName, onClose, onToast
   const closeWindow = async () => {
     if (!user) return;
     await updateWindow.mutateAsync({
-      windowId: w.id, unitId: w.unit_id,
+      windowId: w.id, teamId,
       actorId: user.id, actorName: user.name,
       patch: { state: 'closed' },
     });

@@ -13,34 +13,36 @@ import { NewSlotModal } from './components/NewSlotModal';
 import { Button } from './components/atoms';
 import { Icon } from './components/Icon';
 import {
-  useActivity, useApprovedPicksForUnit, useJoinRequests, useMembers, useRoles, useSkills, useSlots, useUnit,
+  useActivity, useApprovedPicksForTeam, useJoinRequests, useMembers, useSkills, useSlots,
+  useDivision,
 } from './lib/queries';
+import { useActiveTeam } from './lib/team-context';
 import { useRealtime } from './lib/realtime';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Filters, Member, Screen, Slot } from './lib/types';
 
 const titleFor: Record<Screen, { title: string; em: string }> = {
-  roster:   { title: 'Who is in', em: 'Carmel-6' },
+  roster:   { title: 'Who is in', em: 'the team' },
   slots:    { title: 'Open & upcoming', em: 'duty slots' },
-  activity: { title: 'Unit', em: 'activity' },
-  calendar: { title: 'Unit', em: 'calendar' },
-  day:      { title: 'Unit', em: 'day view' },
+  activity: { title: 'Team', em: 'activity' },
+  calendar: { title: 'Team', em: 'calendar' },
+  day:      { title: 'Team', em: 'day view' },
   reviews:  { title: 'Commander', em: 'reviews' },
-  settings: { title: 'Unit', em: 'settings' },
+  settings: { title: 'Team', em: 'settings' },
   requests: { title: 'Join', em: 'requests' },
 };
 
 export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () => void }) {
   const qc = useQueryClient();
-  const unit = useUnit();
-  const members = useMembers(unit.data?.id);
-  const roles = useRoles(unit.data?.id);
-  const skills = useSkills(unit.data?.id);
-  const slots = useSlots(unit.data?.id);
-  const activity = useActivity(unit.data?.id);
-  const joinRequests = useJoinRequests(unit.data?.id);
-  const approvedPicks = useApprovedPicksForUnit(unit.data?.id);
-  useRealtime(unit.data?.id);
+  const { team, teams, setTeamId } = useActiveTeam();
+  const division = useDivision();
+  const members = useMembers(team?.id);
+  const skills = useSkills(division.data?.id);
+  const slots = useSlots(team?.id);
+  const activity = useActivity(team?.id);
+  const joinRequests = useJoinRequests(team?.id);
+  const approvedPicks = useApprovedPicksForTeam(team?.id);
+  useRealtime(team?.id);
 
   const [active, setActive] = useState<Screen>('roster');
   const [filters, setFilters] = useState<Filters>({ status: [], skills: [], q: '' });
@@ -92,8 +94,12 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
     }
   }, [slots.data]);
 
-  if (!unit.data) {
-    return <div style={{ padding: 40, color: 'var(--ink-soft)' }}>Loading unit…</div>;
+  if (!team) {
+    return (
+      <div style={{ padding: 40, color: 'var(--ink-soft)' }}>
+        {teams.length === 0 ? 'No teams found. Contact your division commander.' : 'Loading team…'}
+      </div>
+    );
   }
 
   const t = titleFor[active];
@@ -102,7 +108,9 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
   return (
     <div className="app">
       <Sidebar
-        unit={unit.data}
+        team={team}
+        teams={teams}
+        setTeamId={setTeamId}
         members={members.data ?? []}
         slots={slots.data ?? []}
         pendingRequests={(joinRequests.data ?? []).length}
@@ -178,7 +186,7 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
 
         <div className="scroll">
           {active === 'roster' && (
-            members.isLoading || roles.isLoading || skills.isLoading
+            members.isLoading || skills.isLoading
               ? <div style={{ padding: 40, color: 'var(--ink-soft)' }}>Loading roster…</div>
               : members.error
                 ? <div style={{ padding: 40, color: 'var(--st-unav)' }}>Failed: {(members.error as Error).message}</div>
@@ -187,7 +195,7 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
                     members={members.data ?? []}
                     skills={skills.data ?? []}
                     slots={slots.data ?? []}
-                    unitId={unit.data.id}
+                    teamId={team.id}
                     filters={filters}
                     onFilters={setFilters}
                     selected={selected}
@@ -211,15 +219,15 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
           {active === 'activity' && <ActivityScreen items={activity.data ?? []} />}
           {active === 'settings' && (
             <SettingsScreen
-              unit={unit.data}
-              roles={roles.data ?? []}
+              team={team}
+              divisionId={division.data?.id ?? ''}
               skills={skills.data ?? []}
               onToast={showToast}
-              onRefresh={() => qc.invalidateQueries({ queryKey: ['unit'] })}
+              onRefresh={() => qc.invalidateQueries({ queryKey: ['teams-for-member'] })}
             />
           )}
           {active === 'requests' && (
-            <RequestsScreen unit={unit.data} onToast={showToast} />
+            <RequestsScreen team={team} onToast={showToast} />
           )}
           {active === 'calendar' && (
             <CalendarScreen
@@ -228,15 +236,17 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
               onSlotClick={setSlotDrawer}
             />
           )}
-          {active === 'day' && unit.data && (
-            <CommanderDayView unitId={unit.data.id} />
+          {active === 'day' && (
+            <CommanderDayView teamId={team.id} />
           )}
         </div>
 
         {person && (
           <PersonDrawer
             person={person}
+            team={team}
             allSkills={skills.data ?? []}
+            divisionId={division.data?.id ?? ''}
             onClose={() => setPerson(null)}
             onToast={showToast}
           />
@@ -249,6 +259,8 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
             skills={skills.data ?? []}
             allSlots={slots.data ?? []}
             approvedPicks={approvedPicks.data ?? []}
+            teamId={team.id}
+            divisionId={division.data?.id ?? ''}
             onClose={() => setSlotDrawer(null)}
             onClone={(s) => {
               setSlotDrawer(null);
@@ -265,7 +277,8 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
           skills={skills.data ?? []}
           slots={slots.data ?? []}
           approvedPicks={approvedPicks.data ?? []}
-          unitId={unit.data.id}
+          teamId={team.id}
+          divisionId={division.data?.id ?? ''}
           preselected={modal.preselected}
           cloneFrom={modal.cloneFrom ?? null}
           onClose={() => setModal({ open: false, urgent: false, preselected: [] })}

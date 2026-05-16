@@ -17,7 +17,8 @@ interface Props {
   skills: string[];
   slots: Slot[];
   approvedPicks: { member_id: string; date: string }[];
-  unitId: string;
+  teamId: string;
+  divisionId: string;
   preselected: string[];
   cloneFrom?: Slot | null;
   onClose: () => void;
@@ -33,7 +34,7 @@ const cycleNext = (cur: SkillLevel | undefined): SkillLevel | undefined => {
 };
 
 export function NewSlotModal({
-  open, urgent: defaultUrgent, members, skills: allSkills, slots, approvedPicks, unitId,
+  open, urgent: defaultUrgent, members, skills: allSkills, slots, approvedPicks, teamId, divisionId,
   preselected, cloneFrom, onClose, onToast,
 }: Props) {
   const { user } = useAuth();
@@ -109,7 +110,8 @@ export function NewSlotModal({
     const hrs = Math.round((endD.getTime() - startD.getTime()) / 3600000);
 
     await createSlot.mutateAsync({
-      unitId,
+      teamId,
+      divisionId,
       title: title || (urgent ? 'Urgent call-up' : 'New duty slot'),
       urgent,
       state,
@@ -314,7 +316,7 @@ export function NewSlotModal({
         <div className="modal-foot">
           <div className="left">
             {urgent
-              ? <><b style={{ color: 'var(--urgent-deep)' }}>Urgent flag on.</b> Push notification sent to everyone in the unit.</>
+              ? <><b style={{ color: 'var(--urgent-deep)' }}>Urgent flag on.</b> Push notification sent to everyone in the team.</>
               : <>Assignees will get a push notification. They cannot decline (v1).</>}
           </div>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>

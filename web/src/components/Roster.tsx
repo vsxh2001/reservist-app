@@ -134,7 +134,7 @@ interface Props {
   members: Member[];
   skills: string[];
   slots: Slot[];
-  unitId: string;
+  teamId: string;
   filters: Filters;
   onFilters: (f: Filters) => void;
   selected: string[];
@@ -145,7 +145,7 @@ interface Props {
 }
 
 export function Roster(props: Props) {
-  const { members, skills, slots, unitId, filters, onFilters, selected, setSelected, onPerson, onToast, onNewSlotWith } = props;
+  const { members, skills, slots, teamId, filters, onFilters, selected, setSelected, onPerson, onToast, onNewSlotWith } = props;
   const { user } = useAuth();
   const assignToSlot = useAssignToSlot();
   const [popOpen, setPopOpen] = useState(false);
@@ -188,7 +188,7 @@ export function Roster(props: Props) {
     const names = fresh.map((id) => members.find((m) => m.id === id)?.name).filter(Boolean) as string[];
     await assignToSlot.mutateAsync({
       slotId: s.id, memberIds: fresh, assignedBy: user.id,
-      unitId, actorName: user.name, slotTitle: s.title, memberNames: names,
+      teamId, actorName: user.name, slotTitle: s.title, memberNames: names,
     });
     setSelected([]);
     setPopOpen(false);
@@ -324,6 +324,7 @@ export function Roster(props: Props) {
           <RosterRow
             key={m.id}
             m={m}
+            teamId={teamId}
             selected={selected.includes(m.id)}
             onPerson={onPerson}
             onToggle={() => toggleSelect(m.id)}
@@ -443,15 +444,17 @@ export function Roster(props: Props) {
 }
 
 function RosterRow({
-  m, selected, onPerson, onToggle, onToast,
+  m, teamId, selected, onPerson, onToggle, onToast,
 }: {
   m: Member;
+  teamId: string;
   selected: boolean;
   onPerson: (m: Member) => void;
   onToggle: () => void;
   onToast: (msg: string) => void;
 }) {
   const shown = m.skills.slice(0, 3);
+  const isCommander = m.teams.find((t) => t.team_id === teamId)?.role === 'commander';
   return (
     <div className="roster-row" data-selected={selected ? '1' : '0'} onClick={() => onPerson(m)}>
       <Check on={selected} onClick={(e) => { e.stopPropagation(); onToggle(); }} />
@@ -460,7 +463,7 @@ function RosterRow({
         <div className="meta">
           <div className="nm">
             {m.name}
-            {m.is_commander && <span style={{
+            {isCommander && <span style={{
               marginInlineStart: 6, fontSize: 10, padding: '1px 5px',
               background: 'var(--accent-tint)', color: 'var(--accent-deep)',
               borderRadius: 3, fontFamily: 'var(--mono)',

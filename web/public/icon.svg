@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#5A6B3A"/>
+  <text x="256" y="340"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-style="italic"
+        font-size="280"
+        font-weight="400"
+        text-anchor="middle"
+        fill="#EFEBD0"
+        letter-spacing="-12">M6</text>
+</svg>

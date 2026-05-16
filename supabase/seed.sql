@@ -479,3 +479,6 @@ join (values
   ('Alpha perimeter — Outpost Lev',  'Yarden Mualem')
 ) as sa(slot_title, member_name) on sa.slot_title = sl.title and sa.member_name = m.name;
 
+-- ── O. Invite expiry backfill (PRD §7.1 default 7 days)
+update teams set invite_expires_at = now() + interval '7 days' where invite_code is not null;
+

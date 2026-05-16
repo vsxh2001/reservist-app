@@ -3,6 +3,7 @@ import { Button } from './atoms';
 import { Icon } from './Icon';
 import { supabase } from '../lib/supabase';
 import { useSubmitJoinRequest, useTeamByInvite } from '../lib/queries';
+import { isInviteExpired } from '../lib/types';
 
 interface Props {
   code: string;
@@ -74,6 +75,18 @@ export function JoinScreen({ code, onCancel }: Props) {
             <h2 style={{ fontFamily: 'var(--serif)', fontSize: 24, margin: '0 0 6px' }}>Invite not found</h2>
             <p style={{ color: 'var(--ink-soft)', fontSize: 13 }}>
               Code <code>{code}</code> didn't match any active team. Ask a commander for a fresh link.
+            </p>
+            <Button variant="outline" onClick={onCancel}>Back</Button>
+          </>
+        ) : isInviteExpired(team.data) ? (
+          <>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10.5, textTransform: 'uppercase',
+                          letterSpacing: '.08em', color: 'var(--ink-mute)' }}>Invite expired</div>
+            <h2 style={{ fontFamily: 'var(--serif)', fontSize: 24, margin: '4px 0 6px' }}>
+              {team.data.name}
+            </h2>
+            <p style={{ color: 'var(--ink-soft)', fontSize: 13, lineHeight: 1.5 }}>
+              This invite link has expired. Ask your commander to regenerate or renew the team's invite link, then try again.
             </p>
             <Button variant="outline" onClick={onCancel}>Back</Button>
           </>

@@ -73,9 +73,10 @@ A view `deployment_windows_view` exposes per-window counts:
 create view deployment_windows_view as
 select
   w.*,
-  (select count(*)::int from deployment_picks p where p.window_id = w.id and p.state = 'proposed') as proposed_count,
-  (select count(*)::int from deployment_picks p where p.window_id = w.id and p.state = 'approved') as approved_count,
-  (select count(*)::int from deployment_picks p where p.window_id = w.id and p.state = 'rejected') as rejected_count
+  (select count(*)::int from deployment_picks p where p.window_id = w.id and p.state = 'proposed')  as proposed_count,
+  (select count(*)::int from deployment_picks p where p.window_id = w.id and p.state = 'approved')  as approved_count,
+  (select count(*)::int from deployment_picks p where p.window_id = w.id and p.state = 'rejected')  as rejected_count,
+  (select count(*)::int from deployment_picks p where p.window_id = w.id and p.state = 'withdrawn') as withdrawn_count
 from deployment_windows w;
 ```
 

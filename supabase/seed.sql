@@ -484,11 +484,14 @@ update teams set invite_expires_at = now() + interval '7 days' where invite_code
 
 -- ── P. Auth users for integration tests (deterministic UUIDs, RLS tightening)
 -- These rows let tests mint JWTs without a real OAuth flow.
--- Commander: Yoni Avraham — auth UUID a0000000-0000-0000-0000-000000000001
--- Soldier:   Eitan Cohen  — auth UUID b0000000-0000-0000-0000-000000000001
--- Unlinked:  no member    — auth UUID c0000000-0000-0000-0000-000000000001
---            (used by claim_rpc tests; deliberately not linked to any member row
---             until the claim flow links it)
+-- Commander (M6 / Carmel):       Yoni Avraham   — a0000000-0000-0000-0000-000000000001
+-- Soldier   (M6 / Carmel):       Eitan Cohen    — b0000000-0000-0000-0000-000000000001
+-- Unlinked  (no member yet):                    — c0000000-0000-0000-0000-000000000001
+--   (used by claim_rpc tests; the link itself is the test subject.)
+-- Commander (M6 / Bravo-6):      Asaf Doron     — d0000000-0000-0000-0000-000000000001
+-- Commander (Mahlaka 7 / Alpha): Tomer Bachar   — e0000000-0000-0000-0000-000000000001
+--   The d/e users unlock cross-team commander isolation cases in deploy_flow.test.ts
+--   and any future RLS test that needs to assert one team's commander cannot mutate another's.
 insert into auth.users (
   id, instance_id, aud, role, email,
   encrypted_password, email_confirmed_at,
@@ -530,6 +533,28 @@ values
     '{"provider":"email","providers":["email"]}'::jsonb,
     '{}'::jsonb,
     false, '', '', '', ''
+  ),
+  (
+    'd0000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated', 'authenticated',
+    'commander-asaf@test.local',
+    crypt('unused', gen_salt('bf')),
+    now(), now(), now(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{}'::jsonb,
+    false, '', '', '', ''
+  ),
+  (
+    'e0000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated', 'authenticated',
+    'commander-tomer@test.local',
+    crypt('unused', gen_salt('bf')),
+    now(), now(), now(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{}'::jsonb,
+    false, '', '', '', ''
   )
 on conflict (id) do nothing;
 
@@ -540,8 +565,14 @@ where name = 'Yoni Avraham';
 update members set auth_user_id = 'b0000000-0000-0000-0000-000000000001'
 where name = 'Eitan Cohen';
 
+update members set auth_user_id = 'd0000000-0000-0000-0000-000000000001'
+where name = 'Asaf Doron';
+
+update members set auth_user_id = 'e0000000-0000-0000-0000-000000000001'
+where name = 'Tomer Bachar';
+
 -- The 'c0000000-…' auth user is intentionally NOT linked to any member here.
 -- Integration tests for the claim-profile RPC exercise the linking flow itself.
 -- All other seeded members (24 Carmel + 5 Bravo-6 + 5 Alpha-7 = 34 total,
--- minus 2 linked above = 32) remain unclaimed and are candidates for claim_rpc tests.
+-- minus 4 linked above = 30) remain unclaimed and are candidates for claim_rpc tests.
 

@@ -62,8 +62,10 @@ export async function getDivisionId(): Promise<string> {
 }
 
 export async function getTeamId(): Promise<string> {
-  const rows = await rest<{ id: string }[]>('/teams?select=id&limit=1');
-  if (!rows.length) throw new Error('No team seeded. Run `supabase db reset`.');
+  // Pin to the original M6 team by crest so seed expansion (multiple teams)
+  // doesn't change which team the schema tests assert against.
+  const rows = await rest<{ id: string }[]>('/teams?crest=eq.M6&select=id&limit=1');
+  if (!rows.length) throw new Error('No M6 team seeded. Run `supabase db reset`.');
   return rows[0].id;
 }
 

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Icon } from './Icon';
 import { Avatar, Button, SkillChip } from './atoms';
-import { useUpdateSlotState } from '../lib/queries';
+import { BulkCancelModal } from './BulkCancelModal';
+import { useMyMember, useUpdateSlotState } from '../lib/queries';
 import { useAuth } from '../lib/auth';
 import type { Member, Slot, SlotState } from '../lib/types';
 
@@ -41,8 +42,16 @@ const stateBadgeStyle: Record<SlotState, { bg: string; color: string }> = {
 
 export function SlotsScreen({ slots, members, onUrgent, onNewSlot, onSlotClick, onToast }: Props) {
   const { user } = useAuth();
+  const myMember = useMyMember(user?.id);
   const updateState = useUpdateSlotState();
   const [statesOn, setStatesOn] = useState<SlotState[]>(['published']);
+  const [bulkOpen, setBulkOpen] = useState(false);
+
+  // All slots in this screen share a team_id (they're fetched per-team in
+  // Dashboard). Derive it from the first slot so we don't need a new prop.
+  const teamId = slots[0]?.team_id;
+  const isCommanderHere = !!teamId
+    && (myMember.data?.teams.some((t) => t.team_id === teamId && t.role === 'commander') ?? false);
 
   const counts = useMemo(() => {
     const c: Record<SlotState, number> = { draft: 0, published: 0, completed: 0, cancelled: 0 };
@@ -79,9 +88,24 @@ export function SlotsScreen({ slots, members, onUrgent, onNewSlot, onSlotClick, 
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Button variant="outline" icon="plus" onClick={onNewSlot}>New slot</Button>
+          {isCommanderHere && (
+            <Button variant="outline" icon="x" onClick={() => setBulkOpen(true)}>
+              Bulk-cancel…
+            </Button>
+          )}
           <Button variant="urgent" icon="urgent" onClick={onUrgent}>Urgent call-up</Button>
         </div>
       </div>
+
+      {isCommanderHere && teamId && (
+        <BulkCancelModal
+          open={bulkOpen}
+          teamId={teamId}
+          slots={slots}
+          onClose={() => setBulkOpen(false)}
+          onToast={onToast}
+        />
+      )}
 
       <div className="filter-group" role="group" aria-label="Filter by slot state"
            style={{ marginBlockEnd: 14, flexWrap: 'wrap', height: 'auto', minBlockSize: 34 }}>

@@ -9,16 +9,18 @@ import { SettingsScreen } from './components/SettingsScreen';
 import { RequestsScreen } from './components/RequestsScreen';
 import { CalendarScreen } from './components/CalendarScreen';
 import { CommanderDayView } from './components/CommanderDayView';
+import { DivisionAdminScreen } from './components/DivisionAdminScreen';
 import { NewSlotModal } from './components/NewSlotModal';
 import { Button } from './components/atoms';
 import { Icon } from './components/Icon';
 import {
-  useActivity, useApprovedPicksForTeam, useJoinRequests, useMembers, useSkills, useSlots,
+  useActivity, useApprovedPicksForTeam, useJoinRequests, useMembers, useMyMember, useSkills, useSlots,
   useDivision,
 } from './lib/queries';
 import { useActiveTeam } from './lib/team-context';
 import { useRealtime } from './lib/realtime';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from './lib/auth';
 import type { Filters, Member, Screen, Slot } from './lib/types';
 
 const titleFor: Record<Screen, { title: string; em: string }> = {
@@ -30,12 +32,15 @@ const titleFor: Record<Screen, { title: string; em: string }> = {
   reviews:  { title: 'Commander', em: 'reviews' },
   settings: { title: 'Team', em: 'settings' },
   requests: { title: 'Join', em: 'requests' },
+  admin:    { title: 'Division', em: 'admin' },
 };
 
 export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () => void }) {
   const qc = useQueryClient();
+  const { user } = useAuth();
   const { team, teams, setTeamId } = useActiveTeam();
   const division = useDivision();
+  const myMember = useMyMember(user?.id);
   const members = useMembers(team?.id);
   const skills = useSkills(division.data?.id);
   const slots = useSlots(team?.id);
@@ -43,6 +48,8 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
   const joinRequests = useJoinRequests(team?.id);
   const approvedPicks = useApprovedPicksForTeam(team?.id);
   useRealtime(team?.id);
+
+  const isDivisionAdmin = myMember.data?.is_division_admin ?? false;
 
   const [active, setActive] = useState<Screen>('roster');
   const [filters, setFilters] = useState<Filters>({ status: [], skills: [], q: '' });
@@ -118,6 +125,7 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
         onNav={(s) => { setActive(s); setPerson(null); setBellOpen(false); setMobileNavOpen(false); }}
         mobileOpen={mobileNavOpen}
         onCloseMobile={() => setMobileNavOpen(false)}
+        isDivisionAdmin={isDivisionAdmin}
       />
 
       <div className="main">
@@ -238,6 +246,12 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
           )}
           {active === 'day' && (
             <CommanderDayView teamId={team.id} />
+          )}
+          {active === 'admin' && (
+            <DivisionAdminScreen
+              onOpenTeam={(id) => { setTeamId(id); setActive('roster'); }}
+              onToast={showToast}
+            />
           )}
         </div>
 

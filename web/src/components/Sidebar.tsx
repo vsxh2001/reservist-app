@@ -15,11 +15,12 @@ interface Props {
   onNav: (s: Screen) => void;
   mobileOpen: boolean;
   onCloseMobile: () => void;
+  isDivisionAdmin?: boolean;
 }
 
 interface Item { id: Screen; label: string; icon: IconName; count?: number; urgent?: boolean; disabled?: boolean }
 
-export function Sidebar({ team, teams, setTeamId, members, slots, pendingRequests, active, onNav, mobileOpen, onCloseMobile }: Props) {
+export function Sidebar({ team, teams, setTeamId, members, slots, pendingRequests, active, onNav, mobileOpen, onCloseMobile, isDivisionAdmin }: Props) {
   const { user, signOut } = useAuth();
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement | null>(null);
@@ -44,6 +45,7 @@ export function Sidebar({ team, teams, setTeamId, members, slots, pendingRequest
     { id: 'requests', label: 'Join requests', icon: 'users', count: pendingRequests, urgent: pendingRequests > 0 },
     { id: 'reviews',  label: 'Reviews',  icon: 'reviews', disabled: true },
     { id: 'settings', label: 'Settings', icon: 'settings' },
+    ...(isDivisionAdmin ? [{ id: 'admin' as Screen, label: 'Admin', icon: 'shield' as IconName }] : []),
   ];
 
   // Close picker on outside click or Esc.

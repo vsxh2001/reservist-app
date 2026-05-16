@@ -16,6 +16,18 @@ export function useRealtime(unitId: string | undefined) {
         () => qc.invalidateQueries({ queryKey: ['slots'] }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'slot_assignees' },
         () => qc.invalidateQueries({ queryKey: ['slots'] }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deployment_windows', filter: `unit_id=eq.${unitId}` },
+        () => {
+          qc.invalidateQueries({ queryKey: ['deployment-windows'] });
+          qc.invalidateQueries({ queryKey: ['my-deployment-windows'] });
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deployment_picks' },
+        // No unit_id column on deployment_picks, so no filter clause here.
+        () => {
+          qc.invalidateQueries({ queryKey: ['deployment-picks'] });
+          qc.invalidateQueries({ queryKey: ['deployment-windows'] });
+          qc.invalidateQueries({ queryKey: ['my-deployment-windows'] });
+        })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [unitId, qc]);

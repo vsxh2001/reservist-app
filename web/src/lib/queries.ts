@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from './supabase';
-import type { ActivityItem, JoinRequest, Member, MemberSkill, Slot, SlotSkill, SkillLevel, Status, Unit } from './types';
+import type {
+  ActivityItem, DeploymentPick, DeploymentWindow, JoinRequest,
+  Member, MemberSkill, Slot, SlotSkill, SkillLevel, Status, Unit,
+} from './types';
 
 export function useUnit() {
   return useQuery({
@@ -782,5 +785,55 @@ export function useDeleteSkill() {
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['skills'] }); },
+  });
+}
+
+export function useMemberDeploymentWindows(memberId: string | undefined) {
+  return useQuery({
+    queryKey: ['deployment-windows', memberId],
+    enabled: !!memberId,
+    queryFn: async (): Promise<DeploymentWindow[]> => {
+      const { data, error } = await supabase
+        .from('deployment_windows_view')
+        .select('*')
+        .eq('member_id', memberId!)
+        .order('start_date', { ascending: false });
+      if (error) throw error;
+      return data as DeploymentWindow[];
+    },
+  });
+}
+
+export function useMyDeploymentWindows(userId: string | undefined) {
+  // Same query as commander side; kept under a separate key so reservist + commander
+  // can subscribe independently without sharing a cache slot.
+  return useQuery({
+    queryKey: ['my-deployment-windows', userId],
+    enabled: !!userId,
+    queryFn: async (): Promise<DeploymentWindow[]> => {
+      const { data, error } = await supabase
+        .from('deployment_windows_view')
+        .select('*')
+        .eq('member_id', userId!)
+        .order('start_date', { ascending: false });
+      if (error) throw error;
+      return data as DeploymentWindow[];
+    },
+  });
+}
+
+export function useDeploymentPicks(windowId: string | undefined) {
+  return useQuery({
+    queryKey: ['deployment-picks', windowId],
+    enabled: !!windowId,
+    queryFn: async (): Promise<DeploymentPick[]> => {
+      const { data, error } = await supabase
+        .from('deployment_picks')
+        .select('*')
+        .eq('window_id', windowId!)
+        .order('date');
+      if (error) throw error;
+      return data as DeploymentPick[];
+    },
   });
 }

@@ -27,6 +27,9 @@ coverage
 .nyc_output
 .vitest-cache
 
+# TypeScript incremental build info
+*.tsbuildinfo
+
 # Supabase CLI local stack data
 supabase/.branches
 supabase/.temp

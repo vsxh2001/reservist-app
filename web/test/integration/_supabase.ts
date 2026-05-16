@@ -26,7 +26,7 @@ export const ANON_KEY = readEnv('VITE_SUPABASE_ANON_KEY') ?? '';
 
 export async function supabaseReachable(): Promise<boolean> {
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/units?select=id&limit=1`, {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/divisions?select=id&limit=1`, {
       headers: { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}` },
     });
     return r.ok;
@@ -55,9 +55,15 @@ export async function rest<T = unknown>(
   return ct.includes('application/json') ? await res.json() : (undefined as T);
 }
 
-export async function getUnitId(): Promise<string> {
-  const rows = await rest<{ id: string }[]>('/units?select=id&limit=1');
-  if (!rows.length) throw new Error('No unit seeded. Run `supabase db reset`.');
+export async function getDivisionId(): Promise<string> {
+  const rows = await rest<{ id: string }[]>('/divisions?select=id&limit=1');
+  if (!rows.length) throw new Error('No division seeded. Run `supabase db reset`.');
+  return rows[0].id;
+}
+
+export async function getTeamId(): Promise<string> {
+  const rows = await rest<{ id: string }[]>('/teams?select=id&limit=1');
+  if (!rows.length) throw new Error('No team seeded. Run `supabase db reset`.');
   return rows[0].id;
 }
 

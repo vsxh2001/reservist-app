@@ -1,8 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { getMemberIdByName, getUnitId, rest, supabaseReachable } from './_supabase';
+import { getDivisionId, getMemberIdByName, getTeamId, rest, supabaseReachable } from './_supabase';
 
 describe('Supabase mutation roundtrips', () => {
-  let unitId: string;
+  let divisionId: string;
+  let teamId: string;
   let memberId: string;
   let prevStatus: string;
   let prevNote: string | null;
@@ -12,7 +13,8 @@ describe('Supabase mutation roundtrips', () => {
     if (!(await supabaseReachable())) {
       throw new Error('Supabase not reachable. Run `supabase start` first.');
     }
-    unitId = await getUnitId();
+    divisionId = await getDivisionId();
+    teamId = await getTeamId();
     memberId = await getMemberIdByName('Eitan Cohen');
     const before = await rest<{ status: string; status_note: string | null; status_until: string | null }[]>(
       `/members?id=eq.${memberId}&select=status,status_note,status_until`,
@@ -52,7 +54,7 @@ describe('Supabase mutation roundtrips', () => {
       method: 'POST',
       prefer: 'return=representation',
       body: JSON.stringify({
-        unit_id: unitId,
+        team_id: teamId,
         name: 'Test Joiner',
         phone: '+972 50-000-9999',
         skill_names: ['Urban Combat', 'Night Ops'],
@@ -77,7 +79,7 @@ describe('Supabase mutation roundtrips', () => {
       method: 'POST',
       prefer: 'return=representation',
       body: JSON.stringify({
-        unit_id: unitId,
+        team_id: teamId,
         title: 'Integration test slot',
         urgent: false,
         state: 'draft',
@@ -91,7 +93,7 @@ describe('Supabase mutation roundtrips', () => {
     const slotId = slotRow[0].id;
 
     const sk = await rest<{ id: string }[]>(
-      `/skills?unit_id=eq.${unitId}&name=eq.Sniper%20Cert.&select=id`,
+      `/skills?division_id=eq.${divisionId}&name=eq.Sniper%20Cert.&select=id`,
     );
     const skillId = sk[0].id;
 
@@ -114,7 +116,7 @@ describe('Supabase mutation roundtrips', () => {
 
   it('activity_log insert is readable', async () => {
     const before = await rest<{ id: string }[]>(
-      `/activity_log?unit_id=eq.${unitId}&verb=eq.integration%20test&select=id`,
+      `/activity_log?team_id=eq.${teamId}&verb=eq.integration%20test&select=id`,
     );
     for (const r of before) {
       await rest(`/activity_log?id=eq.${r.id}`, { method: 'DELETE' });
@@ -122,7 +124,7 @@ describe('Supabase mutation roundtrips', () => {
     await rest('/activity_log', {
       method: 'POST',
       body: JSON.stringify({
-        unit_id: unitId,
+        team_id: teamId,
         actor_name: 'vitest',
         verb: 'integration test',
         what: 'roundtrip',
@@ -130,12 +132,42 @@ describe('Supabase mutation roundtrips', () => {
       }),
     });
     const after = await rest<{ actor_name: string; what: string }[]>(
-      `/activity_log?unit_id=eq.${unitId}&verb=eq.integration%20test&select=actor_name,what`,
+      `/activity_log?team_id=eq.${teamId}&verb=eq.integration%20test&select=actor_name,what`,
     );
     expect(after.length).toBe(1);
     expect(after[0].actor_name).toBe('vitest');
     expect(after[0].what).toBe('roundtrip');
     // Cleanup
-    await rest(`/activity_log?unit_id=eq.${unitId}&verb=eq.integration%20test`, { method: 'DELETE' });
+    await rest(`/activity_log?team_id=eq.${teamId}&verb=eq.integration%20test`, { method: 'DELETE' });
+  });
+
+  it('team_members round-trip: remove + count + re-add', async () => {
+    // Pick a seeded soldier; remove from team, verify count drop, re-add.
+    const target = await getMemberIdByName('Shai Klein');
+
+    // Capture original role
+    const before = await rest<{ role: string }[]>(
+      `/team_members?team_id=eq.${teamId}&member_id=eq.${target}&select=role`,
+    );
+    expect(before.length).toBe(1);
+    const originalRole = before[0].role;
+
+    try {
+      await rest(`/team_members?team_id=eq.${teamId}&member_id=eq.${target}`, { method: 'DELETE' });
+      const rows = await rest<{ member_count: number }[]>(
+        `/teams_view?id=eq.${teamId}&select=member_count`,
+      );
+      expect(rows[0].member_count).toBe(23);
+    } finally {
+      // Restore original membership
+      await rest('/team_members', {
+        method: 'POST',
+        body: JSON.stringify({ team_id: teamId, member_id: target, role: originalRole }),
+      });
+    }
+    const after = await rest<{ member_count: number }[]>(
+      `/teams_view?id=eq.${teamId}&select=member_count`,
+    );
+    expect(after[0].member_count).toBe(24);
   });
 });

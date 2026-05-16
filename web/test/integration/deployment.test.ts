@@ -1,9 +1,9 @@
 // web/test/integration/deployment.test.ts
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { getMemberIdByName, getUnitId, rest, supabaseReachable } from './_supabase';
+import { getMemberIdByName, getTeamId, rest, supabaseReachable } from './_supabase';
 
 describe('Deployment windows + picks', () => {
-  let unitId: string;
+  let teamId: string;
   let memberId: string;
   let actorId: string;
   let windowId: string | undefined;
@@ -13,14 +13,14 @@ describe('Deployment windows + picks', () => {
     if (!(await supabaseReachable())) {
       throw new Error('Supabase not reachable. Run `supabase start` first.');
     }
-    unitId = await getUnitId();
+    teamId = await getTeamId();
     memberId = await getMemberIdByName('Eitan Cohen');
     actorId = await getMemberIdByName('Yoni Avraham');
     const created = await rest<{ id: string }[]>('/deployment_windows', {
       method: 'POST',
       prefer: 'return=representation',
       body: JSON.stringify({
-        member_id: memberId, unit_id: unitId,
+        member_id: memberId, team_id: teamId,
         label: 'Integration test window',
         start_date: '2030-01-01', end_date: '2030-01-15',
         notes: 'vitest', created_by: actorId,
@@ -40,7 +40,7 @@ describe('Deployment windows + picks', () => {
     if (windowId) {
       await rest(`/deployment_windows?id=eq.${windowId}`, { method: 'DELETE' });
     }
-    await rest(`/activity_log?unit_id=eq.${unitId}&actor_id=eq.${actorId}&verb=in.(approved%20deployment%20day,rejected%20deployment%20day,recorded%20deployment%20day,opened%20deployment%20window,edited%20deployment%20window,closed%20deployment%20window)`, { method: 'DELETE' });
+    await rest(`/activity_log?team_id=eq.${teamId}&actor_id=eq.${actorId}&verb=in.(approved%20deployment%20day,rejected%20deployment%20day,recorded%20deployment%20day,opened%20deployment%20window,edited%20deployment%20window,closed%20deployment%20window)`, { method: 'DELETE' });
   });
 
   it('view reflects seed pick (one proposed)', async () => {
@@ -94,7 +94,7 @@ describe('Deployment windows + picks', () => {
     await expect(rest('/deployment_windows', {
       method: 'POST',
       body: JSON.stringify({
-        member_id: memberId, unit_id: unitId, label: 'bad',
+        member_id: memberId, team_id: teamId, label: 'bad',
         start_date: '2030-02-01', end_date: '2030-01-01', created_by: actorId,
       }),
     })).rejects.toThrow();

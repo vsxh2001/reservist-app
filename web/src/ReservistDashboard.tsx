@@ -3,8 +3,9 @@ import { Avatar, Button, SkillChip, StatusPill } from './components/atoms';
 import { Icon } from './components/Icon';
 import { DeploymentPickScreen } from './components/DeploymentPickScreen';
 import { useAuth } from './lib/auth';
+import { useActiveTeam } from './lib/team-context';
 import {
-  useMyDeploymentWindows, useMyMember, useMySlots, useSelfUpdateStatus, useUnit,
+  useMyDeploymentWindows, useMyMember, useMySlots, useSelfUpdateStatus,
 } from './lib/queries';
 import { useRealtime } from './lib/realtime';
 import { STATUS_LABEL, type DeploymentWindow, type Status } from './lib/types';
@@ -21,10 +22,10 @@ function fmtWhen(iso: string): string {
 
 export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void }) {
   const { user, signOut } = useAuth();
-  const unit = useUnit();
+  const { team, teams, setTeamId } = useActiveTeam();
   const me = useMyMember(user?.id);
-  const slots = useMySlots(user?.id);
-  const windows = useMyDeploymentWindows(user?.id);
+  const slots = useMySlots(me.data?.id);
+  const windows = useMyDeploymentWindows(user?.id, team?.id);
   const [activeWindow, setActiveWindow] = useState<DeploymentWindow | null>(null);
 
   const nextWindow = useMemo(() => {
@@ -36,7 +37,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
       .sort((a, b) => a.start_date.localeCompare(b.start_date))[0] ?? null;
   }, [windows.data]);
 
-  useRealtime(unit.data?.id);
+  useRealtime(team?.id);
 
   const update = useSelfUpdateStatus();
   const [editing, setEditing] = useState(false);
@@ -50,7 +51,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
     setTimeout(() => setToast(null), 2000);
   };
 
-  if (unit.isLoading || me.isLoading) {
+  if (me.isLoading) {
     return <Splash text="Loading…" />;
   }
   if (!me.data) {
@@ -81,14 +82,15 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
       status: pending,
       note: note.trim() ? note.trim() : null,
       until: until || null,
-      unitId: me.data.unit_id,
+      teamId: team?.id ?? '',
       actorName: user.name,
     });
     setEditing(false);
     showToast(`Status set to ${STATUS_LABEL[pending]}`);
   };
 
-  const upcoming = (slots.data ?? []).filter((s) => s.state === 'published' && new Date(s.start_at) >= new Date(Date.now() - 86400000));
+  const teamSlots = (slots.data ?? []).filter((s) => !team || s.team_id === team.id);
+  const upcoming = teamSlots.filter((s) => s.state === 'published' && new Date(s.start_at) >= new Date(Date.now() - 86400000));
   const urgent = upcoming.filter((s) => s.urgent);
   const regular = upcoming.filter((s) => !s.urgent);
 
@@ -101,7 +103,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
       <header className="topbar" style={{ borderBottom: '1px solid var(--line)' }}>
         <h1 className="topbar-title">My <em>duty</em></h1>
         <div className="topbar-actions">
-          {onSwitchView && me.data.is_commander && (
+          {onSwitchView && (
             <Button variant="ghost" size="sm" onClick={onSwitchView} data-tip="Commander view">
               <Icon name="settings" size={13} /> Commander
             </Button>
@@ -113,6 +115,31 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
       </header>
 
       <div className="scroll" style={{ padding: '20px 18px 60px' }}>
+        {/* Team picker — shown when member is on multiple teams */}
+        {teams.length > 1 && (
+          <div style={{
+            display: 'flex', gap: 6, flexWrap: 'wrap',
+            marginBottom: 16,
+          }}>
+            {teams.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTeamId(t.id)}
+                style={{
+                  appearance: 'none', font: 'inherit',
+                  fontSize: 12, padding: '5px 12px', borderRadius: 20,
+                  border: '1px solid ' + (team?.id === t.id ? 'var(--accent)' : 'var(--line-strong)'),
+                  background: team?.id === t.id ? 'var(--accent-tint)' : 'var(--card)',
+                  color: team?.id === t.id ? 'var(--accent-deep)' : 'var(--ink-2)',
+                  cursor: 'pointer', fontWeight: team?.id === t.id ? 600 : 400,
+                }}
+              >
+                {t.name}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Profile card */}
         <section style={{
           display: 'flex', gap: 14, alignItems: 'center',
@@ -128,7 +155,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
               {me.data.name.split(' ')[0]} <em style={{ color: 'var(--ink-soft)' }}>{me.data.name.split(' ').slice(1).join(' ')}</em>
             </div>
             <div style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: 4 }}>
-              {unit.data?.short_name}
+              {team?.name}
             </div>
             <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
               {me.data.skills.map((s) => <SkillChip key={s.name} name={s.name} level={s.level} />)}
@@ -268,7 +295,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
         </Card>
 
         <div style={{ marginTop: 18, fontSize: 11, color: 'var(--ink-mute)', textAlign: 'center', fontFamily: 'var(--mono)' }}>
-          {unit.data?.short_name} · PRD §7.6 reservist view
+          {team?.name} · PRD §7.6 reservist view
         </div>
       </div>
 

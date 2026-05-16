@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './lib/auth';
 import { PrefsProvider } from './lib/prefs';
 import { LoginPicker } from './components/LoginPicker';
+import { ClaimProfileScreen } from './components/ClaimProfileScreen';
 import { JoinScreen } from './components/JoinScreen';
 import { Dashboard } from './Dashboard';
 import { ReservistDashboard } from './ReservistDashboard';
@@ -48,7 +49,7 @@ function RoleRouter() {
 }
 
 function Gate() {
-  const { user } = useAuth();
+  const { status } = useAuth();
   const [joinCode, setJoinCode] = useState<string | null>(() => readJoinCode());
 
   useEffect(() => {
@@ -63,7 +64,13 @@ function Gate() {
       setJoinCode(null);
     }} />;
   }
-  return user ? <RoleRouter /> : <LoginPicker />;
+
+  if (status === 'loading') {
+    return <div style={{ display: 'grid', placeItems: 'center', height: '100%', color: 'var(--ink-soft)' }}>Loading…</div>;
+  }
+  if (status === 'no-session') return <LoginPicker />;
+  if (status === 'no-link') return <ClaimProfileScreen />;
+  return <RoleRouter />;
 }
 
 export default function App() {

@@ -20,7 +20,7 @@ function fmtWhen(iso: string): string {
 }
 
 export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void }) {
-  const { user, logout } = useAuth();
+  const { user, signOut } = useAuth();
   const unit = useUnit();
   const me = useMyMember(user?.id);
   const slots = useMySlots(user?.id);
@@ -106,7 +106,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
               <Icon name="settings" size={13} /> Commander
             </Button>
           )}
-          <Button variant="ghost" size="icon" onClick={logout} data-tip="Sign out">
+          <Button variant="ghost" size="icon" onClick={() => { void signOut(); }} data-tip="Sign out">
             <Icon name="x" size={15} />
           </Button>
         </div>

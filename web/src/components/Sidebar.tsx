@@ -18,7 +18,7 @@ interface Props {
 interface Item { id: Screen; label: string; icon: IconName; count?: number; urgent?: boolean; disabled?: boolean }
 
 export function Sidebar({ unit, members, slots, pendingRequests, active, onNav, mobileOpen, onCloseMobile }: Props) {
-  const { user, logout } = useAuth();
+  const { user, signOut } = useAuth();
   const counts = useMemo(() => {
     const by: Record<Status, number> = { available: 0, standby: 0, released: 0, unavailable: 0 };
     members.forEach((m) => { by[m.status] = (by[m.status] || 0) + 1; });
@@ -77,7 +77,7 @@ export function Sidebar({ unit, members, slots, pendingRequests, active, onNav, 
         {nav2.map(renderLink)}
       </div>
 
-      <div className="sb-me" onClick={logout} title="Sign out">
+      <div className="sb-me" onClick={() => { void signOut(); }} title="Sign out">
         <Avatar initials={user?.name.split(' ').map((p) => p[0]).slice(0, 2).join('') ?? '?'} tone={0} status="available" />
         <div className="sb-me-meta">
           <div className="sb-me-name">{user?.name ?? 'Unknown'}</div>

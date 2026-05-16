@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Avatar, Button, StatusPill } from './atoms';
+import { Icon } from './Icon';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import type { Status } from '../lib/types';
+
+const MOCK_FLAG = import.meta.env.VITE_MOCK_AUTH === '1';
 
 interface PickMember {
   id: string;
@@ -15,12 +18,14 @@ interface PickMember {
 }
 
 export function LoginPicker() {
+  const { signInWithGoogle, signInAsMock } = useAuth();
   const [list, setList] = useState<PickMember[] | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const [q, setQ] = useState('');
-  const { login } = useAuth();
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    if (!MOCK_FLAG) return;
     supabase.from('members_view')
       .select('id, name, initials, tone, is_commander, role, status')
       .order('is_commander', { ascending: false })
@@ -41,9 +46,15 @@ export function LoginPicker() {
   const commanders = (filtered ?? []).filter((m) => m.is_commander);
   const reservists = (filtered ?? []).filter((m) => !m.is_commander);
 
-  const proceed = () => {
+  const proceedMock = () => {
     const c = list?.find((x) => x.id === picked);
-    if (c) login({ id: c.id, name: c.name });
+    if (c) signInAsMock({ id: c.id, name: c.name });
+  };
+
+  const startGoogle = async () => {
+    setBusy(true);
+    try { await signInWithGoogle(); }
+    finally { setBusy(false); }
   };
 
   return (
@@ -75,40 +86,76 @@ export function LoginPicker() {
             margin: '0 0 4px', letterSpacing: '-.01em',
           }}>Mahlaka 6 — <em style={{ color: 'var(--ink-soft)' }}>Carmel</em></h1>
           <div style={{ fontSize: 12.5, color: 'var(--ink-soft)' }}>
-            Pick yourself to continue (mock login — real OTP coming).
+            Sign in to continue.
           </div>
         </div>
 
-        <div className="search" style={{ maxWidth: '100%', marginBottom: 10 }}>
-          <svg width={14} height={14} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6}
-               strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-mute)' }}>
-            <circle cx="7.5" cy="7.5" r="4.8"/><path d="M11 11l3 3"/>
-          </svg>
-          <input placeholder="Search by name or role" value={q} onChange={(e) => setQ(e.target.value)} />
-        </div>
+        <Button variant="primary" disabled={busy} onClick={startGoogle}
+                style={{ width: '100%', justifyContent: 'center', height: 42 }}>
+          <GoogleMark/> Continue with Google
+        </Button>
 
-        {list === null ? (
-          <div style={{ textAlign: 'center', color: 'var(--ink-soft)', fontSize: 13 }}>Loading…</div>
-        ) : list.length === 0 ? (
-          <div style={{ textAlign: 'center', color: 'var(--ink-soft)', fontSize: 13 }}>
-            No members. Did the seed run?
-          </div>
-        ) : (
-          <div style={{ maxHeight: 420, overflow: 'auto', margin: '0 -4px' }}>
-            {commanders.length > 0 && <SectionHeader label="Commanders" />}
-            <List members={commanders} picked={picked} setPicked={setPicked} />
-            {reservists.length > 0 && <SectionHeader label={`Reservists (${reservists.length})`} />}
-            <List members={reservists} picked={picked} setPicked={setPicked} />
+        {!MOCK_FLAG && (
+          <div style={{
+            marginTop: 14, fontSize: 11.5, color: 'var(--ink-soft)',
+            textAlign: 'center', lineHeight: 1.5,
+          }}>
+            First sign-in opens a screen to claim your member profile.
           </div>
         )}
 
-        <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
-          <Button variant="primary" icon="check" disabled={!picked} onClick={proceed}>
-            Continue
-          </Button>
-        </div>
+        {MOCK_FLAG && (
+          <>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              margin: '18px 0 14px', color: 'var(--ink-mute)', fontSize: 11,
+              fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '.08em',
+            }}>
+              <div style={{ flex: 1, height: 1, background: 'var(--line)' }}/>
+              dev — mock login
+              <div style={{ flex: 1, height: 1, background: 'var(--line)' }}/>
+            </div>
+
+            <div className="search" style={{ maxWidth: '100%', marginBottom: 10 }}>
+              <Icon name="search" size={14} />
+              <input placeholder="Search by name or role" value={q} onChange={(e) => setQ(e.target.value)} />
+            </div>
+
+            {list === null ? (
+              <div style={{ textAlign: 'center', color: 'var(--ink-soft)', fontSize: 13 }}>Loading…</div>
+            ) : list.length === 0 ? (
+              <div style={{ textAlign: 'center', color: 'var(--ink-soft)', fontSize: 13 }}>
+                No members. Did the seed run?
+              </div>
+            ) : (
+              <div style={{ maxHeight: 320, overflow: 'auto', margin: '0 -4px' }}>
+                {commanders.length > 0 && <SectionHeader label="Commanders" />}
+                <List members={commanders} picked={picked} setPicked={setPicked} />
+                {reservists.length > 0 && <SectionHeader label={`Reservists (${reservists.length})`} />}
+                <List members={reservists} picked={picked} setPicked={setPicked} />
+              </div>
+            )}
+
+            <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button variant="outline" icon="check" disabled={!picked} onClick={proceedMock}>
+                Continue as mock
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </div>
+  );
+}
+
+function GoogleMark() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
+      <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.49h4.84c-.21 1.12-.84 2.07-1.79 2.71v2.25h2.9c1.7-1.56 2.69-3.86 2.69-6.61z"/>
+      <path fill="#34A853" d="M9 18c2.43 0 4.47-.81 5.96-2.18l-2.9-2.25c-.81.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.96v2.32A9 9 0 0 0 9 18z"/>
+      <path fill="#FBBC05" d="M3.95 10.71A5.41 5.41 0 0 1 3.66 9c0-.59.1-1.17.29-1.71V4.97H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.03l2.99-2.32z"/>
+      <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58A9 9 0 0 0 9 0 9 9 0 0 0 .96 4.97l2.99 2.32C4.66 5.16 6.65 3.58 9 3.58z"/>
+    </svg>
   );
 }
 
@@ -141,7 +188,7 @@ function List({ members, picked, setPicked }: { members: PickMember[]; picked: s
             <div style={{ fontWeight: 500, fontSize: 14 }}>
               {m.name}
               {m.is_commander && <span style={{
-                marginLeft: 6, fontSize: 10, padding: '1px 5px',
+                marginInlineStart: 6, fontSize: 10, padding: '1px 5px',
                 background: 'var(--accent-tint)', color: 'var(--accent-deep)',
                 borderRadius: 3, fontFamily: 'var(--mono)',
                 textTransform: 'uppercase', letterSpacing: '.06em',

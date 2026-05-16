@@ -1,17 +1,26 @@
 import { useEffect, useState } from 'react';
 import { Icon } from './Icon';
 import { Avatar, Button, IconButton, SkillChip, StatusPill } from './atoms';
-import { STATUS_LABEL, type Member, type Status } from '../lib/types';
-import { useDeleteMember, usePromoteMember, useUpdateStatus } from '../lib/queries';
+import {
+  SKILL_LEVELS, SKILL_LEVEL_LABEL,
+  STATUS_LABEL,
+  type Member, type SkillLevel, type Status,
+} from '../lib/types';
+import {
+  useDeleteMember, usePromoteMember,
+  useRemoveMemberSkill, useSetMemberSkill,
+  useUpdateStatus,
+} from '../lib/queries';
 import { useAuth } from '../lib/auth';
 
 interface Props {
   person: Member;
+  allSkills: string[];
   onClose: () => void;
   onToast: (msg: string) => void;
 }
 
-export function PersonDrawer({ person, onClose, onToast }: Props) {
+export function PersonDrawer({ person, allSkills, onClose, onToast }: Props) {
   const { user } = useAuth();
   const [tab, setTab] = useState<'profile' | 'activity' | 'reviews'>('profile');
   const [editingStatus, setEditingStatus] = useState(false);
@@ -21,7 +30,10 @@ export function PersonDrawer({ person, onClose, onToast }: Props) {
   const updateStatus = useUpdateStatus();
   const promote = usePromoteMember();
   const remove = useDeleteMember();
+  const setSkill = useSetMemberSkill();
+  const removeSkill = useRemoveMemberSkill();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editingSkills, setEditingSkills] = useState(false);
 
   useEffect(() => {
     setTab('profile');
@@ -199,13 +211,41 @@ export function PersonDrawer({ person, onClose, onToast }: Props) {
               </div>
 
               <div className="drawer-section">
-                <h4>Skills <span className="edit">Edit</span></h4>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {person.skills.map((s) => <SkillChip key={s.name} name={s.name} level={s.level} />)}
-                  <span className="tag" style={{ cursor: 'pointer', borderStyle: 'dashed', color: 'var(--ink-soft)' }}>
-                    + Add
+                <h4>Skills
+                  <span className="edit" onClick={() => setEditingSkills((v) => !v)}>
+                    {editingSkills ? 'Done' : 'Edit'}
                   </span>
-                </div>
+                </h4>
+                {!editingSkills ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {person.skills.length === 0 && (
+                      <span style={{ fontSize: 12.5, color: 'var(--ink-soft)', fontStyle: 'italic' }}>No skills tagged.</span>
+                    )}
+                    {person.skills.map((s) => <SkillChip key={s.name} name={s.name} level={s.level} />)}
+                  </div>
+                ) : (
+                  <SkillEditor
+                    held={person.skills}
+                    catalog={allSkills}
+                    busy={setSkill.isPending || removeSkill.isPending}
+                    onSet={(name, level) => {
+                      if (!user) return;
+                      setSkill.mutate({
+                        memberId: person.id, unitId: person.unit_id,
+                        skillName: name, level,
+                        actorId: user.id, actorName: user.name, memberName: person.name,
+                      }, { onSuccess: () => onToast(`${name} → ${SKILL_LEVEL_LABEL[level]}`) });
+                    }}
+                    onRemove={(name) => {
+                      if (!user) return;
+                      removeSkill.mutate({
+                        memberId: person.id, unitId: person.unit_id,
+                        skillName: name,
+                        actorId: user.id, actorName: user.name, memberName: person.name,
+                      }, { onSuccess: () => onToast(`Removed ${name}`) });
+                    }}
+                  />
+                )}
               </div>
 
               <div className="drawer-section">
@@ -322,5 +362,71 @@ export function PersonDrawer({ person, onClose, onToast }: Props) {
         </div>
       </div>
     </>
+  );
+}
+
+function SkillEditor({
+  held, catalog, busy, onSet, onRemove,
+}: {
+  held: { name: string; level: SkillLevel }[];
+  catalog: string[];
+  busy: boolean;
+  onSet: (name: string, level: SkillLevel) => void;
+  onRemove: (name: string) => void;
+}) {
+  const heldMap = new Map(held.map((s) => [s.name, s.level]));
+  const missing = catalog.filter((n) => !heldMap.has(n));
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {held.map((s) => (
+        <div key={s.name} style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '6px 8px', borderRadius: 7,
+          background: 'var(--paper-deep)', border: '1px solid var(--line-soft)',
+        }}>
+          <span style={{ flex: 1, fontSize: 12.5, fontWeight: 500 }}>{s.name}</span>
+          <div className="filter-group" style={{ height: 28 }}>
+            {SKILL_LEVELS.map((lvl) => (
+              <button key={lvl} data-on={s.level === lvl ? '1' : '0'}
+                      disabled={busy}
+                      style={{ height: 22, padding: '0 8px', fontSize: 11 }}
+                      onClick={() => s.level !== lvl && onSet(s.name, lvl)}>
+                {SKILL_LEVEL_LABEL[lvl]}
+              </button>
+            ))}
+          </div>
+          <button className="action-btn"
+                  disabled={busy}
+                  onClick={() => onRemove(s.name)}
+                  title="Remove">
+            <Icon name="x" size={12}/>
+          </button>
+        </div>
+      ))}
+      {missing.length > 0 && (
+        <div>
+          <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginBottom: 6, fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '.04em' }}>
+            Add skill
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {missing.map((name) => (
+              <button key={name}
+                      disabled={busy}
+                      onClick={() => onSet(name, 'intermediate')}
+                      style={{
+                        appearance: 'none', font: 'inherit',
+                        fontSize: 11, padding: '3px 8px', borderRadius: 4,
+                        border: '1px dashed var(--line-strong)',
+                        background: 'var(--card)',
+                        color: 'var(--ink-2)',
+                        cursor: 'pointer', fontWeight: 500,
+                      }}>
+                + {name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

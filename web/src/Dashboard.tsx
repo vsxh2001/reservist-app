@@ -45,7 +45,7 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
   const [person, setPerson] = useState<Member | null>(null);
   const [slotDrawer, setSlotDrawer] = useState<Slot | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [modal, setModal] = useState<{ open: boolean; urgent: boolean; preselected: string[] }>({
+  const [modal, setModal] = useState<{ open: boolean; urgent: boolean; preselected: string[]; cloneFrom?: Slot | null }>({
     open: false, urgent: false, preselected: [],
   });
   const [bellOpen, setBellOpen] = useState(false);
@@ -230,6 +230,7 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
         {person && (
           <PersonDrawer
             person={person}
+            allSkills={skills.data ?? []}
             onClose={() => setPerson(null)}
             onToast={showToast}
           />
@@ -242,6 +243,10 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
             skills={skills.data ?? []}
             allSlots={slots.data ?? []}
             onClose={() => setSlotDrawer(null)}
+            onClone={(s) => {
+              setSlotDrawer(null);
+              setModal({ open: true, urgent: s.urgent, preselected: [], cloneFrom: s });
+            }}
             onToast={showToast}
           />
         )}
@@ -254,6 +259,7 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
           slots={slots.data ?? []}
           unitId={unit.data.id}
           preselected={modal.preselected}
+          cloneFrom={modal.cloneFrom ?? null}
           onClose={() => setModal({ open: false, urgent: false, preselected: [] })}
           onToast={showToast}
         />

@@ -1,6 +1,30 @@
 import { useMemo, useState } from 'react';
 import { Icon } from './Icon';
+import { Button } from './atoms';
 import type { ActivityItem } from '../lib/types';
+
+function csvEscape(v: string | null | undefined): string {
+  const s = v ?? '';
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function downloadCSV(items: ActivityItem[]): void {
+  const header = ['timestamp', 'actor', 'verb', 'what', 'tone'].join(',');
+  const rows = items.map((a) =>
+    [a.created_at, a.actor_name, a.verb, a.what ?? '', a.tone ?? ''].map(csvEscape).join(','),
+  );
+  const csv = [header, ...rows].join('\n') + '\n';
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `activity-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 type RangeKey = 'today' | '7d' | '30d' | 'all';
 type Category = 'status' | 'slot' | 'membership' | 'join' | 'other';
@@ -123,6 +147,11 @@ export function ActivityScreen({ items }: { items: ActivityItem[] }) {
           <span style={{ marginInlineStart: 'auto', fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-soft)' }}>
             {filtered.length} / {items.length}
           </span>
+          <Button size="sm" variant="ghost" icon="copy"
+                  disabled={filtered.length === 0}
+                  onClick={() => downloadCSV(filtered)}>
+            Export CSV
+          </Button>
         </div>
       </div>
 

@@ -18,6 +18,7 @@ interface Props {
   slots: Slot[];
   unitId: string;
   preselected: string[];
+  cloneFrom?: Slot | null;
   onClose: () => void;
   onToast: (msg: string) => void;
 }
@@ -32,7 +33,7 @@ const cycleNext = (cur: SkillLevel | undefined): SkillLevel | undefined => {
 
 export function NewSlotModal({
   open, urgent: defaultUrgent, members, skills: allSkills, slots, unitId,
-  preselected, onClose, onToast,
+  preselected, cloneFrom, onClose, onToast,
 }: Props) {
   const { user } = useAuth();
   const createSlot = useCreateSlot();
@@ -47,15 +48,32 @@ export function NewSlotModal({
   const [picked, setPicked] = useState<string[]>(preselected);
 
   useEffect(() => {
-    if (open) {
-      setUrgent(defaultUrgent);
-      setTitle(defaultUrgent ? 'Northern QRF — Sector 4' : '');
-      setLocation(defaultUrgent ? 'Tzomet Bilu staging' : '');
-      setSkillReqs(defaultUrgent ? { 'Night Ops': 'intermediate' } : {});
-      setNeeded(defaultUrgent ? 6 : 3);
+    if (!open) return;
+    if (cloneFrom) {
+      setUrgent(cloneFrom.urgent);
+      setTitle(cloneFrom.title);
+      setLocation(cloneFrom.location ?? '');
+      const startD = new Date(cloneFrom.start_at);
+      const endD = cloneFrom.end_at ? new Date(cloneFrom.end_at) : new Date(startD.getTime() + 3600_000);
+      const today = new Date();
+      // Keep time-of-day, shift date to today so the clone is forward-dated by default.
+      setDate(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`);
+      setStart(`${String(startD.getHours()).padStart(2, '0')}:${String(startD.getMinutes()).padStart(2, '0')}`);
+      setEnd(`${String(endD.getHours()).padStart(2, '0')}:${String(endD.getMinutes()).padStart(2, '0')}`);
+      const reqs: SkillReqMap = {};
+      for (const s of cloneFrom.skills) reqs[s.name] = s.min_level;
+      setSkillReqs(reqs);
+      setNeeded(cloneFrom.needed);
       setPicked(preselected);
+      return;
     }
-  }, [open, defaultUrgent, preselected]);
+    setUrgent(defaultUrgent);
+    setTitle(defaultUrgent ? 'Northern QRF — Sector 4' : '');
+    setLocation(defaultUrgent ? 'Tzomet Bilu staging' : '');
+    setSkillReqs(defaultUrgent ? { 'Night Ops': 'intermediate' } : {});
+    setNeeded(defaultUrgent ? 6 : 3);
+    setPicked(preselected);
+  }, [open, defaultUrgent, preselected, cloneFrom]);
 
   if (!open) return null;
 

@@ -447,6 +447,74 @@ export function useUpdateStatus() {
   });
 }
 
+export function useSetMemberSkill() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      memberId: string; unitId: string; skillName: string; level: SkillLevel;
+      actorId: string; actorName: string; memberName: string;
+    }) => {
+      const { data: skill, error: sErr } = await supabase
+        .from('skills').select('id')
+        .eq('unit_id', vars.unitId).eq('name', vars.skillName).maybeSingle();
+      if (sErr) throw sErr;
+      if (!skill) throw new Error(`Skill "${vars.skillName}" not in this unit`);
+      const { error } = await supabase
+        .from('member_skills')
+        .upsert({ member_id: vars.memberId, skill_id: skill.id, level: vars.level },
+                { onConflict: 'member_id,skill_id' });
+      if (error) throw error;
+      await supabase.from('activity_log').insert({
+        unit_id: vars.unitId,
+        actor_id: vars.actorId,
+        actor_name: vars.actorName,
+        verb: 'graded',
+        what: `${vars.memberName}'s ${vars.skillName} at ${vars.level}`,
+        tone: 'accent',
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['members'] });
+      qc.invalidateQueries({ queryKey: ['my-member'] });
+      qc.invalidateQueries({ queryKey: ['activity'] });
+    },
+  });
+}
+
+export function useRemoveMemberSkill() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      memberId: string; unitId: string; skillName: string;
+      actorId: string; actorName: string; memberName: string;
+    }) => {
+      const { data: skill } = await supabase
+        .from('skills').select('id')
+        .eq('unit_id', vars.unitId).eq('name', vars.skillName).maybeSingle();
+      if (!skill) return;
+      const { error } = await supabase
+        .from('member_skills')
+        .delete()
+        .eq('member_id', vars.memberId)
+        .eq('skill_id', skill.id);
+      if (error) throw error;
+      await supabase.from('activity_log').insert({
+        unit_id: vars.unitId,
+        actor_id: vars.actorId,
+        actor_name: vars.actorName,
+        verb: 'removed skill',
+        what: `${vars.memberName}'s ${vars.skillName}`,
+        tone: null,
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['members'] });
+      qc.invalidateQueries({ queryKey: ['my-member'] });
+      qc.invalidateQueries({ queryKey: ['activity'] });
+    },
+  });
+}
+
 export function useDeleteMember() {
   const qc = useQueryClient();
   return useMutation({

@@ -16,6 +16,7 @@ interface Props {
   skills: string[];
   allSlots: Slot[];
   onClose: () => void;
+  onClone: (slot: Slot) => void;
   onToast: (msg: string) => void;
 }
 
@@ -40,7 +41,7 @@ function isoToLocalTime(iso: string): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-export function SlotDrawer({ slot, members, skills: allSkills, allSlots, onClose, onToast }: Props) {
+export function SlotDrawer({ slot, members, skills: allSkills, allSlots, onClose, onClone, onToast }: Props) {
   const { user } = useAuth();
   const assign = useAssignToSlot();
   const unassign = useUnassignFromSlot();
@@ -445,33 +446,37 @@ export function SlotDrawer({ slot, members, skills: allSkills, allSlots, onClose
                 )}
               </div>
 
-              {(slot.state === 'published' || slot.state === 'draft') && (
-                <div className="drawer-section">
-                  <h4>Actions</h4>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {slot.state === 'draft' && (
-                      <Button size="sm" variant="primary" icon="check"
-                              disabled={updateState.isPending}
-                              onClick={() => setState('published')}>
-                        Publish
-                      </Button>
-                    )}
-                    {slot.state === 'published' && (
-                      <Button size="sm" variant="outline" icon="check"
-                              disabled={updateState.isPending}
-                              onClick={() => setState('completed')}>
-                        Mark complete
-                      </Button>
-                    )}
+              <div className="drawer-section">
+                <h4>Actions</h4>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {slot.state === 'draft' && (
+                    <Button size="sm" variant="primary" icon="check"
+                            disabled={updateState.isPending}
+                            onClick={() => setState('published')}>
+                      Publish
+                    </Button>
+                  )}
+                  {slot.state === 'published' && (
+                    <Button size="sm" variant="outline" icon="check"
+                            disabled={updateState.isPending}
+                            onClick={() => setState('completed')}>
+                      Mark complete
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" icon="copy"
+                          onClick={() => onClone(slot)}>
+                    Clone
+                  </Button>
+                  {(slot.state === 'published' || slot.state === 'draft') && (
                     <Button size="sm" variant="ghost" icon="x"
                             disabled={updateState.isPending}
                             onClick={() => setState('cancelled')}
                             style={{ color: 'var(--urgent-deep)' }}>
                       Cancel slot
                     </Button>
-                  </div>
+                  )}
                 </div>
-              )}
+              </div>
             </>
           )}
         </div>

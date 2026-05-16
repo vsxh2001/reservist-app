@@ -6,7 +6,8 @@ describe('Deployment windows + picks', () => {
   let unitId: string;
   let memberId: string;
   let actorId: string;
-  let windowId: string;
+  let windowId: string | undefined;
+  let pickId: string | undefined;
 
   beforeAll(async () => {
     if (!(await supabaseReachable())) {
@@ -26,78 +27,76 @@ describe('Deployment windows + picks', () => {
       }),
     });
     windowId = created[0].id;
+
+    const seededPick = await rest<{ id: string }[]>('/deployment_picks', {
+      method: 'POST',
+      prefer: 'return=representation',
+      body: JSON.stringify({ window_id: windowId, date: '2030-01-05', state: 'proposed' }),
+    });
+    pickId = seededPick[0].id;
   });
 
   afterAll(async () => {
-    await rest(`/deployment_windows?id=eq.${windowId}`, { method: 'DELETE' });
-    // Clean up any activity_log rows we generated
+    if (windowId) {
+      await rest(`/deployment_windows?id=eq.${windowId}`, { method: 'DELETE' });
+    }
     await rest(`/activity_log?unit_id=eq.${unitId}&actor_id=eq.${actorId}&verb=in.(approved%20deployment%20day,rejected%20deployment%20day,recorded%20deployment%20day,opened%20deployment%20window,edited%20deployment%20window,closed%20deployment%20window)`, { method: 'DELETE' });
   });
 
-  it('view returns zero counts initially', async () => {
+  it('view reflects seed pick (one proposed)', async () => {
     const rows = await rest<{ proposed_count: number; approved_count: number; rejected_count: number; withdrawn_count: number }[]>(
       `/deployment_windows_view?id=eq.${windowId}&select=proposed_count,approved_count,rejected_count,withdrawn_count`,
     );
-    expect(rows[0]).toEqual({ proposed_count: 0, approved_count: 0, rejected_count: 0, withdrawn_count: 0 });
+    expect(rows[0]).toEqual({ proposed_count: 1, approved_count: 0, rejected_count: 0, withdrawn_count: 0 });
   });
 
-  it('proposes a pick and view increments proposed_count', async () => {
+  it('proposes another pick on a different date and view increments proposed_count', async () => {
     await rest('/deployment_picks', {
       method: 'POST',
-      body: JSON.stringify({ window_id: windowId, date: '2030-01-05', state: 'proposed' }),
+      body: JSON.stringify({ window_id: windowId, date: '2030-01-06', state: 'proposed' }),
     });
     const rows = await rest<{ proposed_count: number }[]>(`/deployment_windows_view?id=eq.${windowId}&select=proposed_count`);
-    expect(rows[0].proposed_count).toBe(1);
+    expect(rows[0].proposed_count).toBe(2);
   });
 
   it('rejects unique constraint on (window_id, date)', async () => {
-    let threw = false;
-    try {
-      await rest('/deployment_picks', {
-        method: 'POST',
-        body: JSON.stringify({ window_id: windowId, date: '2030-01-05', state: 'proposed' }),
-      });
-    } catch {
-      threw = true;
-    }
-    expect(threw).toBe(true);
+    await expect(rest('/deployment_picks', {
+      method: 'POST',
+      body: JSON.stringify({ window_id: windowId, date: '2030-01-05', state: 'proposed' }),
+    })).rejects.toThrow();
   });
 
-  it('approves the pick and counts shift', async () => {
-    await rest(`/deployment_picks?window_id=eq.${windowId}&date=eq.2030-01-05`, {
+  it('approves the seeded pick and counts shift', async () => {
+    await rest(`/deployment_picks?id=eq.${pickId}`, {
       method: 'PATCH',
       body: JSON.stringify({ state: 'approved', resolved_at: new Date().toISOString(), resolved_by: actorId }),
     });
     const rows = await rest<{ proposed_count: number; approved_count: number }[]>(
       `/deployment_windows_view?id=eq.${windowId}&select=proposed_count,approved_count`,
     );
-    expect(rows[0]).toEqual({ proposed_count: 0, approved_count: 1 });
+    expect(rows[0]).toEqual({ proposed_count: 1, approved_count: 1 });
   });
 
-  it('closing a window preserves picks', async () => {
+  it('closing a window preserves picks with their states', async () => {
     await rest(`/deployment_windows?id=eq.${windowId}`, {
       method: 'PATCH',
       body: JSON.stringify({ state: 'closed' }),
     });
-    const picks = await rest<{ state: string }[]>(
-      `/deployment_picks?window_id=eq.${windowId}&select=state`,
+    const picks = await rest<{ date: string; state: string }[]>(
+      `/deployment_picks?window_id=eq.${windowId}&select=date,state&order=date`,
     );
     expect(picks.length).toBeGreaterThan(0);
+    // Seeded pick is now approved, the other is still proposed.
+    expect(picks.find((p) => p.date === '2030-01-05')?.state).toBe('approved');
   });
 
   it('CHECK constraint rejects end_date before start_date', async () => {
-    let threw = false;
-    try {
-      await rest('/deployment_windows', {
-        method: 'POST',
-        body: JSON.stringify({
-          member_id: memberId, unit_id: unitId, label: 'bad',
-          start_date: '2030-02-01', end_date: '2030-01-01', created_by: actorId,
-        }),
-      });
-    } catch {
-      threw = true;
-    }
-    expect(threw).toBe(true);
+    await expect(rest('/deployment_windows', {
+      method: 'POST',
+      body: JSON.stringify({
+        member_id: memberId, unit_id: unitId, label: 'bad',
+        start_date: '2030-02-01', end_date: '2030-01-01', created_by: actorId,
+      }),
+    })).rejects.toThrow();
   });
 });

@@ -11,6 +11,9 @@ import {
   useCreateTeam,
   useUpdateTeam,
   useSetDivisionAdmin,
+  useSkills,
+  useAddSkill,
+  useDeleteSkill,
 } from '../lib/queries';
 import { useActiveTeam } from '../lib/team-context';
 import { useMyMember } from '../lib/queries';
@@ -171,6 +174,24 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+function EditableTag({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <span className="tag" style={{ display: 'inline-flex', gap: 4, paddingRight: 4 }}>
+      {label}
+      <button
+        onClick={onRemove}
+        title="Remove"
+        style={{
+          appearance: 'none', border: 0, background: 'transparent',
+          padding: 0, marginLeft: 2, cursor: 'pointer', color: 'var(--ink-mute)',
+          display: 'grid', placeItems: 'center',
+        }}>
+        <Icon name="x" size={10} />
+      </button>
+    </span>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Main screen
 // ---------------------------------------------------------------------------
@@ -192,9 +213,14 @@ export function DivisionAdminScreen({ onOpenTeam, onToast }: Props) {
   const updateTeam = useUpdateTeam();
   const setAdmin = useSetDivisionAdmin();
 
+  const skills = useSkills(divisionId);
+  const addSkill = useAddSkill();
+  const delSkill = useDeleteSkill();
+
   const [newProjectName, setNewProjectName] = useState('');
   const [addingProject, setAddingProject] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [newSkill, setNewSkill] = useState('');
 
   // First team in division to anchor activity_log for division-level ops.
   const firstTeamId = (teamsForDiv.data ?? [])[0]?.id ?? (allTeams[0]?.id ?? '');
@@ -255,6 +281,28 @@ export function DivisionAdminScreen({ onOpenTeam, onToast }: Props) {
       actorId, actorName,
     });
     onToast(`Team renamed to "${name}"`);
+  };
+
+  const handleAddSkill = async () => {
+    const n = newSkill.trim();
+    if (!n || !divisionId) return;
+    try {
+      await addSkill.mutateAsync({ divisionId, name: n });
+      setNewSkill('');
+      onToast(`Skill "${n}" added`);
+    } catch (e: any) {
+      onToast(e.message ?? 'Failed to add skill');
+    }
+  };
+
+  const handleDelSkill = async (name: string) => {
+    if (!divisionId) return;
+    try {
+      await delSkill.mutateAsync({ divisionId, name });
+      onToast(`Skill "${name}" removed`);
+    } catch (e: any) {
+      onToast(e.message ?? 'Failed to remove skill');
+    }
   };
 
   const handleToggleAdmin = async (memberId: string, memberName: string, currentlyAdmin: boolean) => {
@@ -325,6 +373,42 @@ export function DivisionAdminScreen({ onOpenTeam, onToast }: Props) {
             </div>
           </div>
         )}
+      </Card>
+
+      {/* Skills */}
+      <Card>
+        <SectionLabel>Skill tags ({(skills.data ?? []).length}) · division-wide</SectionLabel>
+        <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginBottom: 10 }}>
+          Skills are shared across all teams in this division.
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+          {(skills.data ?? []).map((s) => (
+            <EditableTag key={s} label={s} onRemove={() => void handleDelSkill(s)} />
+          ))}
+          {(skills.data ?? []).length === 0 && (
+            <div style={{ fontSize: 12.5, color: 'var(--ink-soft)' }}>No skills yet.</div>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <input
+            className="input"
+            placeholder="New skill tag"
+            value={newSkill}
+            onChange={(e) => setNewSkill(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') void handleAddSkill(); }}
+            style={{ flex: 1 }}
+            disabled={!divisionId || addSkill.isPending}
+          />
+          <Button
+            size="sm"
+            variant="primary"
+            icon="plus"
+            disabled={!newSkill.trim() || !divisionId || addSkill.isPending}
+            onClick={() => void handleAddSkill()}
+          >
+            Add skill
+          </Button>
+        </div>
       </Card>
 
       {/* Projects & Teams */}

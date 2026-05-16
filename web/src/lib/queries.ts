@@ -962,7 +962,12 @@ export function useDeleteMember() {
       memberId: string; memberName: string;
       actorId: string; actorName: string; teamId: string;
     }) => {
-      const { error } = await supabase.from('members').delete().eq('id', vars.memberId);
+      // Purge the member row AND any linked auth.users row in one atomic,
+      // authorization-gated server-side call. The anon client cannot touch
+      // auth.users directly, so we delegate to a SECURITY DEFINER function.
+      const { error } = await supabase.rpc('delete_member_full', {
+        p_member_id: vars.memberId,
+      });
       if (error) throw error;
       await supabase.from('activity_log').insert({
         team_id: vars.teamId,

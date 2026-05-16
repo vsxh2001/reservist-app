@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Icon } from './Icon';
 import { Avatar, Button, IconButton, SkillChip, StatusPill } from './atoms';
+import { DeploymentWindowDrawer } from './DeploymentWindowDrawer';
 import {
-  SKILL_LEVELS, SKILL_LEVEL_LABEL,
-  STATUS_LABEL,
-  type Member, type SkillLevel, type Status,
+  SKILL_LEVELS, SKILL_LEVEL_LABEL, STATUS_LABEL,
+  type DeploymentWindow, type Member, type SkillLevel, type Status,
 } from '../lib/types';
 import {
-  useDeleteMember, usePromoteMember,
-  useRemoveMemberSkill, useSetMemberSkill,
-  useUpdateStatus,
+  useCreateDeploymentWindow, useDeleteMember, useMemberDeploymentWindows,
+  usePromoteMember, useRemoveMemberSkill, useSetMemberSkill, useUpdateStatus,
 } from '../lib/queries';
 import { useAuth } from '../lib/auth';
 
@@ -32,6 +31,14 @@ export function PersonDrawer({ person, allSkills, onClose, onToast }: Props) {
   const remove = useDeleteMember();
   const setSkill = useSetMemberSkill();
   const removeSkill = useRemoveMemberSkill();
+  const createWindow = useCreateDeploymentWindow();
+  const windows = useMemberDeploymentWindows(person.id);
+  const [openingWindow, setOpeningWindow] = useState<DeploymentWindow | null>(null);
+  const [newWinOpen, setNewWinOpen] = useState(false);
+  const [nwLabel, setNwLabel] = useState('');
+  const [nwStart, setNwStart] = useState('');
+  const [nwEnd, setNwEnd] = useState('');
+  const [nwNotes, setNwNotes] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editingSkills, setEditingSkills] = useState(false);
 
@@ -83,6 +90,19 @@ export function PersonDrawer({ person, allSkills, onClose, onToast }: Props) {
       unitId: person.unit_id,
     });
     onToast(person.is_commander ? `${person.name} demoted` : `${person.name} promoted to commander`);
+  };
+
+  const submitNewWindow = async () => {
+    if (!user) return;
+    await createWindow.mutateAsync({
+      memberId: person.id, unitId: person.unit_id,
+      label: nwLabel.trim(), startDate: nwStart, endDate: nwEnd,
+      notes: nwNotes.trim() ? nwNotes.trim() : null,
+      createdBy: user.id, actorName: user.name, memberName: person.name,
+    });
+    setNewWinOpen(false);
+    setNwLabel(''); setNwStart(''); setNwEnd(''); setNwNotes('');
+    onToast('Deployment window opened');
   };
 
   const recentActivity: { dot: string | null; body: JSX.Element; when: string }[] = [
@@ -249,6 +269,77 @@ export function PersonDrawer({ person, allSkills, onClose, onToast }: Props) {
               </div>
 
               <div className="drawer-section">
+                <h4>Deployment windows
+                  <span className="edit" onClick={() => setNewWinOpen((v) => !v)}>
+                    {newWinOpen ? 'Cancel' : '+ New window'}
+                  </span>
+                </h4>
+                {newWinOpen && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBlockEnd: 10 }}>
+                    <input className="input" placeholder="Label (e.g. Spring stretch)" value={nwLabel} onChange={(e) => setNwLabel(e.target.value)} />
+                    <div className="form-grid">
+                      <input className="input" type="date" value={nwStart} onChange={(e) => setNwStart(e.target.value)} />
+                      <input className="input" type="date" value={nwEnd} onChange={(e) => setNwEnd(e.target.value)} />
+                    </div>
+                    <input className="input" placeholder="Notes (optional)" value={nwNotes} onChange={(e) => setNwNotes(e.target.value)} />
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                      <Button size="sm" variant="primary" icon="check"
+                              disabled={!nwLabel.trim() || !nwStart || !nwEnd || createWindow.isPending}
+                              onClick={submitNewWindow}>
+                        Open window
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {(windows.data ?? []).length === 0 ? (
+                  <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', fontStyle: 'italic' }}>
+                    No deployment windows yet.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {(windows.data ?? []).map((w) => (
+                      <button key={w.id}
+                              onClick={() => setOpeningWindow(w)}
+                              style={{
+                                appearance: 'none', font: 'inherit', textAlign: 'start',
+                                display: 'flex', alignItems: 'center', gap: 10,
+                                padding: '8px 10px', borderRadius: 8,
+                                background: 'var(--paper-deep)',
+                                border: '1px solid var(--line-soft)',
+                                cursor: 'pointer',
+                                position: 'relative',
+                              }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 500, fontSize: 13 }}>
+                            {w.label}
+                            {w.state === 'closed' && (
+                              <span style={{
+                                marginInlineStart: 6, fontFamily: 'var(--mono)', fontSize: 9.5,
+                                background: 'var(--card-soft)', color: 'var(--ink-soft)',
+                                padding: '1px 5px', borderRadius: 3,
+                                textTransform: 'uppercase', letterSpacing: '.06em',
+                              }}>CLOSED</span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--ink-soft)', fontFamily: 'var(--mono)', marginTop: 2 }}>
+                            {w.start_date} → {w.end_date} · {w.approved_count}✓ {w.proposed_count}◌ {w.rejected_count}✕
+                          </div>
+                        </div>
+                        {w.proposed_count > 0 && w.state === 'open' && (
+                          <span style={{
+                            width: 8, height: 8, borderRadius: 99,
+                            background: 'var(--urgent)',
+                            boxShadow: '0 0 0 3px color-mix(in srgb, var(--urgent) 20%, transparent)',
+                          }}/>
+                        )}
+                        <Icon name="chevRight" size={12} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="drawer-section">
                 <h4>Permissions</h4>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
                   <div style={{ flex: 1 }}>
@@ -361,6 +452,14 @@ export function PersonDrawer({ person, allSkills, onClose, onToast }: Props) {
           )}
         </div>
       </div>
+        {openingWindow && (
+          <DeploymentWindowDrawer
+            window={openingWindow}
+            memberName={person.name}
+            onClose={() => setOpeningWindow(null)}
+            onToast={onToast}
+          />
+        )}
     </>
   );
 }

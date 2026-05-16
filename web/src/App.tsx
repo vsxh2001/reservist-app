@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './lib/auth';
 import { PrefsProvider } from './lib/prefs';
+import { TeamProvider, useActiveTeam } from './lib/team-context';
 import { LoginPicker } from './components/LoginPicker';
 import { ClaimProfileScreen } from './components/ClaimProfileScreen';
 import { JoinScreen } from './components/JoinScreen';
@@ -25,6 +26,7 @@ function readJoinCode(): string | null {
 function RoleRouter() {
   const { user } = useAuth();
   const me = useMyMember(user?.id);
+  const { team } = useActiveTeam();
   // Commander can force-view reservist surface
   const [forceReservist, setForceReservist] = useState<boolean>(
     () => sessionStorage.getItem('viewAsReservist') === '1',
@@ -40,11 +42,14 @@ function RoleRouter() {
   if (!me.data) {
     return <div style={{ display: 'grid', placeItems: 'center', height: '100%', color: 'var(--ink-soft)' }}>Profile not found.</div>;
   }
-  const showCommander = me.data.is_commander && !forceReservist;
+  const isCommanderOfActiveTeam = team
+    ? me.data.teams.some((t) => t.team_id === team.id && t.role === 'commander')
+    : false;
+  const showCommander = isCommanderOfActiveTeam && !forceReservist;
   return showCommander
     ? <Dashboard onSwitchToReservist={() => setForceReservist(true)} />
     : <ReservistDashboard
-        onSwitchView={me.data.is_commander ? () => setForceReservist(false) : undefined}
+        onSwitchView={isCommanderOfActiveTeam ? () => setForceReservist(false) : undefined}
       />;
 }
 
@@ -79,7 +84,9 @@ export default function App() {
       <PrefsProvider>
         <AuthProvider>
           <ErrorBoundary>
-            <Gate />
+            <TeamProvider>
+              <Gate />
+            </TeamProvider>
           </ErrorBoundary>
         </AuthProvider>
       </PrefsProvider>

@@ -10,7 +10,6 @@ interface PickMember {
   name: string;
   initials: string;
   tone: number;
-  is_commander: boolean;
   status: Status;
   auth_user_id: string | null;
 }
@@ -25,8 +24,7 @@ export function ClaimProfileScreen() {
 
   useEffect(() => {
     supabase.from('members_view')
-      .select('id, name, initials, tone, is_commander, status, auth_user_id')
-      .order('is_commander', { ascending: false })
+      .select('id, name, initials, tone, status, auth_user_id')
       .order('name')
       .then(({ data, error: e }) => {
         if (e) console.error(e);
@@ -119,13 +117,6 @@ export function ClaimProfileScreen() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 500, fontSize: 14 }}>
                       {m.name}
-                      {m.is_commander && <span style={{
-                        marginInlineStart: 6, fontSize: 10, padding: '1px 5px',
-                        background: 'var(--accent-tint)', color: 'var(--accent-deep)',
-                        borderRadius: 3, fontFamily: 'var(--mono)',
-                        textTransform: 'uppercase', letterSpacing: '.06em',
-                        fontWeight: 600,
-                      }}>CMDR</span>}
                     </div>
                   </div>
                   <StatusPill status={m.status} />

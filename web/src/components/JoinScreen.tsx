@@ -2,56 +2,50 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button } from './atoms';
 import { Icon } from './Icon';
 import { supabase } from '../lib/supabase';
-import { useSubmitJoinRequest, useUnitByInvite } from '../lib/queries';
+import { useSubmitJoinRequest, useTeamByInvite } from '../lib/queries';
 
 interface Props {
   code: string;
   onCancel: () => void;
 }
 
-interface UnitMeta {
-  roles: string[];
+interface TeamMeta {
   skills: string[];
 }
 
 export function JoinScreen({ code, onCancel }: Props) {
-  const unit = useUnitByInvite(code);
+  const team = useTeamByInvite(code);
   const submit = useSubmitJoinRequest();
-  const [meta, setMeta] = useState<UnitMeta | null>(null);
+  const [meta, setMeta] = useState<TeamMeta | null>(null);
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [roleName, setRoleName] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
   const [note, setNote] = useState('');
   const [sent, setSent] = useState(false);
 
   useEffect(() => {
-    if (!unit.data?.id) return;
+    const divisionId = team.data?.division_id;
+    if (!divisionId) return;
     (async () => {
-      const [r, s] = await Promise.all([
-        supabase.from('roles').select('name').eq('unit_id', unit.data!.id).order('sort_idx'),
-        supabase.from('skills').select('name').eq('unit_id', unit.data!.id).order('name'),
-      ]);
+      const s = await supabase.from('skills').select('name').eq('division_id', divisionId).order('name');
       setMeta({
-        roles: (r.data ?? []).map((x: any) => x.name),
         skills: (s.data ?? []).map((x: any) => x.name),
       });
     })();
-  }, [unit.data?.id]);
+  }, [team.data]);
 
   const canSubmit = useMemo(
-    () => name.trim().length > 1 && phone.trim().length >= 7 && !!unit.data,
-    [name, phone, unit.data],
+    () => name.trim().length > 1 && phone.trim().length >= 7 && !!team.data,
+    [name, phone, team.data],
   );
 
   const doSubmit = async () => {
-    if (!unit.data) return;
+    if (!team.data) return;
     await submit.mutateAsync({
-      unitId: unit.data.id,
+      teamId: team.data.id,
       name: name.trim(),
       phone: phone.trim(),
-      roleName: roleName || null,
       skillNames: skills,
       note: note.trim() || null,
     });
@@ -73,13 +67,13 @@ export function JoinScreen({ code, onCancel }: Props) {
         padding: 28,
         boxShadow: 'var(--shadow-md)',
       }}>
-        {unit.isLoading ? (
+        {team.isLoading ? (
           <div style={{ color: 'var(--ink-soft)' }}>Loading invite…</div>
-        ) : !unit.data ? (
+        ) : !team.data ? (
           <>
             <h2 style={{ fontFamily: 'var(--serif)', fontSize: 24, margin: '0 0 6px' }}>Invite not found</h2>
             <p style={{ color: 'var(--ink-soft)', fontSize: 13 }}>
-              Code <code>{code}</code> didn't match any active unit. Ask a commander for a fresh link.
+              Code <code>{code}</code> didn't match any active team. Ask a commander for a fresh link.
             </p>
             <Button variant="outline" onClick={onCancel}>Back</Button>
           </>
@@ -93,7 +87,7 @@ export function JoinScreen({ code, onCancel }: Props) {
             }}><Icon name="check" size={28} stroke={2} /></div>
             <h2 style={{ fontFamily: 'var(--serif)', fontSize: 24, margin: '0 0 6px' }}>Request sent</h2>
             <p style={{ color: 'var(--ink-soft)', fontSize: 13, lineHeight: 1.5 }}>
-              A commander of <b>{unit.data.name}</b> will review your request. You'll get a notification once approved (PRD §10 risk 3 — no roster visibility until then).
+              A commander of <b>{team.data.name}</b> will review your request. You'll get a notification once approved (PRD §10 risk 3 — no roster visibility until then).
             </p>
             <Button variant="outline" onClick={onCancel}>Back</Button>
           </>
@@ -101,9 +95,9 @@ export function JoinScreen({ code, onCancel }: Props) {
           <>
             <div style={{ marginBottom: 18 }}>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 10.5, textTransform: 'uppercase',
-                            letterSpacing: '.08em', color: 'var(--ink-mute)' }}>Join unit</div>
+                            letterSpacing: '.08em', color: 'var(--ink-mute)' }}>Join team</div>
               <h2 style={{ fontFamily: 'var(--serif)', fontSize: 26, margin: '4px 0 0', fontWeight: 400, letterSpacing: '-.01em' }}>
-                {unit.data.name}
+                {team.data.name}
               </h2>
             </div>
 
@@ -115,12 +109,6 @@ export function JoinScreen({ code, onCancel }: Props) {
               <Row label="Phone">
                 <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)}
                        placeholder="+972 50-000-0000" autoComplete="tel" type="tel" />
-              </Row>
-              <Row label="Role">
-                <select className="select" value={roleName} onChange={(e) => setRoleName(e.target.value)}>
-                  <option value="">— Pick a role —</option>
-                  {(meta?.roles ?? []).map((r) => <option key={r} value={r}>{r}</option>)}
-                </select>
               </Row>
               <Row label="Skills">
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>

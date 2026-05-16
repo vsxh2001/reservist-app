@@ -3,7 +3,8 @@ import { Avatar, Button, StatusPill } from './atoms';
 import { Icon } from './Icon';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
-import type { Status } from '../lib/types';
+import { useActiveTeam } from '../lib/team-context';
+import type { Status, TeamMembership } from '../lib/types';
 
 const MOCK_FLAG = import.meta.env.VITE_MOCK_AUTH === '1';
 
@@ -12,13 +13,13 @@ interface PickMember {
   name: string;
   initials: string;
   tone: number;
-  is_commander: boolean;
-  role: string | null;
+  teams: TeamMembership[];
   status: Status;
 }
 
 export function LoginPicker() {
   const { signInWithGoogle, signInAsMock } = useAuth();
+  const { setTeamId } = useActiveTeam();
   const [list, setList] = useState<PickMember[] | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const [q, setQ] = useState('');
@@ -27,8 +28,7 @@ export function LoginPicker() {
   useEffect(() => {
     if (!MOCK_FLAG) return;
     supabase.from('members_view')
-      .select('id, name, initials, tone, is_commander, role, status')
-      .order('is_commander', { ascending: false })
+      .select('id, name, initials, tone, teams, status')
       .order('name')
       .then(({ data, error }) => {
         if (error) console.error(error);
@@ -40,15 +40,18 @@ export function LoginPicker() {
     if (!list) return null;
     const s = q.trim().toLowerCase();
     if (!s) return list;
-    return list.filter((m) => m.name.toLowerCase().includes(s) || (m.role ?? '').toLowerCase().includes(s));
+    return list.filter((m) => m.name.toLowerCase().includes(s));
   }, [list, q]);
 
-  const commanders = (filtered ?? []).filter((m) => m.is_commander);
-  const reservists = (filtered ?? []).filter((m) => !m.is_commander);
+  const commanders = (filtered ?? []).filter((m) => m.teams.some((t) => t.role === 'commander'));
+  const reservists = (filtered ?? []).filter((m) => !m.teams.some((t) => t.role === 'commander'));
 
   const proceedMock = () => {
     const c = list?.find((x) => x.id === picked);
-    if (c) signInAsMock({ id: c.id, name: c.name });
+    if (!c) return;
+    signInAsMock({ id: c.id, name: c.name });
+    const firstTeamId = c.teams[0]?.team_id;
+    if (firstTeamId) setTeamId(firstTeamId);
   };
 
   const startGoogle = async () => {
@@ -173,33 +176,35 @@ function SectionHeader({ label }: { label: string }) {
 function List({ members, picked, setPicked }: { members: PickMember[]; picked: string | null; setPicked: (id: string) => void }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '0 4px' }}>
-      {members.map((m) => (
-        <button key={m.id} onClick={() => setPicked(m.id)} style={{
-          appearance: 'none', textAlign: 'left',
-          display: 'flex', alignItems: 'center', gap: 12,
-          padding: '10px 12px',
-          background: m.id === picked ? 'var(--accent-tint)' : 'var(--card)',
-          border: '1px solid ' + (m.id === picked ? 'var(--accent)' : 'var(--line-strong)'),
-          borderRadius: 8, cursor: 'pointer',
-          font: 'inherit',
-        }}>
-          <Avatar initials={m.initials} tone={m.tone} status={m.status} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 500, fontSize: 14 }}>
-              {m.name}
-              {m.is_commander && <span style={{
-                marginInlineStart: 6, fontSize: 10, padding: '1px 5px',
-                background: 'var(--accent-tint)', color: 'var(--accent-deep)',
-                borderRadius: 3, fontFamily: 'var(--mono)',
-                textTransform: 'uppercase', letterSpacing: '.06em',
-                verticalAlign: 1, fontWeight: 600,
-              }}>CMDR</span>}
+      {members.map((m) => {
+        const isCommander = m.teams.some((t) => t.role === 'commander');
+        return (
+          <button key={m.id} onClick={() => setPicked(m.id)} style={{
+            appearance: 'none', textAlign: 'left',
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '10px 12px',
+            background: m.id === picked ? 'var(--accent-tint)' : 'var(--card)',
+            border: '1px solid ' + (m.id === picked ? 'var(--accent)' : 'var(--line-strong)'),
+            borderRadius: 8, cursor: 'pointer',
+            font: 'inherit',
+          }}>
+            <Avatar initials={m.initials} tone={m.tone} status={m.status} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 500, fontSize: 14 }}>
+                {m.name}
+                {isCommander && <span style={{
+                  marginInlineStart: 6, fontSize: 10, padding: '1px 5px',
+                  background: 'var(--accent-tint)', color: 'var(--accent-deep)',
+                  borderRadius: 3, fontFamily: 'var(--mono)',
+                  textTransform: 'uppercase', letterSpacing: '.06em',
+                  verticalAlign: 1, fontWeight: 600,
+                }}>CMDR</span>}
+              </div>
             </div>
-            <div style={{ fontSize: 11, color: 'var(--ink-soft)', fontFamily: 'var(--mono)' }}>{m.role ?? 'No role'}</div>
-          </div>
-          <StatusPill status={m.status} />
-        </button>
-      ))}
+            <StatusPill status={m.status} />
+          </button>
+        );
+      })}
     </div>
   );
 }

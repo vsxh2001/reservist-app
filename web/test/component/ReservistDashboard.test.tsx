@@ -1100,4 +1100,51 @@ describe('ReservistDashboard', () => {
       }),
     );
   });
+
+  // -------- status_until countdown hint --------------------------------
+
+  it('My status shows a "N days left" hint when status_until is within 30 days', () => {
+    const isoDay = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const target = new Date(); target.setDate(target.getDate() + 5);
+    myMemberState = {
+      data: makeMember({ status: 'unavailable', status_until: isoDay(target) }),
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    expect(screen.getByTestId('status-until-hint')).toHaveTextContent('5 days left');
+  });
+
+  it('My status shows no hint when status_until is null', () => {
+    myMemberState = {
+      data: makeMember({ status: 'available', status_until: null }),
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    expect(screen.queryByTestId('status-until-hint')).not.toBeInTheDocument();
+  });
+
+  it('My status shows no hint when status_until is more than 30 days out', () => {
+    const isoDay = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const target = new Date(); target.setDate(target.getDate() + 90);
+    myMemberState = {
+      data: makeMember({ status: 'unavailable', status_until: isoDay(target) }),
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    expect(screen.queryByTestId('status-until-hint')).not.toBeInTheDocument();
+  });
+
+  it('My status shows "expired" when status_until is in the past', () => {
+    const isoDay = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const target = new Date(); target.setDate(target.getDate() - 2);
+    myMemberState = {
+      data: makeMember({ status: 'unavailable', status_until: isoDay(target) }),
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    expect(screen.getByTestId('status-until-hint')).toHaveTextContent('expired');
+  });
 });

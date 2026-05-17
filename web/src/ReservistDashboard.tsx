@@ -9,7 +9,7 @@ import {
   useRemoveMemberSkill, useSelfUpdateStatus, useSetMemberSkill,
   useSetPhoneVisibility, useSkills,
 } from './lib/queries';
-import { fmtWhen, windowCountdown } from './lib/calendarUtils';
+import { fmtWhen, untilHint, windowCountdown } from './lib/calendarUtils';
 import { useRealtime } from './lib/realtime';
 import {
   currentSubscription, sendTestPush, subscribeToPush, unsubscribeFromPush,
@@ -406,7 +406,26 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
                 <StatusPill status={me.data.status} />
                 <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', flex: 1, minWidth: 0 }}>
                   {me.data.status_note || <span style={{ fontStyle: 'italic' }}>No note</span>}
-                  {me.data.status_until && <> · <b>until {me.data.status_until}</b></>}
+                  {me.data.status_until && (
+                    <>
+                      {' '}·{' '}<b>until {me.data.status_until}</b>
+                      {(() => {
+                        const hint = untilHint(me.data.status_until);
+                        return hint ? (
+                          <span
+                            data-testid="status-until-hint"
+                            style={{
+                              marginInlineStart: 6,
+                              fontFamily: 'var(--mono)', fontSize: 10.5,
+                              color: hint === 'expired' ? 'var(--urgent-deep)' : 'var(--ink-mute)',
+                            }}
+                          >
+                            · {hint}
+                          </span>
+                        ) : null;
+                      })()}
+                    </>
+                  )}
                 </div>
               </div>
               {me.data.status !== 'available' && user && (

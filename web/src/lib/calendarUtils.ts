@@ -83,6 +83,30 @@ export function fmtWhen(iso: string, now: Date = new Date()): string {
 }
 
 /**
+ * Returns a friendly hint for a `status_until` date (YYYY-MM-DD), used in
+ * the reservist's "My status" card so they can see at a glance how long
+ * the override has left without subtracting dates in their head.
+ *
+ *   today  > date   → "expired" (caller may also want to clear it)
+ *   today == date   → "expires today"
+ *   today + 1       → "expires tomorrow"
+ *   ≤ today + 30    → "N days left"
+ *   else            → null
+ */
+export function untilHint(dateISO: string, now: Date = new Date()): string | null {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const [y, m, d] = dateISO.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  const target = new Date(y, m - 1, d);
+  const days = Math.round((target.getTime() - today.getTime()) / 86_400_000);
+  if (days < 0) return 'expired';
+  if (days === 0) return 'expires today';
+  if (days === 1) return 'expires tomorrow';
+  if (days <= 30) return `${days} days left`;
+  return null;
+}
+
+/**
  * Returns a relative-time hint for a deployment-window pair of dates,
  * used in the reservist's "My deployments" list. Both arguments are
  * `YYYY-MM-DD` strings (date-only). Returns null when nothing useful

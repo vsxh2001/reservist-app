@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fmtWhen, windowCountdown } from '../src/lib/calendarUtils';
+import { fmtWhen, untilHint, windowCountdown } from '../src/lib/calendarUtils';
 
 describe('fmtWhen', () => {
   const now = new Date(2026, 5, 10, 12, 0, 0); // 2026-06-10 12:00 local
@@ -69,5 +69,34 @@ describe('windowCountdown', () => {
 
   it('returns null when today is past the end date', () => {
     expect(windowCountdown('2026-05-01', '2026-05-10', now)).toBeNull();
+  });
+});
+
+describe('untilHint', () => {
+  const now = new Date(2026, 5, 10, 9, 0, 0);
+
+  it('returns "expires today" when the date is today', () => {
+    expect(untilHint('2026-06-10', now)).toBe('expires today');
+  });
+
+  it('returns "expires tomorrow" when the date is +1 day', () => {
+    expect(untilHint('2026-06-11', now)).toBe('expires tomorrow');
+  });
+
+  it('returns "N days left" for 2-30 days out', () => {
+    expect(untilHint('2026-06-13', now)).toBe('3 days left');
+    expect(untilHint('2026-07-10', now)).toBe('30 days left');
+  });
+
+  it('returns "expired" when the date is in the past', () => {
+    expect(untilHint('2026-06-09', now)).toBe('expired');
+  });
+
+  it('returns null when the date is more than 30 days out', () => {
+    expect(untilHint('2026-07-15', now)).toBeNull();
+  });
+
+  it('returns null for a malformed date string', () => {
+    expect(untilHint('not-a-date', now)).toBeNull();
   });
 });

@@ -14,6 +14,16 @@ import {
 } from './lib/push';
 import { STATUS_LABEL, type DeploymentWindow, type Status } from './lib/types';
 
+/** Today + offset days, formatted YYYY-MM-DD in local time (status_until is a DATE column). */
+function computeUntilDate(daysFromToday: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromToday);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function fmtWhen(iso: string): string {
   const d = new Date(iso);
   const today = new Date();
@@ -339,6 +349,50 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
               </div>
               <div className="form-row">
                 <label>Until (optional)</label>
+                {pending !== 'available' && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+                    {([
+                      { label: '3 days',  days: 3 },
+                      { label: '1 week',  days: 7 },
+                      { label: '2 weeks', days: 14 },
+                      { label: '1 month', days: 30 },
+                    ] as const).map((preset) => {
+                      const target = computeUntilDate(preset.days);
+                      const active = until === target;
+                      return (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => setUntil(target)}
+                          style={{
+                            appearance: 'none', font: 'inherit', fontSize: 12,
+                            padding: '4px 10px', borderRadius: 14, cursor: 'pointer',
+                            border: '1px solid ' + (active ? 'var(--accent)' : 'var(--line-strong)'),
+                            background: active ? 'var(--accent-tint)' : 'var(--card)',
+                            color: active ? 'var(--accent-deep)' : 'var(--ink-2)',
+                            fontWeight: active ? 600 : 400,
+                          }}
+                        >
+                          {preset.label}
+                        </button>
+                      );
+                    })}
+                    {until && (
+                      <button
+                        type="button"
+                        onClick={() => setUntil('')}
+                        style={{
+                          appearance: 'none', font: 'inherit', fontSize: 12,
+                          padding: '4px 10px', borderRadius: 14, cursor: 'pointer',
+                          border: '1px dashed var(--line-strong)',
+                          background: 'transparent', color: 'var(--ink-soft)',
+                        }}
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                )}
                 <input className="input" type="date" value={until}
                        onChange={(e) => setUntil(e.target.value)} />
               </div>

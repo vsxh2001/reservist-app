@@ -457,20 +457,42 @@ function Card({ title, right, children }: { title: string; right?: React.ReactNo
   );
 }
 
-function SlotRow({ s }: { s: any }) {
+function SlotRow({ s }: { s: { id: string; title: string; urgent: boolean; start_at: string; duration: string | null; location: string | null; needed: number; filled: number; notes: string | null; skills: { name: string; min_level: import('./lib/types').SkillLevel }[] } }) {
+  const [open, setOpen] = useState(false);
+  const hasDetail = Boolean(s.notes) || s.skills.length > 0 || s.needed > 0;
+  const toggle = () => { if (hasDetail) setOpen((v) => !v); };
   return (
-    <div style={{
-      border: '1px solid ' + (s.urgent ? 'var(--urgent)' : 'var(--line-soft)'),
-      borderRadius: 10, padding: 12,
-      background: s.urgent ? 'var(--urgent-bg)' : 'var(--paper-deep)',
-      position: 'relative', overflow: 'hidden',
-    }}>
+    <div
+      role={hasDetail ? 'button' : undefined}
+      tabIndex={hasDetail ? 0 : undefined}
+      aria-expanded={hasDetail ? open : undefined}
+      onClick={toggle}
+      onKeyDown={(e) => {
+        if (!hasDetail) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggle();
+        }
+      }}
+      style={{
+        border: '1px solid ' + (s.urgent ? 'var(--urgent)' : 'var(--line-soft)'),
+        borderRadius: 10, padding: 12,
+        background: s.urgent ? 'var(--urgent-bg)' : 'var(--paper-deep)',
+        position: 'relative', overflow: 'hidden',
+        cursor: hasDetail ? 'pointer' : 'default',
+      }}
+    >
       {s.urgent && <div style={{
         position: 'absolute', top: 0, left: 0, bottom: 0, width: 3,
         background: 'var(--urgent)',
       }}/>}
-      <div style={{ fontWeight: 500, fontSize: 14, marginBottom: 4 }}>{s.title}</div>
-      <div style={{ fontSize: 12, color: 'var(--ink-soft)', display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ fontWeight: 500, fontSize: 14, flex: 1, minWidth: 0 }}>{s.title}</div>
+        {hasDetail && (
+          <Icon name={open ? 'chevDown' : 'chevRight'} size={14} />
+        )}
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--ink-soft)', display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 4 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
           <Icon name="calendar" size={11}/> {fmtWhen(s.start_at)}
         </span>
@@ -480,7 +502,30 @@ function SlotRow({ s }: { s: any }) {
         {s.location && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
           <Icon name="pin" size={11}/> {s.location}
         </span>}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'var(--mono)' }}>
+          {s.filled}/{s.needed}
+        </span>
       </div>
+      {open && hasDetail && (
+        <div style={{
+          marginTop: 10, paddingTop: 10,
+          borderTop: '1px solid var(--line-soft)',
+          display: 'flex', flexDirection: 'column', gap: 8,
+        }}>
+          {s.notes && (
+            <div style={{ fontSize: 12.5, color: 'var(--ink-2)', whiteSpace: 'pre-wrap' }}>
+              {s.notes}
+            </div>
+          )}
+          {s.skills.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {s.skills.map((sk) => (
+                <SkillChip key={sk.name} name={sk.name} level={sk.min_level} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

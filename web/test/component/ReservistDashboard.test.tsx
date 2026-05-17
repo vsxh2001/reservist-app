@@ -1030,10 +1030,13 @@ describe('ReservistDashboard', () => {
     const row = screen.getByText('Three-up patrol').closest('[role="button"]') as HTMLElement;
     await user.click(row);
 
-    // The "Assigned (3)" header renders, with names joined by commas.
+    // Header renders with the assignee count.
     expect(screen.getByText('Assigned (3)')).toBeInTheDocument();
-    // Names are joined into a single text node; assert on the concatenated value.
-    expect(screen.getByText('You, Daniel Katz, Noa Shapira')).toBeInTheDocument();
+    // Each assignee now renders on its own row inside the assignees block.
+    const block = screen.getByTestId('assignees');
+    expect(within(block).getByText('You')).toBeInTheDocument();
+    expect(within(block).getByText('Daniel Katz')).toBeInTheDocument();
+    expect(within(block).getByText('Noa Shapira')).toBeInTheDocument();
   });
 
   it('falls back to em-dash for assignee ids missing from the members map', async () => {
@@ -1059,7 +1062,81 @@ describe('ReservistDashboard', () => {
 
     render(<ReservistDashboard />);
     await user.click(screen.getByText('Mystery slot').closest('[role="button"]') as HTMLElement);
-    expect(screen.getByText('You, —')).toBeInTheDocument();
+    const block = screen.getByTestId('assignees');
+    expect(within(block).getByText('You')).toBeInTheDocument();
+    expect(within(block).getByText('—')).toBeInTheDocument();
+  });
+
+  it('expanded SlotRow renders call + WhatsApp links for peers with visible phones', async () => {
+    const user = userEvent.setup();
+    myMemberState = { data: makeMember({ id: 'm1', name: 'Yael Cohen' }), isLoading: false };
+    teamMembersState = {
+      data: [
+        // The reservist (self). Their own phone is never linked from the
+        // assignees list — "You" is just a label, no tap-to-call shortcut.
+        makeMember({ id: 'm1', name: 'Yael Cohen', phone: '+972 50-111-2222' }),
+        // Peer with phone visible.
+        makeMember({ id: 'm2', name: 'Daniel Katz', phone: '054-123-4567', phone_visible_to_peers: true }),
+        // Peer who opted out: members_view returns phone=null.
+        { ...makeMember({ id: 'm3', name: 'Noa Shapira' }), phone: null } as unknown as ReturnType<typeof makeMember>,
+      ],
+      isLoading: false,
+    };
+    mySlotsState = {
+      data: [makeSlot({
+        id: 's-tap',
+        title: 'Tap-coordination patrol',
+        needed: 3, filled: 3,
+        assignee_ids: ['m1', 'm2', 'm3'],
+      })],
+      isLoading: false,
+    };
+
+    render(<ReservistDashboard />);
+    await user.click(screen.getByText('Tap-coordination patrol').closest('[role="button"]') as HTMLElement);
+
+    // Daniel (phone present) → both tel: and wa.me links.
+    const call = screen.getByRole('link', { name: 'Call Daniel Katz' });
+    expect(call).toHaveAttribute('href', 'tel:+972541234567');
+    const wa = screen.getByRole('link', { name: 'WhatsApp Daniel Katz' });
+    expect(wa).toHaveAttribute('href', 'https://wa.me/972541234567');
+
+    // Noa (phone hidden / null) → no links.
+    expect(screen.queryByRole('link', { name: 'Call Noa Shapira' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'WhatsApp Noa Shapira' })).not.toBeInTheDocument();
+
+    // Self ("You") never gets links.
+    expect(screen.queryByRole('link', { name: 'Call You' })).not.toBeInTheDocument();
+  });
+
+  it('tapping a co-assignee call link does not collapse the SlotRow', async () => {
+    const user = userEvent.setup();
+    myMemberState = { data: makeMember({ id: 'm1' }), isLoading: false };
+    teamMembersState = {
+      data: [
+        makeMember({ id: 'm1', name: 'Yael Cohen' }),
+        makeMember({ id: 'm2', name: 'Daniel Katz', phone: '0541234567', phone_visible_to_peers: true }),
+      ],
+      isLoading: false,
+    };
+    mySlotsState = {
+      data: [makeSlot({
+        id: 's-stop',
+        title: 'StopProp patrol',
+        needed: 2, filled: 2,
+        assignee_ids: ['m1', 'm2'],
+      })],
+      isLoading: false,
+    };
+
+    render(<ReservistDashboard />);
+    const row = screen.getByText('StopProp patrol').closest('[role="button"]') as HTMLElement;
+    await user.click(row);
+    expect(row).toHaveAttribute('aria-expanded', 'true');
+
+    const call = screen.getByRole('link', { name: 'Call Daniel Katz' });
+    await user.click(call);
+    expect(row).toHaveAttribute('aria-expanded', 'true'); // still open
   });
 
   // -------- "Set as available" shortcut on collapsed status card ------

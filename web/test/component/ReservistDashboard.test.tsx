@@ -893,4 +893,43 @@ describe('ReservistDashboard', () => {
     await user.click(screen.getByText('Mystery slot').closest('[role="button"]') as HTMLElement);
     expect(screen.getByText('You, —')).toBeInTheDocument();
   });
+
+  // -------- "Set as available" shortcut on collapsed status card ------
+
+  it('Set as available shortcut is hidden when status is already available', () => {
+    myMemberState = { data: makeMember({ status: 'available' }), isLoading: false };
+    render(<ReservistDashboard />);
+    expect(screen.queryByRole('button', { name: /^Set as available$/i })).not.toBeInTheDocument();
+  });
+
+  it('Set as available shortcut appears when status is unavailable', () => {
+    myMemberState = { data: makeMember({ status: 'unavailable' }), isLoading: false };
+    render(<ReservistDashboard />);
+    expect(screen.getByRole('button', { name: /^Set as available$/i })).toBeInTheDocument();
+  });
+
+  it('Clicking Set as available calls useSelfUpdateStatus with status=available, note=null, until=null', async () => {
+    const user = userEvent.setup();
+    myMemberState = {
+      data: makeMember({
+        id: 'm1',
+        status: 'unavailable',
+        status_note: 'Reserves leave',
+        status_until: '2099-08-01',
+      }),
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+
+    await user.click(screen.getByRole('button', { name: /^Set as available$/i }));
+
+    expect(selfUpdateStatusMut.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        memberId: 'm1',
+        status: 'available',
+        note: null,
+        until: null,
+      }),
+    );
+  });
 });

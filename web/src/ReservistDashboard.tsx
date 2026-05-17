@@ -389,16 +389,51 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
         {/* Status card */}
         <Card title="My status" right={!editing && <button className="filter-clear" onClick={startEdit}>Change</button>}>
           {!editing ? (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '10px 12px', background: 'var(--paper-deep)',
-              borderRadius: 8, border: '1px solid var(--line-soft)',
-            }}>
-              <StatusPill status={me.data.status} />
-              <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', flex: 1, minWidth: 0 }}>
-                {me.data.status_note || <span style={{ fontStyle: 'italic' }}>No note</span>}
-                {me.data.status_until && <> · <b>until {me.data.status_until}</b></>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 12px', background: 'var(--paper-deep)',
+                borderRadius: 8, border: '1px solid var(--line-soft)',
+              }}>
+                <StatusPill status={me.data.status} />
+                <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', flex: 1, minWidth: 0 }}>
+                  {me.data.status_note || <span style={{ fontStyle: 'italic' }}>No note</span>}
+                  {me.data.status_until && <> · <b>until {me.data.status_until}</b></>}
+                </div>
               </div>
+              {me.data.status !== 'available' && user && (
+                <button
+                  type="button"
+                  disabled={update.isPending}
+                  onClick={async () => {
+                    if (!me.data || !user) return;
+                    try {
+                      await update.mutateAsync({
+                        memberId: me.data.id,
+                        status: 'available',
+                        note: null,
+                        until: null,
+                        teamId: team?.id ?? '',
+                        actorName: user.name,
+                      });
+                      showToast('Status set to Available');
+                    } catch (err) {
+                      showToast(err instanceof Error ? err.message : 'Failed to update');
+                    }
+                  }}
+                  style={{
+                    appearance: 'none', font: 'inherit', fontSize: 12,
+                    padding: '6px 10px', borderRadius: 8, cursor: 'pointer',
+                    border: '1px solid var(--accent)',
+                    background: 'var(--accent-tint)',
+                    color: 'var(--accent-deep)',
+                    fontWeight: 500,
+                    textAlign: 'center',
+                  }}
+                >
+                  Set as available
+                </button>
+              )}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

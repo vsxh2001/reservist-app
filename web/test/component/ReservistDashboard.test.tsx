@@ -1136,6 +1136,28 @@ describe('ReservistDashboard', () => {
     expect(screen.queryByTestId('status-until-hint')).not.toBeInTheDocument();
   });
 
+  // -------- status set-ago hint ----------------------------------------
+
+  it('My status shows a "set N ago" hint sourced from status_set_at', () => {
+    const ago = new Date(Date.now() - 3 * 86_400_000).toISOString();
+    myMemberState = {
+      data: makeMember({ status: 'standby', status_set_at: ago }),
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    expect(screen.getByTestId('status-set-ago')).toHaveTextContent(/set\s+3 days ago/);
+  });
+
+  it('My status omits the set-ago hint when status_set_at is in the future', () => {
+    const future = new Date(Date.now() + 60_000).toISOString();
+    myMemberState = {
+      data: makeMember({ status: 'available', status_set_at: future }),
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    expect(screen.queryByTestId('status-set-ago')).not.toBeInTheDocument();
+  });
+
   it('My status shows "expired" when status_until is in the past', () => {
     const isoDay = (d: Date) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

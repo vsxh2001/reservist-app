@@ -83,6 +83,40 @@ export function fmtWhen(iso: string, now: Date = new Date()): string {
 }
 
 /**
+ * Returns a humanised "N units ago" string for a past ISO timestamp.
+ * Used by the reservist's My status card to surface when their override
+ * was last set (PRD §7.3 — commanders can change a reservist's status,
+ * so the reservist should at least see *when* it was last changed).
+ *
+ *   <30s    → "just now"
+ *   <60min  → "N min ago"
+ *   <24h    → "N hr ago"
+ *   <30d    → "N day(s) ago"
+ *   <12mo   → "N mo ago"
+ *   else    → "over a year ago"
+ *
+ * Returns null for a future timestamp (caller decides what to render).
+ */
+export function relativeAgo(iso: string, now: Date = new Date()): string | null {
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return null;
+  const deltaMs = now.getTime() - t;
+  if (deltaMs < 0) return null;
+  const sec = Math.floor(deltaMs / 1000);
+  if (sec < 30) return 'just now';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min} min ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr} hr ago`;
+  const day = Math.floor(hr / 24);
+  if (day === 1) return '1 day ago';
+  if (day < 30) return `${day} days ago`;
+  const mo = Math.floor(day / 30);
+  if (mo < 12) return `${mo} mo ago`;
+  return 'over a year ago';
+}
+
+/**
  * Returns a friendly hint for a `status_until` date (YYYY-MM-DD), used in
  * the reservist's "My status" card so they can see at a glance how long
  * the override has left without subtracting dates in their head.

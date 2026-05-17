@@ -50,3 +50,34 @@ export function monthGridCells(monthFirst: Date, startISO: string, endISO: strin
   }
   return cells;
 }
+
+/**
+ * Format a slot's `start_at` ISO timestamp for the reservist's "My upcoming
+ * duty" list. Same-day → "Today, HH:MM"; the day after → "Tomorrow, HH:MM";
+ * the day before → "Yesterday, HH:MM"; within the next six days → "in N days,
+ * Wed, Jun 24, HH:MM" (weekday helps the reservist scan a busy list at a
+ * glance); else falls back to "Wed, Jun 24, HH:MM".
+ *
+ * `now` is injectable so tests don't depend on wall-clock time.
+ */
+export function fmtWhen(iso: string, now: Date = new Date()): string {
+  const d = new Date(iso);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const time = `${hh}:${mm}`;
+
+  // Strip wall-clock-time so we compare *calendar* days, immune to DST drift.
+  const dayDiff = Math.round(
+    (new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() -
+      new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) /
+      86_400_000,
+  );
+
+  if (dayDiff === 0) return `Today, ${time}`;
+  if (dayDiff === 1) return `Tomorrow, ${time}`;
+  if (dayDiff === -1) return `Yesterday, ${time}`;
+
+  const calendar = d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  if (dayDiff >= 2 && dayDiff <= 6) return `in ${dayDiff} days · ${calendar}, ${time}`;
+  return `${calendar}, ${time}`;
+}

@@ -9,6 +9,7 @@ import {
   useRemoveMemberSkill, useSelfUpdateStatus, useSetMemberSkill,
   useSetPhoneVisibility, useSkills,
 } from './lib/queries';
+import { fmtWhen } from './lib/calendarUtils';
 import { useRealtime } from './lib/realtime';
 import {
   currentSubscription, sendTestPush, subscribeToPush, unsubscribeFromPush,
@@ -29,15 +30,6 @@ function computeUntilDate(daysFromToday: number): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function fmtWhen(iso: string): string {
-  const d = new Date(iso);
-  const today = new Date();
-  const sameDay = d.toDateString() === today.toDateString();
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  if (sameDay) return `Today, ${hh}:${mm}`;
-  return d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + `, ${hh}:${mm}`;
-}
 
 export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void }) {
   const { user, signOut } = useAuth();

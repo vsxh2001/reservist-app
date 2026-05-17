@@ -126,6 +126,7 @@ vi.mock('../../src/lib/queries', () => ({
   useDeploymentPicks: () => ({ data: [], isLoading: false, error: null }),
   useProposeDayPick: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useWithdrawDayPick: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useSetReservistNote: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 import { ReservistDashboard } from '../../src/ReservistDashboard';

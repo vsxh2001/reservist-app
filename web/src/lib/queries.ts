@@ -1299,6 +1299,22 @@ export function useProposeDayPick() {
   });
 }
 
+export function useSetReservistNote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { pickId: string; note: string | null }) => {
+      const { error } = await supabase
+        .from('deployment_picks')
+        .update({ reservist_note: vars.note })
+        .eq('id', vars.pickId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['deployment-picks'] });
+    },
+  });
+}
+
 export function useWithdrawDayPick() {
   const qc = useQueryClient();
   return useMutation({

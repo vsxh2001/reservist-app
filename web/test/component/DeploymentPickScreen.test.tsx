@@ -33,13 +33,15 @@ import type { DeploymentPick, DeploymentWindow } from '../../src/lib/types';
 
 const mockPropose  = { mutateAsync: vi.fn(), isPending: false };
 const mockWithdraw = { mutateAsync: vi.fn(), isPending: false };
+const mockSetNote  = { mutateAsync: vi.fn(), isPending: false };
 
 let pickRows: DeploymentPick[] = [];
 
 vi.mock('../../src/lib/queries', () => ({
-  useDeploymentPicks: () => ({ data: pickRows, isLoading: false, error: null }),
-  useProposeDayPick:  () => mockPropose,
-  useWithdrawDayPick: () => mockWithdraw,
+  useDeploymentPicks:    () => ({ data: pickRows, isLoading: false, error: null }),
+  useProposeDayPick:     () => mockPropose,
+  useWithdrawDayPick:    () => mockWithdraw,
+  useSetReservistNote:   () => mockSetNote,
 }));
 
 import { DeploymentPickScreen } from '../../src/components/DeploymentPickScreen';
@@ -119,6 +121,7 @@ describe('DeploymentPickScreen', () => {
   beforeEach(() => {
     mockPropose.mutateAsync.mockReset().mockResolvedValue(undefined);
     mockWithdraw.mutateAsync.mockReset().mockResolvedValue(undefined);
+    mockSetNote.mutateAsync.mockReset().mockResolvedValue(undefined);
     pickRows = [];
   });
 
@@ -360,6 +363,113 @@ describe('DeploymentPickScreen', () => {
     const approvedIdx = card.textContent!.indexOf('OK — paired with Alice');
     const rejectedIdx = card.textContent!.indexOf('No coverage that week');
     expect(approvedIdx).toBeLessThan(rejectedIdx);
+  });
+
+  // -------- my notes section -----------------------------------------
+
+  it('My notes section is hidden when reservist has no active picks', () => {
+    renderScreen({ picks: [] });
+    expect(screen.queryByTestId('my-notes')).not.toBeInTheDocument();
+  });
+
+  it('My notes section is hidden when only picks are withdrawn', () => {
+    renderScreen({
+      picks: [makePick({ id: 'p-w', date: '2026-06-03', state: 'withdrawn' })],
+    });
+    expect(screen.queryByTestId('my-notes')).not.toBeInTheDocument();
+  });
+
+  it('My notes lists active picks in ascending date order', () => {
+    renderScreen({
+      picks: [
+        makePick({ id: 'p-c', date: '2026-06-06', state: 'approved' }),
+        makePick({ id: 'p-a', date: '2026-06-02', state: 'proposed' }),
+        makePick({ id: 'p-b', date: '2026-06-04', state: 'rejected' }),
+        makePick({ id: 'p-w', date: '2026-06-05', state: 'withdrawn' }),
+      ],
+    });
+    const card = screen.getByTestId('my-notes');
+    expect(within(card).queryByTestId('my-note-row-2026-06-05')).not.toBeInTheDocument();
+    const text = card.textContent ?? '';
+    const iA = text.indexOf('2026-06-02');
+    const iB = text.indexOf('2026-06-04');
+    const iC = text.indexOf('2026-06-06');
+    expect(iA).toBeGreaterThan(-1);
+    expect(iB).toBeGreaterThan(iA);
+    expect(iC).toBeGreaterThan(iB);
+  });
+
+  it('My notes: a row with a reservist_note shows the note text and an Edit button', () => {
+    renderScreen({
+      picks: [makePick({ id: 'p1', date: '2026-06-03', state: 'proposed', reservist_note: 'family wedding' })],
+    });
+    const row = screen.getByTestId('my-note-row-2026-06-03');
+    expect(within(row).getByText('family wedding')).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+  });
+
+  it('My notes: a row without a reservist_note shows an "Add note" button', () => {
+    renderScreen({
+      picks: [makePick({ id: 'p1', date: '2026-06-03', state: 'proposed', reservist_note: null })],
+    });
+    const row = screen.getByTestId('my-note-row-2026-06-03');
+    expect(within(row).getByRole('button', { name: 'Add note' })).toBeInTheDocument();
+  });
+
+  it('My notes: clicking Add note → typing → Save calls useSetReservistNote with trimmed text', async () => {
+    const user = userEvent.setup();
+    const { onToast } = renderScreen({
+      picks: [makePick({ id: 'p1', date: '2026-06-03', state: 'proposed', reservist_note: null })],
+    });
+    const row = screen.getByTestId('my-note-row-2026-06-03');
+    await user.click(within(row).getByRole('button', { name: 'Add note' }));
+    const textarea = within(row).getByRole('textbox');
+    await user.type(textarea, '  graduation  ');
+    await user.click(within(row).getByRole('button', { name: 'Save' }));
+    expect(mockSetNote.mutateAsync).toHaveBeenCalledTimes(1);
+    expect(mockSetNote.mutateAsync.mock.calls[0][0]).toEqual({ pickId: 'p1', note: 'graduation' });
+    expect(onToast).toHaveBeenCalledWith('Note saved');
+  });
+
+  it('My notes: clearing the textarea and saving sends null (and toasts "Note cleared")', async () => {
+    const user = userEvent.setup();
+    const { onToast } = renderScreen({
+      picks: [makePick({ id: 'p1', date: '2026-06-03', state: 'proposed', reservist_note: 'old text' })],
+    });
+    const row = screen.getByTestId('my-note-row-2026-06-03');
+    await user.click(within(row).getByRole('button', { name: 'Edit' }));
+    const textarea = within(row).getByRole('textbox');
+    await user.clear(textarea);
+    await user.click(within(row).getByRole('button', { name: 'Save' }));
+    expect(mockSetNote.mutateAsync).toHaveBeenCalledTimes(1);
+    expect(mockSetNote.mutateAsync.mock.calls[0][0]).toEqual({ pickId: 'p1', note: null });
+    expect(onToast).toHaveBeenCalledWith('Note cleared');
+  });
+
+  it('My notes: Cancel reverts the edit without calling the mutation', async () => {
+    const user = userEvent.setup();
+    renderScreen({
+      picks: [makePick({ id: 'p1', date: '2026-06-03', state: 'proposed', reservist_note: 'first draft' })],
+    });
+    const row = screen.getByTestId('my-note-row-2026-06-03');
+    await user.click(within(row).getByRole('button', { name: 'Edit' }));
+    const textarea = within(row).getByRole('textbox');
+    await user.clear(textarea);
+    await user.type(textarea, 'rewrite');
+    await user.click(within(row).getByRole('button', { name: 'Cancel' }));
+    expect(mockSetNote.mutateAsync).not.toHaveBeenCalled();
+    // Original note still visible
+    expect(within(row).getByText('first draft')).toBeInTheDocument();
+  });
+
+  it('My notes: closed window hides Edit/Add note controls', () => {
+    renderScreen({
+      window: { state: 'closed' },
+      picks: [makePick({ id: 'p1', date: '2026-06-03', state: 'approved', reservist_note: 'note' })],
+    });
+    const row = screen.getByTestId('my-note-row-2026-06-03');
+    expect(within(row).queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(within(row).queryByRole('button', { name: 'Add note' })).not.toBeInTheDocument();
   });
 
   it('Commander notes section renders the state pill (approved/rejected)', () => {

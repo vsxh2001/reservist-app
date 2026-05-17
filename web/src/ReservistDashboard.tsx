@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Avatar, Button, SkillChip, StatusPill } from './components/atoms';
 import { Icon } from './components/Icon';
 import { DeploymentPickScreen } from './components/DeploymentPickScreen';
@@ -9,6 +9,9 @@ import {
   useSetPhoneVisibility,
 } from './lib/queries';
 import { useRealtime } from './lib/realtime';
+import {
+  currentSubscription, sendTestPush, subscribeToPush, unsubscribeFromPush,
+} from './lib/push';
 import { STATUS_LABEL, type DeploymentWindow, type Status } from './lib/types';
 
 function fmtWhen(iso: string): string {
@@ -48,9 +51,52 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
   const [until, setUntil] = useState('');
   const [toast, setToast] = useState<string | null>(null);
 
+  // Push notification state — mirrors the commander SettingsScreen surface
+  // so reservists can opt into urgent call-up + pick-decision alerts.
+  const [pushSub, setPushSub] = useState<PushSubscription | null | 'loading'>('loading');
+  const [pushBusy, setPushBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    currentSubscription().then((sub) => {
+      if (!cancelled) setPushSub(sub);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   const showToast = (m: string) => {
     setToast(m);
     setTimeout(() => setToast(null), 2000);
+  };
+
+  const handleEnablePush = async () => {
+    if (!user) { showToast('Sign in to enable notifications'); return; }
+    setPushBusy(true);
+    const result = await subscribeToPush(user.id);
+    setPushBusy(false);
+    if (result.ok) {
+      const sub = await currentSubscription();
+      setPushSub(sub);
+      showToast('Push notifications enabled');
+    } else {
+      showToast(result.reason ?? 'Failed to enable push');
+    }
+  };
+
+  const handleDisablePush = async () => {
+    if (!user) return;
+    setPushBusy(true);
+    await unsubscribeFromPush(user.id);
+    setPushSub(null);
+    setPushBusy(false);
+    showToast('Push notifications disabled');
+  };
+
+  const handleTestPush = async () => {
+    setPushBusy(true);
+    await sendTestPush();
+    setPushBusy(false);
+    showToast('Test notification sent — check your device');
   };
 
   if (me.isLoading) {
@@ -300,6 +346,41 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
               >Off</button>
             </div>
           </div>
+        </Card>
+
+        {/* Push notifications opt-in (PRD §7.8) */}
+        <Card title="Notifications">
+          {pushSub === 'loading' ? (
+            <div style={{ fontSize: 12.5, color: 'var(--ink-soft)' }}>
+              Checking notification status…
+            </div>
+          ) : pushSub ? (
+            <>
+              <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', marginBottom: 10 }}>
+                Push notifications are <strong>enabled</strong> on this device.
+                You'll get alerts for urgent call-ups and deployment pick decisions.
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <Button size="sm" variant="ghost" disabled={pushBusy} onClick={handleDisablePush}>
+                  Disable push
+                </Button>
+                <Button size="sm" variant="outline" disabled={pushBusy} onClick={handleTestPush}>
+                  Send test push
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', marginBottom: 10 }}>
+                Enable push notifications to get alerts for urgent call-ups and deployment pick decisions —
+                even when the app is closed.
+                {' '}On iOS, install the app to your Home Screen first (iOS 16.4+).
+              </div>
+              <Button size="sm" variant="primary" icon="bell" disabled={pushBusy || !user} onClick={handleEnablePush}>
+                Enable push
+              </Button>
+            </>
+          )}
         </Card>
 
         {/* My upcoming duty */}

@@ -61,6 +61,20 @@ vi.mock('../../src/lib/realtime', () => ({
   useRealtime: () => {},
 }));
 
+// ── push — happy-dom has no PushManager / SW registration. Mock so the
+//    Notifications card renders deterministically without touching the
+//    real service-worker layer.
+const currentSubscriptionMock = vi.fn();
+const subscribeToPushMock = vi.fn();
+const unsubscribeFromPushMock = vi.fn();
+const sendTestPushMock = vi.fn();
+vi.mock('../../src/lib/push', () => ({
+  currentSubscription: () => currentSubscriptionMock(),
+  subscribeToPush: (memberId: string) => subscribeToPushMock(memberId),
+  unsubscribeFromPush: (memberId: string) => unsubscribeFromPushMock(memberId),
+  sendTestPush: () => sendTestPushMock(),
+}));
+
 // ── queries hooks ──────────────────────────────────────────────────────────
 let myMemberState: { data: Member | null; isLoading: boolean } = {
   data: null,
@@ -201,6 +215,14 @@ describe('ReservistDashboard', () => {
     setPhoneVisibilityMut.mutateAsync.mockReset();
     setPhoneVisibilityMut.isPending = false;
     setTeamIdMock.mockReset();
+    currentSubscriptionMock.mockReset();
+    currentSubscriptionMock.mockResolvedValue(null);
+    subscribeToPushMock.mockReset();
+    subscribeToPushMock.mockResolvedValue({ ok: true });
+    unsubscribeFromPushMock.mockReset();
+    unsubscribeFromPushMock.mockResolvedValue(undefined);
+    sendTestPushMock.mockReset();
+    sendTestPushMock.mockResolvedValue(undefined);
   });
 
   // -------- header ------------------------------------------------------
@@ -441,5 +463,51 @@ describe('ReservistDashboard', () => {
     const heading = screen.getByText('My upcoming duty');
     const card = heading.closest('section')!;
     expect(within(card).getByText(/Nothing scheduled/i)).toBeInTheDocument();
+  });
+
+  // -------- notifications opt-in ---------------------------------------
+
+  it('Notifications card shows Enable push when not subscribed', async () => {
+    currentSubscriptionMock.mockResolvedValue(null);
+    render(<ReservistDashboard />);
+    expect(await screen.findByRole('button', { name: /Enable push/i })).toBeInTheDocument();
+  });
+
+  it('Notifications card shows Disable + Test push when subscribed', async () => {
+    const fakeSub = { endpoint: 'https://push.example/abc' } as unknown as PushSubscription;
+    currentSubscriptionMock.mockResolvedValue(fakeSub);
+    render(<ReservistDashboard />);
+    expect(await screen.findByRole('button', { name: /Disable push/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Send test push/i })).toBeInTheDocument();
+  });
+
+  it('Enable push button calls subscribeToPush with the user.id (= member id)', async () => {
+    const user = userEvent.setup();
+    currentSubscriptionMock.mockResolvedValue(null);
+    render(<ReservistDashboard />);
+
+    await user.click(await screen.findByRole('button', { name: /Enable push/i }));
+    expect(subscribeToPushMock).toHaveBeenCalledWith('u1');
+  });
+
+  it('Disable push button calls unsubscribeFromPush and updates the card', async () => {
+    const user = userEvent.setup();
+    const fakeSub = { endpoint: 'https://push.example/abc' } as unknown as PushSubscription;
+    currentSubscriptionMock.mockResolvedValue(fakeSub);
+    render(<ReservistDashboard />);
+
+    await user.click(await screen.findByRole('button', { name: /Disable push/i }));
+    expect(unsubscribeFromPushMock).toHaveBeenCalledWith('u1');
+    expect(await screen.findByRole('button', { name: /Enable push/i })).toBeInTheDocument();
+  });
+
+  it('Send test push button calls sendTestPush', async () => {
+    const user = userEvent.setup();
+    const fakeSub = { endpoint: 'https://push.example/abc' } as unknown as PushSubscription;
+    currentSubscriptionMock.mockResolvedValue(fakeSub);
+    render(<ReservistDashboard />);
+
+    await user.click(await screen.findByRole('button', { name: /Send test push/i }));
+    expect(sendTestPushMock).toHaveBeenCalledTimes(1);
   });
 });

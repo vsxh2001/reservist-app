@@ -372,6 +372,84 @@ describe('ReservistDashboard', () => {
     expect(screen.getByText(/Nothing scheduled for you right now/i)).toBeInTheDocument();
   });
 
+  // -------- cancelled assignments --------------------------------------
+
+  it('Cancelled section surfaces a cancelled slot the reservist was assigned to', () => {
+    const cancelled = makeSlot({
+      id: 's-cancel',
+      title: 'Was: patrol',
+      state: 'cancelled',
+      start_at: new Date(Date.now() + 2 * 86_400_000).toISOString(),
+      assignee_ids: ['m1'],
+    });
+    mySlotsState = { data: [cancelled], isLoading: false };
+
+    render(<ReservistDashboard />);
+
+    const section = screen.getByTestId('cancelled-section');
+    expect(section).toBeInTheDocument();
+    expect(section.textContent).toMatch(/Cancelled/);
+    expect(section.textContent).toMatch(/Was: patrol/);
+  });
+
+  it('Cancelled section is hidden when no cancelled slot is in the recent window', () => {
+    const livePub = makeSlot({
+      id: 's-live',
+      title: 'Routine',
+      state: 'published',
+      start_at: new Date(Date.now() + 86_400_000).toISOString(),
+    });
+    mySlotsState = { data: [livePub], isLoading: false };
+
+    render(<ReservistDashboard />);
+    expect(screen.queryByTestId('cancelled-section')).not.toBeInTheDocument();
+  });
+
+  it('Cancelled section is hidden for cancellations the reservist is NOT assigned to', () => {
+    const cancelled = makeSlot({
+      id: 's-cancel',
+      title: 'Other team patrol',
+      state: 'cancelled',
+      start_at: new Date(Date.now() + 2 * 86_400_000).toISOString(),
+      assignee_ids: ['m-other'],
+    });
+    mySlotsState = { data: [cancelled], isLoading: false };
+
+    render(<ReservistDashboard />);
+    expect(screen.queryByTestId('cancelled-section')).not.toBeInTheDocument();
+  });
+
+  it('Cancelled section drops cancellations older than 7 days', () => {
+    const stale = makeSlot({
+      id: 's-stale',
+      title: 'Last month patrol',
+      state: 'cancelled',
+      start_at: new Date(Date.now() - 14 * 86_400_000).toISOString(),
+      assignee_ids: ['m1'],
+    });
+    mySlotsState = { data: [stale], isLoading: false };
+
+    render(<ReservistDashboard />);
+    expect(screen.queryByTestId('cancelled-section')).not.toBeInTheDocument();
+    // Empty state still shown since the only slot is filtered out.
+    expect(screen.getByText(/Nothing scheduled for you right now/i)).toBeInTheDocument();
+  });
+
+  it('Cancelled SlotRow renders a "Cancelled" pill alongside the title', () => {
+    const cancelled = makeSlot({
+      id: 's-cancel',
+      title: 'Was: drill',
+      state: 'cancelled',
+      start_at: new Date(Date.now() + 86_400_000).toISOString(),
+      assignee_ids: ['m1'],
+    });
+    mySlotsState = { data: [cancelled], isLoading: false };
+
+    render(<ReservistDashboard />);
+    const section = screen.getByTestId('cancelled-section');
+    expect(within(section).getByText('Cancelled', { selector: 'span' })).toBeInTheDocument();
+  });
+
   // -------- phone visibility -------------------------------------------
 
   it('Phone visibility card reflects phone_visible_to_peers=false and clicking On calls setPhoneVisibility', async () => {

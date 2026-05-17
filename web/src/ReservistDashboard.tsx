@@ -229,6 +229,17 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
   const upcoming = visibleSlots.filter((s) => s.state === 'published' && new Date(s.start_at) >= new Date(Date.now() - 86400000));
   const urgent = upcoming.filter((s) => s.urgent);
   const regular = upcoming.filter((s) => !s.urgent);
+  // Cancelled slots the reservist was assigned to, within a recent/near window
+  // (7 days back → 30 days forward). Surfaced separately so the reservist
+  // notices a cancellation they cared about; falls off after the start date
+  // passes by a week so the card doesn't accumulate stale rows.
+  const cancelledAssigned = myMemberId == null ? [] : visibleSlots.filter((s) => {
+    if (s.state !== 'cancelled') return false;
+    if (!s.assignee_ids.includes(myMemberId)) return false;
+    const t = new Date(s.start_at).getTime();
+    const now = Date.now();
+    return t >= now - 7 * 86_400_000 && t <= now + 30 * 86_400_000;
+  });
 
   return (
     <div style={{
@@ -719,12 +730,30 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
         <Card title="My upcoming duty">
           {slots.isLoading ? (
             <div style={{ color: 'var(--ink-soft)', fontSize: 13 }}>Loading…</div>
-          ) : upcoming.length === 0 ? (
+          ) : upcoming.length === 0 && cancelledAssigned.length === 0 ? (
             <div style={{ color: 'var(--ink-soft)', fontSize: 13 }}>
               Nothing scheduled for you right now.
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {cancelledAssigned.length > 0 && (
+                <div
+                  data-testid="cancelled-section"
+                  style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+                >
+                  <div style={{
+                    fontFamily: 'var(--mono)', fontSize: 10.5, fontWeight: 500,
+                    textTransform: 'uppercase', letterSpacing: '.08em',
+                    color: 'var(--ink-mute)',
+                  }}>
+                    Cancelled
+                  </div>
+                  {cancelledAssigned.map((s) => (
+                    <SlotRow key={s.id} s={s} memberNameById={memberNameById} myMemberId={me.data!.id} />
+                  ))}
+                  {(urgent.length > 0 || regular.length > 0) && <div style={{ height: 4 }} />}
+                </div>
+              )}
               {urgent.length > 0 && (
                 <div style={{
                   fontFamily: 'var(--mono)', fontSize: 10.5, fontWeight: 500,
@@ -797,6 +826,7 @@ interface SlotRowSlot {
   id: string;
   title: string;
   urgent: boolean;
+  state: 'draft' | 'published' | 'completed' | 'cancelled';
   start_at: string;
   duration: string | null;
   location: string | null;
@@ -813,6 +843,7 @@ function SlotRow({ s, memberNameById, myMemberId }: {
   myMemberId?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const cancelled = s.state === 'cancelled';
   const hasDetail =
     Boolean(s.notes) ||
     s.skills.length > 0 ||
@@ -833,19 +864,35 @@ function SlotRow({ s, memberNameById, myMemberId }: {
         }
       }}
       style={{
-        border: '1px solid ' + (s.urgent ? 'var(--urgent)' : 'var(--line-soft)'),
+        border: '1px solid ' + (cancelled ? 'var(--line-soft)' : s.urgent ? 'var(--urgent)' : 'var(--line-soft)'),
         borderRadius: 10, padding: 12,
-        background: s.urgent ? 'var(--urgent-bg)' : 'var(--paper-deep)',
+        background: cancelled ? 'var(--paper-deep)' : s.urgent ? 'var(--urgent-bg)' : 'var(--paper-deep)',
         position: 'relative', overflow: 'hidden',
         cursor: hasDetail ? 'pointer' : 'default',
+        opacity: cancelled ? 0.7 : 1,
       }}
     >
-      {s.urgent && <div style={{
+      {s.urgent && !cancelled && <div style={{
         position: 'absolute', top: 0, left: 0, bottom: 0, width: 3,
         background: 'var(--urgent)',
       }}/>}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ fontWeight: 500, fontSize: 14, flex: 1, minWidth: 0 }}>{s.title}</div>
+        <div style={{
+          fontWeight: 500, fontSize: 14, flex: 1, minWidth: 0,
+          textDecoration: cancelled ? 'line-through' : 'none',
+          color: cancelled ? 'var(--ink-soft)' : 'inherit',
+        }}>{s.title}</div>
+        {cancelled && (
+          <span style={{
+            fontSize: 10, fontFamily: 'var(--mono)',
+            padding: '2px 6px', borderRadius: 4,
+            textTransform: 'uppercase', letterSpacing: '.06em',
+            background: 'var(--urgent-bg)', color: 'var(--urgent-deep)',
+            border: '1px solid var(--urgent)',
+          }}>
+            Cancelled
+          </span>
+        )}
         {hasDetail && (
           <Icon name={open ? 'chevDown' : 'chevRight'} size={14} />
         )}

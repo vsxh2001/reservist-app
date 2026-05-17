@@ -644,4 +644,68 @@ describe('ReservistDashboard', () => {
     // DeploymentPickScreen renders a header containing the window label.
     expect(await screen.findByText(/Extra op/)).toBeInTheDocument();
   });
+
+  // -------- status until preset chips ----------------------------------
+
+  it('status edit hides preset chips when pending status is available', async () => {
+    const user = userEvent.setup();
+    myMemberState = { data: makeMember({ status: 'available' }), isLoading: false };
+    render(<ReservistDashboard />);
+
+    await user.click(screen.getByRole('button', { name: /Change/i }));
+    expect(screen.queryByRole('button', { name: /^3 days$/i })).not.toBeInTheDocument();
+  });
+
+  it('status edit shows preset chips after switching to a non-available status', async () => {
+    const user = userEvent.setup();
+    myMemberState = { data: makeMember({ status: 'available' }), isLoading: false };
+    render(<ReservistDashboard />);
+
+    await user.click(screen.getByRole('button', { name: /Change/i }));
+    const unavailableOption = screen.getByText('Unavailable').closest('button') as HTMLElement;
+    await user.click(unavailableOption);
+    expect(screen.getByRole('button', { name: /^3 days$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^1 week$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^2 weeks$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^1 month$/i })).toBeInTheDocument();
+  });
+
+  it('clicking a preset chip writes the corresponding YYYY-MM-DD into the date input', async () => {
+    const user = userEvent.setup();
+    myMemberState = { data: makeMember({ status: 'unavailable' }), isLoading: false };
+    render(<ReservistDashboard />);
+
+    await user.click(screen.getByRole('button', { name: /Change/i }));
+    await user.click(screen.getByRole('button', { name: /^1 week$/i }));
+
+    const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
+    expect(dateInput).not.toBeNull();
+    // 7 days from today, formatted the same way the component does.
+    const expected = (() => {
+      const d = new Date();
+      d.setDate(d.getDate() + 7);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    })();
+    expect(dateInput.value).toBe(expected);
+  });
+
+  it('Clear chip empties the until field; chip only shows when a value is set', async () => {
+    const user = userEvent.setup();
+    myMemberState = { data: makeMember({ status: 'unavailable' }), isLoading: false };
+    render(<ReservistDashboard />);
+
+    await user.click(screen.getByRole('button', { name: /Change/i }));
+    expect(screen.queryByRole('button', { name: /^Clear$/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^1 week$/i }));
+    const clear = screen.getByRole('button', { name: /^Clear$/i });
+    await user.click(clear);
+
+    const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
+    expect(dateInput.value).toBe('');
+    expect(screen.queryByRole('button', { name: /^Clear$/i })).not.toBeInTheDocument();
+  });
 });

@@ -736,6 +736,95 @@ describe('ReservistDashboard', () => {
     expect(screen.getByText('March drill')).toBeInTheDocument();
   });
 
+  it('Open deployment row renders a "starts in N days" countdown', () => {
+    const isoDay = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    // Banner must be sooner than the windows we want to test inside the card.
+    const bannerStart = new Date(); bannerStart.setDate(bannerStart.getDate() + 1);
+    const start = new Date(); start.setDate(start.getDate() + 5);
+    const end = new Date(start); end.setDate(end.getDate() + 3);
+
+    myWindowsState = {
+      data: [
+        makeWindow({ id: 'w-banner', label: 'Banner', state: 'open',
+          start_date: isoDay(bannerStart), end_date: isoDay(bannerStart) }),
+        makeWindow({ id: 'w-soon',   label: 'Soon op', state: 'open',
+          start_date: isoDay(start), end_date: isoDay(end) }),
+      ],
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+
+    // The card's deployment row, not the banner.
+    const card = screen.getByText('My deployments').closest('section') as HTMLElement;
+    const row = within(card).getByText('Soon op').closest('[role="button"]') as HTMLElement;
+    expect(within(row).getByText(/starts in 5 days/)).toBeInTheDocument();
+  });
+
+  it('Open deployment row renders "in progress" when today falls inside the window', () => {
+    const isoDay = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    // Banner needs an earlier start_date than the "Live op" we want in the
+    // card, AND its end_date must be >= today (else nextWindow drops it).
+    const bannerStart = new Date(); bannerStart.setDate(bannerStart.getDate() - 2);
+    const bannerEnd = new Date(); bannerEnd.setDate(bannerEnd.getDate() + 4);
+    const start = new Date(); start.setDate(start.getDate() - 1);
+    const end = new Date(); end.setDate(end.getDate() + 3);
+
+    myWindowsState = {
+      data: [
+        makeWindow({ id: 'w-banner', label: 'Banner', state: 'open',
+          start_date: isoDay(bannerStart), end_date: isoDay(bannerEnd) }),
+        makeWindow({ id: 'w-live',   label: 'Live op', state: 'open',
+          start_date: isoDay(start), end_date: isoDay(end) }),
+      ],
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+
+    const card = screen.getByText('My deployments').closest('section') as HTMLElement;
+    const row = within(card).getByText('Live op').closest('[role="button"]') as HTMLElement;
+    expect(within(row).getByText(/in progress/)).toBeInTheDocument();
+  });
+
+  it('Closed deployment rows do not render a countdown', () => {
+    myWindowsState = {
+      data: [
+        makeWindow({ id: 'w-active', label: 'Current op', state: 'open', start_date: '2099-06-01', end_date: '2099-06-07' }),
+        makeWindow({ id: 'w-past', label: 'March drill', state: 'closed', start_date: '2025-03-01', end_date: '2025-03-05' }),
+      ],
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    const row = screen.getByText('March drill').closest('[role="button"]') as HTMLElement;
+    expect(within(row).queryByTestId('window-countdown')).not.toBeInTheDocument();
+  });
+
+  it('Open deployments are sorted soonest-first in the card', () => {
+    const isoDay = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const banner = new Date(); banner.setDate(banner.getDate() + 1);
+    const later = new Date(); later.setDate(later.getDate() + 90);
+    const sooner = new Date(); sooner.setDate(sooner.getDate() + 30);
+
+    myWindowsState = {
+      data: [
+        makeWindow({ id: 'w-banner', label: 'Banner', state: 'open', start_date: isoDay(banner), end_date: isoDay(banner) }),
+        makeWindow({ id: 'w-later',  label: 'Later op', state: 'open', start_date: isoDay(later), end_date: isoDay(later) }),
+        makeWindow({ id: 'w-sooner', label: 'Sooner op', state: 'open', start_date: isoDay(sooner), end_date: isoDay(sooner) }),
+      ],
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+
+    const card = screen.getByText('My deployments').closest('section') as HTMLElement;
+    const text = card.textContent ?? '';
+    const iSooner = text.indexOf('Sooner op');
+    const iLater = text.indexOf('Later op');
+    expect(iSooner).toBeGreaterThan(-1);
+    expect(iLater).toBeGreaterThan(iSooner);
+  });
+
   it('Clicking a deployment row opens DeploymentPickScreen for that window', async () => {
     const user = userEvent.setup();
     myWindowsState = {

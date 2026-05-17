@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fmtWhen } from '../src/lib/calendarUtils';
+import { fmtWhen, windowCountdown } from '../src/lib/calendarUtils';
 
 describe('fmtWhen', () => {
   const now = new Date(2026, 5, 10, 12, 0, 0); // 2026-06-10 12:00 local
@@ -42,5 +42,32 @@ describe('fmtWhen', () => {
   it('zero-pads single-digit hours and minutes', () => {
     const iso = new Date(2026, 5, 10, 7, 5).toISOString();
     expect(fmtWhen(iso, now)).toBe('Today, 07:05');
+  });
+});
+
+describe('windowCountdown', () => {
+  const now = new Date(2026, 5, 10, 9, 0, 0); // 2026-06-10 morning local
+
+  it('returns "starts tomorrow" when start is 1 day out', () => {
+    expect(windowCountdown('2026-06-11', '2026-06-15', now)).toBe('starts tomorrow');
+  });
+
+  it('returns "starts in N days" for 2-60 day window starts', () => {
+    expect(windowCountdown('2026-06-13', '2026-06-20', now)).toBe('starts in 3 days');
+    expect(windowCountdown('2026-07-09', '2026-07-12', now)).toBe('starts in 29 days');
+  });
+
+  it('returns null when the window starts more than 60 days out', () => {
+    expect(windowCountdown('2026-09-01', '2026-09-15', now)).toBeNull();
+  });
+
+  it('returns "in progress" when today is between start and end (inclusive)', () => {
+    expect(windowCountdown('2026-06-10', '2026-06-12', now)).toBe('in progress');
+    expect(windowCountdown('2026-06-05', '2026-06-12', now)).toBe('in progress');
+    expect(windowCountdown('2026-06-05', '2026-06-10', now)).toBe('in progress');
+  });
+
+  it('returns null when today is past the end date', () => {
+    expect(windowCountdown('2026-05-01', '2026-05-10', now)).toBeNull();
   });
 });

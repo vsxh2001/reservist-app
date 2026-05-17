@@ -95,6 +95,17 @@ const setPhoneVisibilityMut = {
   mutateAsync: vi.fn(),
   isPending: false,
 };
+const setMemberSkillMut = {
+  mutate: vi.fn(),
+  mutateAsync: vi.fn(),
+  isPending: false,
+};
+const removeMemberSkillMut = {
+  mutate: vi.fn(),
+  mutateAsync: vi.fn(),
+  isPending: false,
+};
+let allSkillsState: { data: string[] | undefined } = { data: ['Night Ops', 'Medic', 'Driver'] };
 
 vi.mock('../../src/lib/queries', () => ({
   useMyMember: () => myMemberState,
@@ -102,6 +113,9 @@ vi.mock('../../src/lib/queries', () => ({
   useMyDeploymentWindows: () => myWindowsState,
   useSelfUpdateStatus: () => selfUpdateStatusMut,
   useSetPhoneVisibility: () => setPhoneVisibilityMut,
+  useSetMemberSkill: () => setMemberSkillMut,
+  useRemoveMemberSkill: () => removeMemberSkillMut,
+  useSkills: () => allSkillsState,
   // DeploymentPickScreen imports these from queries too.
   useDeploymentPicks: () => ({ data: [], isLoading: false, error: null }),
   useProposeDayPick: () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -214,6 +228,13 @@ describe('ReservistDashboard', () => {
     setPhoneVisibilityMut.mutate.mockReset();
     setPhoneVisibilityMut.mutateAsync.mockReset();
     setPhoneVisibilityMut.isPending = false;
+    setMemberSkillMut.mutateAsync.mockReset();
+    setMemberSkillMut.mutateAsync.mockResolvedValue(undefined);
+    setMemberSkillMut.isPending = false;
+    removeMemberSkillMut.mutateAsync.mockReset();
+    removeMemberSkillMut.mutateAsync.mockResolvedValue(undefined);
+    removeMemberSkillMut.isPending = false;
+    allSkillsState = { data: ['Night Ops', 'Medic', 'Driver'] };
     setTeamIdMock.mockReset();
     currentSubscriptionMock.mockReset();
     currentSubscriptionMock.mockResolvedValue(null);
@@ -707,5 +728,98 @@ describe('ReservistDashboard', () => {
     const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
     expect(dateInput.value).toBe('');
     expect(screen.queryByRole('button', { name: /^Clear$/i })).not.toBeInTheDocument();
+  });
+
+  // -------- self-edit skills (PRD §7.2) --------------------------------
+
+  it('My skills card shows empty hint when member has no skills', () => {
+    myMemberState = { data: makeMember({ skills: [] }), isLoading: false };
+    render(<ReservistDashboard />);
+    expect(screen.getByText('My skills')).toBeInTheDocument();
+    expect(screen.getByText(/No skills yet/i)).toBeInTheDocument();
+  });
+
+  it('My skills Edit toggle exposes the add-skill picker with division skills', async () => {
+    const user = userEvent.setup();
+    myMemberState = { data: makeMember({ skills: [] }), isLoading: false };
+    render(<ReservistDashboard />);
+
+    // Card has Edit button; click to enter edit mode.
+    const editBtn = within(screen.getByText('My skills').closest('section')!)
+      .getByRole('button', { name: /^Edit$/i });
+    await user.click(editBtn);
+
+    // Skill <select> dropdown is now mounted. Options reflect division skills.
+    const select = screen.getByDisplayValue('Add a skill…') as HTMLSelectElement;
+    const opts = Array.from(select.options).map((o) => o.value);
+    expect(opts).toEqual(['', 'Night Ops', 'Medic', 'Driver']);
+  });
+
+  it('Add button on My skills calls useSetMemberSkill with the picked name + level', async () => {
+    const user = userEvent.setup();
+    myMemberState = { data: makeMember({ id: 'm1', division_id: 'div1', skills: [] }), isLoading: false };
+    render(<ReservistDashboard />);
+
+    const card = screen.getByText('My skills').closest('section')!;
+    await user.click(within(card).getByRole('button', { name: /^Edit$/i }));
+
+    // Pick "Medic", level "Senior".
+    await user.selectOptions(screen.getByDisplayValue('Add a skill…'), 'Medic');
+    await user.selectOptions(screen.getByDisplayValue('Junior'), 'senior');
+    await user.click(within(card).getByRole('button', { name: /^Add$/i }));
+
+    expect(setMemberSkillMut.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        memberId: 'm1',
+        divisionId: 'div1',
+        skillName: 'Medic',
+        level: 'senior',
+      }),
+    );
+  });
+
+  it('Cycling a skill level on an existing chip calls useSetMemberSkill with the next level', async () => {
+    const user = userEvent.setup();
+    myMemberState = {
+      data: makeMember({
+        id: 'm1', division_id: 'div1',
+        skills: [{ name: 'Night Ops', level: 'junior' }],
+      }),
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+
+    const card = screen.getByText('My skills').closest('section')!;
+    await user.click(within(card).getByRole('button', { name: /^Edit$/i }));
+
+    // The level cycle button is labelled with the current level.
+    await user.click(within(card).getByRole('button', { name: /Junior/i }));
+
+    expect(setMemberSkillMut.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skillName: 'Night Ops',
+        level: 'intermediate',
+      }),
+    );
+  });
+
+  it('Remove (x) on an existing chip calls useRemoveMemberSkill', async () => {
+    const user = userEvent.setup();
+    myMemberState = {
+      data: makeMember({
+        id: 'm1', division_id: 'div1',
+        skills: [{ name: 'Driver', level: 'intermediate' }],
+      }),
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+
+    const card = screen.getByText('My skills').closest('section')!;
+    await user.click(within(card).getByRole('button', { name: /^Edit$/i }));
+    await user.click(within(card).getByRole('button', { name: /Remove Driver/i }));
+
+    expect(removeMemberSkillMut.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ skillName: 'Driver' }),
+    );
   });
 });

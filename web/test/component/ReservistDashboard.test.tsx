@@ -510,4 +510,82 @@ describe('ReservistDashboard', () => {
     await user.click(await screen.findByRole('button', { name: /Send test push/i }));
     expect(sendTestPushMock).toHaveBeenCalledTimes(1);
   });
+
+  // -------- slot row expand --------------------------------------------
+
+  it('SlotRow shows filled/needed inline; tap reveals notes + skill chips', async () => {
+    const user = userEvent.setup();
+    mySlotsState = {
+      data: [
+        makeSlot({
+          id: 's-detail',
+          title: 'Border drill',
+          notes: 'Pickup at base 06:30. Bring rifle + 2 mags.',
+          needed: 3,
+          filled: 1,
+          skills: [{ name: 'Night Ops', min_level: 'senior' }],
+        }),
+      ],
+      isLoading: false,
+    };
+
+    render(<ReservistDashboard />);
+
+    // Filled/needed badge is always visible (no tap required).
+    expect(screen.getByText('1/3')).toBeInTheDocument();
+    // Notes hidden until tap.
+    expect(screen.queryByText(/Pickup at base/)).not.toBeInTheDocument();
+
+    const row = screen.getByText('Border drill').closest('[role="button"]') as HTMLElement;
+    expect(row).not.toBeNull();
+    expect(row.getAttribute('aria-expanded')).toBe('false');
+    await user.click(row);
+    expect(row.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText(/Pickup at base/)).toBeInTheDocument();
+    expect(screen.getByText('Night Ops')).toBeInTheDocument();
+  });
+
+  it('SlotRow without detail (no notes, no skills, needed=0) is not interactive', () => {
+    mySlotsState = {
+      data: [
+        makeSlot({
+          id: 's-bare',
+          title: 'Bare patrol',
+          notes: null,
+          needed: 0,
+          filled: 0,
+          skills: [],
+        }),
+      ],
+      isLoading: false,
+    };
+
+    render(<ReservistDashboard />);
+    const titleEl = screen.getByText('Bare patrol');
+    // The row container is the closest div with the slot border styling. It
+    // must not have role=button when there's no detail to show.
+    expect(titleEl.closest('[role="button"]')).toBeNull();
+  });
+
+  it('SlotRow toggle is keyboard-accessible (Enter expands)', async () => {
+    const user = userEvent.setup();
+    mySlotsState = {
+      data: [
+        makeSlot({
+          id: 's-kbd',
+          title: 'KBD patrol',
+          notes: 'Quiet sector',
+          needed: 1,
+          filled: 0,
+        }),
+      ],
+      isLoading: false,
+    };
+
+    render(<ReservistDashboard />);
+    const row = screen.getByText('KBD patrol').closest('[role="button"]') as HTMLElement;
+    row.focus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByText('Quiet sector')).toBeInTheDocument();
+  });
 });

@@ -5,8 +5,9 @@ import { DeploymentPickScreen } from './components/DeploymentPickScreen';
 import { useAuth } from './lib/auth';
 import { useActiveTeam } from './lib/team-context';
 import {
-  useMyDeploymentWindows, useMyMember, useMySlots, useRemoveMemberSkill,
-  useSelfUpdateStatus, useSetMemberSkill, useSetPhoneVisibility, useSkills,
+  useMembers, useMyDeploymentWindows, useMyMember, useMySlots,
+  useRemoveMemberSkill, useSelfUpdateStatus, useSetMemberSkill,
+  useSetPhoneVisibility, useSkills,
 } from './lib/queries';
 import { useRealtime } from './lib/realtime';
 import {
@@ -44,6 +45,12 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
   const me = useMyMember(user?.id);
   const slots = useMySlots(me.data?.id);
   const windows = useMyDeploymentWindows(user?.id, team?.id);
+  const teamMembers = useMembers(team?.id);
+  const memberNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const m of teamMembers.data ?? []) map.set(m.id, m.name);
+    return map;
+  }, [teamMembers.data]);
   const [activeWindow, setActiveWindow] = useState<DeploymentWindow | null>(null);
 
   const nextWindow = useMemo(() => {
@@ -700,9 +707,13 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
                   <Icon name="urgent" size={11} /> Urgent
                 </div>
               )}
-              {urgent.map((s) => <SlotRow key={s.id} s={s} />)}
+              {urgent.map((s) => (
+                <SlotRow key={s.id} s={s} memberNameById={memberNameById} myMemberId={me.data!.id} />
+              ))}
               {urgent.length > 0 && regular.length > 0 && <div style={{ height: 4 }} />}
-              {regular.map((s) => <SlotRow key={s.id} s={s} />)}
+              {regular.map((s) => (
+                <SlotRow key={s.id} s={s} memberNameById={memberNameById} myMemberId={me.data!.id} />
+              ))}
             </div>
           )}
         </Card>
@@ -755,9 +766,31 @@ function Card({ title, right, children }: { title: string; right?: React.ReactNo
   );
 }
 
-function SlotRow({ s }: { s: { id: string; title: string; urgent: boolean; start_at: string; duration: string | null; location: string | null; needed: number; filled: number; notes: string | null; skills: { name: string; min_level: import('./lib/types').SkillLevel }[] } }) {
+interface SlotRowSlot {
+  id: string;
+  title: string;
+  urgent: boolean;
+  start_at: string;
+  duration: string | null;
+  location: string | null;
+  needed: number;
+  filled: number;
+  notes: string | null;
+  skills: { name: string; min_level: SkillLevel }[];
+  assignee_ids: string[];
+}
+
+function SlotRow({ s, memberNameById, myMemberId }: {
+  s: SlotRowSlot;
+  memberNameById?: Map<string, string>;
+  myMemberId?: string;
+}) {
   const [open, setOpen] = useState(false);
-  const hasDetail = Boolean(s.notes) || s.skills.length > 0 || s.needed > 0;
+  const hasDetail =
+    Boolean(s.notes) ||
+    s.skills.length > 0 ||
+    s.needed > 0 ||
+    s.assignee_ids.length > 0;
   const toggle = () => { if (hasDetail) setOpen((v) => !v); };
   return (
     <div
@@ -820,6 +853,25 @@ function SlotRow({ s }: { s: { id: string; title: string; urgent: boolean; start
               {s.skills.map((sk) => (
                 <SkillChip key={sk.name} name={sk.name} level={sk.min_level} />
               ))}
+            </div>
+          )}
+          {s.assignee_ids.length > 0 && (
+            <div>
+              <div style={{
+                fontFamily: 'var(--mono)', fontSize: 10.5, fontWeight: 500,
+                textTransform: 'uppercase', letterSpacing: '.08em',
+                color: 'var(--ink-mute)', marginBottom: 4,
+              }}>
+                Assigned ({s.assignee_ids.length})
+              </div>
+              <div style={{ fontSize: 12.5, color: 'var(--ink-2)' }}>
+                {s.assignee_ids
+                  .map((id) => {
+                    if (id === myMemberId) return 'You';
+                    return memberNameById?.get(id) ?? '—';
+                  })
+                  .join(', ')}
+              </div>
             </div>
           )}
         </div>

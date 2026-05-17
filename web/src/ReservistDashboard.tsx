@@ -338,8 +338,24 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
                 fontFamily: 'var(--mono)', fontSize: 10.5, textTransform: 'uppercase',
                 letterSpacing: '.08em', color: 'var(--ink-mute)',
               }}>My next deployment</div>
-              <div style={{ fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 400, marginTop: 2 }}>
-                {nextWindow.label}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 400, marginTop: 2 }}>
+                  {nextWindow.label}
+                </span>
+                {(() => {
+                  const c = windowCountdown(nextWindow.start_date, nextWindow.end_date);
+                  return c ? (
+                    <span
+                      data-testid="banner-countdown"
+                      style={{
+                        fontFamily: 'var(--mono)', fontSize: 11,
+                        color: c === 'in progress' ? 'var(--accent-deep)' : 'var(--ink-soft)',
+                      }}
+                    >
+                      · {c}
+                    </span>
+                  ) : null;
+                })()}
               </div>
               <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 2, fontFamily: 'var(--mono)' }}>
                 {nextWindow.start_date} → {nextWindow.end_date} · {nextWindow.approved_count} approved · {nextWindow.proposed_count} proposed

@@ -531,6 +531,31 @@ describe('ReservistDashboard', () => {
     expect(screen.getByText(/2099-06-01/)).toBeInTheDocument();
   });
 
+  it('banner renders a countdown next to the label when start_date is within 60 days', () => {
+    const isoDay = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const start = new Date(); start.setDate(start.getDate() + 5);
+    const end = new Date(start); end.setDate(end.getDate() + 3);
+
+    myWindowsState = {
+      data: [makeWindow({ id: 'w-banner', label: 'Banner drill', state: 'open',
+        start_date: isoDay(start), end_date: isoDay(end) })],
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    expect(screen.getByTestId('banner-countdown')).toHaveTextContent(/starts in 5 days/);
+  });
+
+  it('banner omits the countdown when the start_date is more than 60 days out', () => {
+    myWindowsState = {
+      data: [makeWindow({ id: 'w-far', label: 'Far op', state: 'open',
+        start_date: '2099-06-01', end_date: '2099-06-07' })],
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    expect(screen.queryByTestId('banner-countdown')).not.toBeInTheDocument();
+  });
+
   // -------- view switch ------------------------------------------------
 
   it('renders the Commander view-switch button when onSwitchView is provided, and clicking it invokes the callback', async () => {

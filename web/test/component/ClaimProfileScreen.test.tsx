@@ -34,12 +34,23 @@ interface MockMember {
   division_id: string;
 }
 
+interface InspectRow {
+  status: 'valid' | 'expired' | 'not_found';
+  team_id: string | null;
+  team_name: string | null;
+  division_id: string | null;
+}
+
 let listResult: { data: MockMember[] | null; error: { message: string } | null } = {
   data: null,
   error: null,
 };
 let claimResult: { data: unknown; error: { message: string } | null } = {
   data: null,
+  error: null,
+};
+let inspectResult: { data: InspectRow[] | null; error: { message: string } | null } = {
+  data: [{ status: 'valid', team_id: 't1', team_name: 'Alpha Co.', division_id: 'div-1' }],
   error: null,
 };
 
@@ -54,6 +65,9 @@ vi.mock('../../src/lib/supabase', () => ({
       }
       if (fn === 'claim_member_by_invite') {
         return Promise.resolve(claimResult);
+      }
+      if (fn === 'inspect_invite') {
+        return Promise.resolve(inspectResult);
       }
       throw new Error(`Unexpected RPC in test: ${fn}`);
     },
@@ -117,6 +131,10 @@ describe('ClaimProfileScreen', () => {
     signOutMock.mockClear();
     listResult = { data: [], error: null };
     claimResult = { data: null, error: null };
+    inspectResult = {
+      data: [{ status: 'valid', team_id: 't1', team_name: 'Alpha Co.', division_id: 'div-1' }],
+      error: null,
+    };
   });
 
   afterEach(() => {
@@ -155,16 +173,50 @@ describe('ClaimProfileScreen', () => {
     expect(screen.getByText('Bob Levi')).toBeInTheDocument();
   });
 
-  it('shows an empty-state message when the RPC returns no rows', async () => {
+  it('shows an empty-state message naming the team when invite is valid but no unclaimed members', async () => {
     listResult = { data: [], error: null };
+    inspectResult = {
+      data: [{ status: 'valid', team_id: 't1', team_name: 'Mahlaka 6 — Carmel', division_id: 'div-1' }],
+      error: null,
+    };
     renderScreen(<ClaimProfileScreen />);
 
-    await userEvent.type(screen.getByPlaceholderText(/carmel/i), 'bogus');
+    await userEvent.type(screen.getByPlaceholderText(/carmel/i), 'carmel-6-J3xK');
     await userEvent.click(screen.getByRole('button', { name: /Look up/i }));
 
     expect(
-      await screen.findByText(/No unclaimed members for that invite code/i),
+      await screen.findByText(/No unclaimed members for/i),
     ).toBeInTheDocument();
+    expect(screen.getByText('Mahlaka 6 — Carmel')).toBeInTheDocument();
+  });
+
+  it('shows "expired" messaging when inspect_invite returns status=expired', async () => {
+    listResult = { data: [], error: null };
+    inspectResult = {
+      data: [{ status: 'expired', team_id: null, team_name: 'Bravo Co.', division_id: null }],
+      error: null,
+    };
+    renderScreen(<ClaimProfileScreen />);
+
+    await userEvent.type(screen.getByPlaceholderText(/carmel/i), 'stale-code');
+    await userEvent.click(screen.getByRole('button', { name: /Look up/i }));
+
+    expect(await screen.findByText(/invite has expired/i)).toBeInTheDocument();
+    expect(screen.getByText('Bravo Co.')).toBeInTheDocument();
+  });
+
+  it('shows "didn\'t match any team" when inspect_invite returns status=not_found', async () => {
+    listResult = { data: [], error: null };
+    inspectResult = {
+      data: [{ status: 'not_found', team_id: null, team_name: null, division_id: null }],
+      error: null,
+    };
+    renderScreen(<ClaimProfileScreen />);
+
+    await userEvent.type(screen.getByPlaceholderText(/carmel/i), 'zzz-bogus');
+    await userEvent.click(screen.getByRole('button', { name: /Look up/i }));
+
+    expect(await screen.findByText(/didn't match any team/i)).toBeInTheDocument();
   });
 
   it('initialInviteCode pre-submits the code and skips the manual lookup', async () => {

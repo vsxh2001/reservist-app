@@ -2,10 +2,10 @@
  * JoinScreen component tests.
  *
  * The screen renders an invite-code join flow. Behavior under test:
- *   - "Invite not found" state when useTeamByInvite returns null (404 path).
- *   - "Invite expired" state when team.invite_expires_at is in the past
- *     (PRD §7.1 — recently-added expired-invite branch).
- *   - Active form rendered when invite is valid and not expired.
+ *   - "Invite not found" state when useInspectInvite returns 'not_found'.
+ *   - "Invite expired" state when status='expired' (post-#23, RLS hides the
+ *     row; the RPC discriminator restores the explicit error UX).
+ *   - Active form rendered when invite is 'valid'.
  *   - Submit calls useSubmitJoinRequest.mutateAsync with the camelCase shape
  *     { teamId, name, phone, skillNames, note } and shows a confirmation.
  *   - Empty name or empty phone leaves the "Send request" button disabled.
@@ -20,24 +20,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { Team } from '../../src/lib/types';
+import type { InviteInspection } from '../../src/lib/queries';
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
 
 type InviteQueryState = {
-  data: Team | null;
+  data: InviteInspection | undefined;
   isLoading: boolean;
 };
 
-let inviteState: InviteQueryState = { data: null, isLoading: false };
+let inviteState: InviteQueryState = { data: undefined, isLoading: false };
 
 const mutateAsyncMock = vi.fn();
 let submitPending = false;
 
 vi.mock('../../src/lib/queries', () => ({
-  useTeamByInvite: (_code: string | null) => inviteState,
+  useInspectInvite: (_code: string | null) => inviteState,
   useSubmitJoinRequest: () => ({
     mutateAsync: mutateAsyncMock,
     isPending: submitPending,
@@ -78,22 +78,32 @@ import { JoinScreen } from '../../src/components/JoinScreen';
 // Fixtures
 // ---------------------------------------------------------------------------
 
-function makeTeam(overrides: Partial<Team> = {}): Team {
+function validInvite(overrides: Partial<InviteInspection> = {}): InviteInspection {
   return {
-    id: 'team-1',
-    project_id: 'proj-1',
+    status: 'valid',
+    team_id: 'team-1',
+    team_name: 'Alpha Company',
     division_id: 'div-1',
-    name: 'Alpha Company',
-    crest: 'lion',
-    invite_code: 'ALPHA-001',
-    // 24h in the future — well clear of "expired".
-    invite_expires_at: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
-    established: '2024-01',
-    member_count: 12,
-    commander_count: 2,
-    project_name: 'Reservist Pilot',
-    show_unit_schedule: true,
     ...overrides,
+  };
+}
+
+function expiredInvite(overrides: Partial<InviteInspection> = {}): InviteInspection {
+  return {
+    status: 'expired',
+    team_id: null,
+    team_name: 'Bravo Company',
+    division_id: null,
+    ...overrides,
+  };
+}
+
+function notFoundInvite(): InviteInspection {
+  return {
+    status: 'not_found',
+    team_id: null,
+    team_name: null,
+    division_id: null,
   };
 }
 
@@ -105,12 +115,12 @@ describe('JoinScreen', () => {
   beforeEach(() => {
     mutateAsyncMock.mockReset();
     submitPending = false;
-    inviteState = { data: null, isLoading: false };
+    inviteState = { data: notFoundInvite(), isLoading: false };
     skillsResult = { data: [], error: null };
   });
 
-  it('shows "Invite not found" when useTeamByInvite resolves to null', () => {
-    inviteState = { data: null, isLoading: false };
+  it('shows "Invite not found" when useInspectInvite returns status=not_found', () => {
+    inviteState = { data: notFoundInvite(), isLoading: false };
     const onCancel = vi.fn();
     render(<JoinScreen code="BAD-CODE" onCancel={onCancel} />);
 
@@ -121,12 +131,9 @@ describe('JoinScreen', () => {
     expect(screen.queryByRole('button', { name: /Send request/i })).not.toBeInTheDocument();
   });
 
-  it('shows the expired-invite branch when invite_expires_at is in the past', () => {
+  it('shows the expired-invite branch when status=expired', () => {
     inviteState = {
-      data: makeTeam({
-        name: 'Bravo Company',
-        invite_expires_at: new Date(Date.now() - 60_000).toISOString(),
-      }),
+      data: expiredInvite({ team_name: 'Bravo Company' }),
       isLoading: false,
     };
     render(<JoinScreen code="EXP-001" onCancel={vi.fn()} />);
@@ -139,8 +146,8 @@ describe('JoinScreen', () => {
     expect(screen.queryByRole('button', { name: /Send request/i })).not.toBeInTheDocument();
   });
 
-  it('renders the active join form when the invite is valid and unexpired', async () => {
-    inviteState = { data: makeTeam(), isLoading: false };
+  it('renders the active join form when the invite is valid', async () => {
+    inviteState = { data: validInvite(), isLoading: false };
     skillsResult = { data: [{ name: 'Medic' }, { name: 'Driver' }], error: null };
 
     render(<JoinScreen code="ALPHA-001" onCancel={vi.fn()} />);
@@ -158,7 +165,7 @@ describe('JoinScreen', () => {
   });
 
   it('keeps Send request disabled when name or phone is empty', async () => {
-    inviteState = { data: makeTeam(), isLoading: false };
+    inviteState = { data: validInvite(), isLoading: false };
     render(<JoinScreen code="ALPHA-001" onCancel={vi.fn()} />);
 
     const submitBtn = screen.getByRole('button', { name: /Send request/i });
@@ -178,7 +185,7 @@ describe('JoinScreen', () => {
   });
 
   it('submits via mutateAsync with the camelCase payload and shows confirmation', async () => {
-    inviteState = { data: makeTeam(), isLoading: false };
+    inviteState = { data: validInvite(), isLoading: false };
     skillsResult = { data: [{ name: 'Medic' }, { name: 'Driver' }], error: null };
     mutateAsyncMock.mockResolvedValue('jr-1');
 
@@ -221,7 +228,7 @@ describe('JoinScreen', () => {
   });
 
   it('passes note: null when the optional note field is left empty', async () => {
-    inviteState = { data: makeTeam(), isLoading: false };
+    inviteState = { data: validInvite(), isLoading: false };
     mutateAsyncMock.mockResolvedValue('jr-2');
 
     render(<JoinScreen code="ALPHA-001" onCancel={vi.fn()} />);
@@ -239,7 +246,7 @@ describe('JoinScreen', () => {
   });
 
   it('on mutation rejection, does not transition to the success state', async () => {
-    inviteState = { data: makeTeam(), isLoading: false };
+    inviteState = { data: validInvite(), isLoading: false };
 
     // JoinScreen now catches mutateAsync rejections in doSubmit and surfaces
     // them via an inline error region under the submit button. No unhandled
@@ -269,7 +276,7 @@ describe('JoinScreen', () => {
   });
 
   it('Back button on the not-found state invokes onCancel', async () => {
-    inviteState = { data: null, isLoading: false };
+    inviteState = { data: notFoundInvite(), isLoading: false };
     const onCancel = vi.fn();
     render(<JoinScreen code="BAD" onCancel={onCancel} />);
 
@@ -278,12 +285,7 @@ describe('JoinScreen', () => {
   });
 
   it('Back button on the expired state invokes onCancel', async () => {
-    inviteState = {
-      data: makeTeam({
-        invite_expires_at: new Date(Date.now() - 60_000).toISOString(),
-      }),
-      isLoading: false,
-    };
+    inviteState = { data: expiredInvite(), isLoading: false };
     const onCancel = vi.fn();
     render(<JoinScreen code="EXP-1" onCancel={onCancel} />);
 
@@ -292,7 +294,7 @@ describe('JoinScreen', () => {
   });
 
   it('Cancel button on the active form invokes onCancel', async () => {
-    inviteState = { data: makeTeam(), isLoading: false };
+    inviteState = { data: validInvite(), isLoading: false };
     const onCancel = vi.fn();
     render(<JoinScreen code="ALPHA-001" onCancel={onCancel} />);
 

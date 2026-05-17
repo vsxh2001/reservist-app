@@ -473,6 +473,40 @@ export function useTeamByInvite(code: string | null) {
   });
 }
 
+/**
+ * inspect_invite RPC — three-way discriminator for the JoinScreen.
+ *
+ * After 20260517032643 the teams SELECT carve-out filters expired invites
+ * at the RLS level, collapsing "expired" and "not found" into the same null
+ * result for the direct table lookup. This RPC returns an explicit status
+ * so the screen can render the right error message.
+ *
+ * Returns one row with status ∈ { 'valid', 'expired', 'not_found' }.
+ * `team_id` + `division_id` are non-null only when status = 'valid'.
+ * `team_name` is populated for both 'valid' and 'expired'.
+ */
+export interface InviteInspection {
+  status: 'valid' | 'expired' | 'not_found';
+  team_id: string | null;
+  team_name: string | null;
+  division_id: string | null;
+}
+export function useInspectInvite(code: string | null) {
+  return useQuery({
+    queryKey: ['inspect-invite', code],
+    enabled: !!code,
+    queryFn: async (): Promise<InviteInspection> => {
+      const { data, error } = await supabase
+        .rpc('inspect_invite', { p_invite_code: code! });
+      if (error) throw error;
+      const row = (data as InviteInspection[] | null)?.[0];
+      // Fallback to 'not_found' if the RPC returns an empty array (shouldn't
+      // happen given the union-all in the migration, but defensive).
+      return row ?? { status: 'not_found', team_id: null, team_name: null, division_id: null };
+    },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Claim-profile RPCs (RLS-safe path for unlinked auth users)
 //

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from './atoms';
 import { Icon } from './Icon';
+import { normalizePhoneToE164IL } from '../lib/phone';
 import { supabase } from '../lib/supabase';
 import { useInspectInvite, useSubmitJoinRequest } from '../lib/queries';
 
@@ -39,9 +40,11 @@ export function JoinScreen({ code, onCancel }: Props) {
   const teamId = invite.data?.status === 'valid' ? invite.data.team_id : null;
   const teamName = invite.data?.team_name ?? null;
 
+  const normalizedPhone = useMemo(() => normalizePhoneToE164IL(phone), [phone]);
+  const phoneInvalid = phone.trim().length > 0 && normalizedPhone === null;
   const canSubmit = useMemo(
-    () => name.trim().length > 1 && phone.trim().length >= 7 && !!teamId,
-    [name, phone, teamId],
+    () => name.trim().length > 1 && normalizedPhone !== null && !!teamId,
+    [name, normalizedPhone, teamId],
   );
 
   const doSubmit = async () => {
@@ -130,7 +133,19 @@ export function JoinScreen({ code, onCancel }: Props) {
               </Row>
               <Row label="Phone">
                 <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)}
-                       placeholder="+972 50-000-0000" autoComplete="tel" type="tel" />
+                       placeholder="+972 50-000-0000" autoComplete="tel" type="tel"
+                       aria-invalid={phoneInvalid || undefined} />
+                {phoneInvalid && (
+                  <div
+                    data-testid="phone-hint"
+                    style={{
+                      marginTop: 4, fontSize: 11.5, lineHeight: 1.4,
+                      color: 'var(--urgent-deep)',
+                    }}
+                  >
+                    Doesn't look like a phone number — try <code>054-123-4567</code> or <code>+972 50-000-0000</code>.
+                  </div>
+                )}
               </Row>
               <Row label="Skills">
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>

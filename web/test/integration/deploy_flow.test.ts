@@ -377,4 +377,110 @@ describe('Deployment flow under RLS (multi-actor)', () => {
     // Same division but caller is not a commander of M6's team — RLS should hide.
     expect(rows).toHaveLength(0);
   });
+
+  // ─────────────────────────────────────────────────────────────
+  // 12. Service-role bypass.
+  // The state-machine trigger fires for every UPDATE regardless of role,
+  // but service_role represents admin tooling / server-side scripts that
+  // must be able to force-correct picks. After 20260517031647 the trigger
+  // short-circuits when current_setting('request.jwt.claim.role') is
+  // 'service_role', allowing transitions a soldier would normally be
+  // blocked from (e.g. withdrawn → approved).
+  // ─────────────────────────────────────────────────────────────
+  it('service role can force-transition withdrawn → approved (admin tooling bypass)', async () => {
+    // pickIdWithdraw was withdrawn by the soldier in test 10. Service role
+    // re-opens it to approved. Without the new bypass this raises 42501.
+    const r = await restStatus(`/deployment_picks?id=eq.${pickIdWithdraw}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        state: 'approved',
+        resolved_at: new Date().toISOString(),
+        resolved_by: commanderId,
+      }),
+      ...AS_SVCR,
+    });
+    expect(r.status).toBeLessThan(300);
+
+    const rows = await rest<{ state: string }[]>(
+      `/deployment_picks?id=eq.${pickIdWithdraw}&select=state`,
+      AS_SVCR,
+    );
+    expect(rows[0].state).toBe('approved');
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // 13. Division-admin bypass.
+  // A division admin who is NOT a commander of the window's team should
+  // still be able to transition pick states for any team in the division.
+  // We promote Asaf (Bravo-6 commander, same division as M6) to division
+  // admin for the duration of this test, then demote afterwards.
+  // ─────────────────────────────────────────────────────────────
+  it('division admin can transition picks across teams in their division', async () => {
+    const ASAF_AUTH_ID = 'd0000000-0000-0000-0000-000000000001';
+    const AS_ASAF = { as: { asAuthUserId: ASAF_AUTH_ID } } as const;
+    // Resolve Asaf's member row id and verify he's not an M6 commander.
+    const asaf = await rest<{ id: string }[]>(
+      `/members?auth_user_id=eq.${ASAF_AUTH_ID}&select=id&limit=1`,
+      AS_SVCR,
+    );
+    expect(asaf.length).toBe(1);
+    const asafMemberId = asaf[0].id;
+
+    // Create a fresh proposed pick to operate on (using a date that is
+    // unused by earlier tests to avoid the (window_id, date) unique).
+    const FRESH_DATE = daysFromNow(35);
+    const created = await rest<{ id: string }[]>('/deployment_picks', {
+      method: 'POST',
+      prefer: 'return=representation',
+      body: JSON.stringify({
+        window_id: windowId,
+        date: FRESH_DATE,
+        state: 'proposed',
+      }),
+      ...AS_SOLDIER,
+    });
+    const pickId = created[0].id;
+    createdPickIds.push(pickId);
+
+    // Pre-condition is covered by test 11 (Bravo commander can't even read
+    // M6 picks). Skip a redundant trigger-block assertion here — RLS would
+    // hide the row anyway, returning 204 with 0-rows-updated rather than
+    // raising the trigger.
+
+    // Promote Asaf to division admin (service role bypasses RLS on members).
+    await rest(`/members?id=eq.${asafMemberId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_division_admin: true }),
+      ...AS_SVCR,
+    });
+
+    try {
+      // Now the transition should succeed via the division-admin bypass.
+      const ok = await restStatus(`/deployment_picks?id=eq.${pickId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          state: 'approved',
+          resolved_at: new Date().toISOString(),
+          resolved_by: asafMemberId,
+        }),
+        ...AS_ASAF,
+      });
+      expect(ok.status).toBeLessThan(300);
+
+      const check = await rest<{ state: string; resolved_by: string | null }[]>(
+        `/deployment_picks?id=eq.${pickId}&select=state,resolved_by`,
+        AS_SVCR,
+      );
+      expect(check[0].state).toBe('approved');
+      expect(check[0].resolved_by).toBe(asafMemberId);
+    } finally {
+      // Demote regardless of test outcome — keeps seed state pristine for
+      // the next file in the integration run.
+      await rest(`/members?id=eq.${asafMemberId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ is_division_admin: false }),
+        ...AS_SVCR,
+      });
+    }
+  });
 });

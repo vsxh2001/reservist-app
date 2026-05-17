@@ -80,6 +80,27 @@ export function DeploymentPickScreen({ window: w, onClose, onToast }: Props) {
           )}
         </div>
 
+        {w.notes && w.notes.trim().length > 0 && (
+          <div
+            data-testid="window-notes"
+            style={{
+              padding: 12, marginBottom: 18,
+              background: 'var(--paper-deep)',
+              border: '1px solid var(--line-soft)',
+              borderRadius: 10,
+            }}
+          >
+            <div style={{
+              fontFamily: 'var(--mono)', fontSize: 10.5, fontWeight: 500,
+              textTransform: 'uppercase', letterSpacing: '.08em',
+              color: 'var(--ink-mute)', marginBottom: 6,
+            }}>From your commander</div>
+            <div style={{ fontSize: 13, color: 'var(--ink-2)', whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>
+              {w.notes}
+            </div>
+          </div>
+        )}
+
         {months.map((m) => (
           <section key={`${m.getFullYear()}-${m.getMonth()}`} style={{ marginBottom: 22 }}>
             <h2 style={{

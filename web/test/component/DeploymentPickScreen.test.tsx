@@ -158,6 +158,24 @@ describe('DeploymentPickScreen', () => {
     expect(screen.queryByText('Closed')).not.toBeInTheDocument();
   });
 
+  it('renders the window.notes panel ("From your commander") when notes are set', () => {
+    renderScreen({ window: { notes: 'Please prioritise weekdays — coverage is tight Sat/Sun.' } });
+    const panel = screen.getByTestId('window-notes');
+    expect(panel).toBeInTheDocument();
+    expect(panel.textContent).toMatch(/From your commander/);
+    expect(panel.textContent).toMatch(/Please prioritise weekdays/);
+  });
+
+  it('hides the window-notes panel when notes is null', () => {
+    renderScreen({ window: { notes: null } });
+    expect(screen.queryByTestId('window-notes')).not.toBeInTheDocument();
+  });
+
+  it('hides the window-notes panel when notes is only whitespace', () => {
+    renderScreen({ window: { notes: '   \n  ' } });
+    expect(screen.queryByTestId('window-notes')).not.toBeInTheDocument();
+  });
+
   // -------- month grid -------------------------------------------------
 
   it('renders Mon-Sun day-of-week headers', () => {

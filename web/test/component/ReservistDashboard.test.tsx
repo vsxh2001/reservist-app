@@ -107,10 +107,16 @@ const removeMemberSkillMut = {
 };
 let allSkillsState: { data: string[] | undefined } = { data: ['Night Ops', 'Medic', 'Driver'] };
 
+let teamMembersState: { data: { id: string; name: string }[] | undefined; isLoading: boolean } = {
+  data: [],
+  isLoading: false,
+};
+
 vi.mock('../../src/lib/queries', () => ({
   useMyMember: () => myMemberState,
   useMySlots: () => mySlotsState,
   useMyDeploymentWindows: () => myWindowsState,
+  useMembers: () => teamMembersState,
   useSelfUpdateStatus: () => selfUpdateStatusMut,
   useSetPhoneVisibility: () => setPhoneVisibilityMut,
   useSetMemberSkill: () => setMemberSkillMut,
@@ -235,6 +241,7 @@ describe('ReservistDashboard', () => {
     removeMemberSkillMut.mutateAsync.mockResolvedValue(undefined);
     removeMemberSkillMut.isPending = false;
     allSkillsState = { data: ['Night Ops', 'Medic', 'Driver'] };
+    teamMembersState = { data: [], isLoading: false };
     setTeamIdMock.mockReset();
     currentSubscriptionMock.mockReset();
     currentSubscriptionMock.mockResolvedValue(null);
@@ -566,7 +573,7 @@ describe('ReservistDashboard', () => {
     expect(screen.getByText('Night Ops')).toBeInTheDocument();
   });
 
-  it('SlotRow without detail (no notes, no skills, needed=0) is not interactive', () => {
+  it('SlotRow without detail (no notes, no skills, needed=0, no assignees) is not interactive', () => {
     mySlotsState = {
       data: [
         makeSlot({
@@ -576,6 +583,7 @@ describe('ReservistDashboard', () => {
           needed: 0,
           filled: 0,
           skills: [],
+          assignee_ids: [],
         }),
       ],
       isLoading: false,
@@ -821,5 +829,68 @@ describe('ReservistDashboard', () => {
     expect(removeMemberSkillMut.mutateAsync).toHaveBeenCalledWith(
       expect.objectContaining({ skillName: 'Driver' }),
     );
+  });
+
+  // -------- slot co-assignees ------------------------------------------
+
+  it('expanded SlotRow shows co-assignees with "You" for current member', async () => {
+    const user = userEvent.setup();
+    myMemberState = { data: makeMember({ id: 'm1', name: 'Yael Cohen' }), isLoading: false };
+    teamMembersState = {
+      data: [
+        { id: 'm1', name: 'Yael Cohen' },
+        { id: 'm2', name: 'Daniel Katz' },
+        { id: 'm3', name: 'Noa Shapira' },
+      ],
+      isLoading: false,
+    };
+    mySlotsState = {
+      data: [
+        makeSlot({
+          id: 's-assignees',
+          title: 'Three-up patrol',
+          notes: null,
+          needed: 3,
+          filled: 3,
+          assignee_ids: ['m1', 'm2', 'm3'],
+        }),
+      ],
+      isLoading: false,
+    };
+
+    render(<ReservistDashboard />);
+    const row = screen.getByText('Three-up patrol').closest('[role="button"]') as HTMLElement;
+    await user.click(row);
+
+    // The "Assigned (3)" header renders, with names joined by commas.
+    expect(screen.getByText('Assigned (3)')).toBeInTheDocument();
+    // Names are joined into a single text node; assert on the concatenated value.
+    expect(screen.getByText('You, Daniel Katz, Noa Shapira')).toBeInTheDocument();
+  });
+
+  it('falls back to em-dash for assignee ids missing from the members map', async () => {
+    const user = userEvent.setup();
+    myMemberState = { data: makeMember({ id: 'm1' }), isLoading: false };
+    // Note: only 'm1' is in the members map; 'm-unknown' should render as '—'.
+    teamMembersState = {
+      data: [{ id: 'm1', name: 'Yael Cohen' }],
+      isLoading: false,
+    };
+    mySlotsState = {
+      data: [
+        makeSlot({
+          id: 's-mystery',
+          title: 'Mystery slot',
+          needed: 2,
+          filled: 2,
+          assignee_ids: ['m1', 'm-unknown'],
+        }),
+      ],
+      isLoading: false,
+    };
+
+    render(<ReservistDashboard />);
+    await user.click(screen.getByText('Mystery slot').closest('[role="button"]') as HTMLElement);
+    expect(screen.getByText('You, —')).toBeInTheDocument();
   });
 });

@@ -259,6 +259,47 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
           </section>
         )}
 
+        {/* All other deployment windows (open + recent) */}
+        {(() => {
+          const all = windows.data ?? [];
+          const others = nextWindow
+            ? all.filter((w) => w.id !== nextWindow.id)
+            : all;
+          if (others.length === 0) return null;
+          const open = others.filter((w) => w.state === 'open');
+          const closed = others.filter((w) => w.state !== 'open');
+          return (
+            <Card title="My deployments">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {open.map((w) => (
+                  <DeploymentRow
+                    key={w.id}
+                    w={w}
+                    onOpen={() => setActiveWindow(w)}
+                  />
+                ))}
+                {closed.length > 0 && (
+                  <>
+                    <div style={{
+                      fontFamily: 'var(--mono)', fontSize: 10.5, fontWeight: 500,
+                      textTransform: 'uppercase', letterSpacing: '.08em',
+                      color: 'var(--ink-mute)', marginTop: open.length > 0 ? 6 : 0,
+                    }}>Recent</div>
+                    {closed.map((w) => (
+                      <DeploymentRow
+                        key={w.id}
+                        w={w}
+                        onOpen={() => setActiveWindow(w)}
+                        dim
+                      />
+                    ))}
+                  </>
+                )}
+              </div>
+            </Card>
+          );
+        })()}
+
         {/* Status card */}
         <Card title="My status" right={!editing && <button className="filter-clear" onClick={startEdit}>Change</button>}>
           {!editing ? (
@@ -526,6 +567,71 @@ function SlotRow({ s }: { s: { id: string; title: string; urgent: boolean; start
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function DeploymentRow({
+  w, onOpen, dim,
+}: {
+  w: DeploymentWindow;
+  onOpen: () => void;
+  dim?: boolean;
+}) {
+  const labelColor = dim ? 'var(--ink-soft)' : 'var(--ink)';
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '10px 12px',
+        background: dim ? 'var(--paper-deep)' : 'var(--card)',
+        border: '1px solid var(--line-soft)',
+        borderRadius: 8,
+        cursor: 'pointer',
+        opacity: dim ? 0.85 : 1,
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 500, fontSize: 13, color: labelColor }}>
+          {w.label}
+        </div>
+        <div style={{
+          fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 2,
+          fontFamily: 'var(--mono)',
+        }}>
+          {w.start_date} → {w.end_date}
+          {' · '}
+          <span style={{ color: w.approved_count > 0 ? 'var(--accent-deep)' : 'var(--ink-soft)' }}>
+            {w.approved_count} approved
+          </span>
+          {w.proposed_count > 0 && (
+            <>{' · '}{w.proposed_count} proposed</>
+          )}
+          {w.rejected_count > 0 && (
+            <>{' · '}{w.rejected_count} rejected</>
+          )}
+        </div>
+      </div>
+      <span style={{
+        fontSize: 10, fontFamily: 'var(--mono)',
+        padding: '2px 6px', borderRadius: 4,
+        textTransform: 'uppercase', letterSpacing: '.06em',
+        background: w.state === 'open' ? 'var(--accent-tint)' : 'var(--paper-deep)',
+        color: w.state === 'open' ? 'var(--accent-deep)' : 'var(--ink-mute)',
+        border: '1px solid ' + (w.state === 'open' ? 'var(--accent)' : 'var(--line-soft)'),
+      }}>
+        {w.state}
+      </span>
+      <Icon name="chevRight" size={14} />
     </div>
   );
 }

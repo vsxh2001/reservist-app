@@ -184,6 +184,37 @@ describe('JoinScreen', () => {
     expect(submitBtn).toBeDisabled();
   });
 
+  it('shows an inline hint and keeps Send request disabled when phone fails E.164 validation', async () => {
+    inviteState = { data: validInvite(), isLoading: false };
+    render(<JoinScreen code="ALPHA-001" onCancel={vi.fn()} />);
+
+    const submitBtn = screen.getByRole('button', { name: /Send request/i });
+    await userEvent.type(screen.getByPlaceholderText(/Tamar Levi/i), 'Tamar Levi');
+    await userEvent.type(screen.getByPlaceholderText(/\+972/), 'not-a-phone');
+
+    expect(screen.getByTestId('phone-hint')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/\+972/)).toHaveAttribute('aria-invalid', 'true');
+    expect(submitBtn).toBeDisabled();
+  });
+
+  it('clears the phone hint and re-enables Send request once a valid IL number is entered', async () => {
+    inviteState = { data: validInvite(), isLoading: false };
+    render(<JoinScreen code="ALPHA-001" onCancel={vi.fn()} />);
+
+    const submitBtn = screen.getByRole('button', { name: /Send request/i });
+    const phoneInput = screen.getByPlaceholderText(/\+972/);
+    await userEvent.type(screen.getByPlaceholderText(/Tamar Levi/i), 'Tamar Levi');
+    await userEvent.type(phoneInput, 'abc');
+    expect(submitBtn).toBeDisabled();
+    expect(screen.getByTestId('phone-hint')).toBeInTheDocument();
+
+    // Replace with a normalizable local-IL string.
+    await userEvent.clear(phoneInput);
+    await userEvent.type(phoneInput, '054-123-4567');
+    expect(screen.queryByTestId('phone-hint')).not.toBeInTheDocument();
+    expect(submitBtn).not.toBeDisabled();
+  });
+
   it('submits via mutateAsync with the camelCase payload and shows confirmation', async () => {
     inviteState = { data: validInvite(), isLoading: false };
     skillsResult = { data: [{ name: 'Medic' }, { name: 'Driver' }], error: null };

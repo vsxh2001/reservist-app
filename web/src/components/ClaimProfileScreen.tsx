@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Avatar, Button } from './atoms';
 import { Icon } from './Icon';
 import { useAuth } from '../lib/auth';
-import { useClaimMemberByInvite, useUnclaimedMembersByInvite } from '../lib/queries';
+import { useClaimMemberByInvite, useInspectInvite, useUnclaimedMembersByInvite } from '../lib/queries';
 
 interface Props {
   /**
@@ -24,6 +24,7 @@ export function ClaimProfileScreen({ initialInviteCode = null }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const list = useUnclaimedMembersByInvite(submittedCode);
+  const invite = useInspectInvite(submittedCode);
   const claim = useClaimMemberByInvite();
 
   const filtered = useMemo(() => {
@@ -132,15 +133,23 @@ export function ClaimProfileScreen({ initialInviteCode = null }: Props) {
               <input placeholder="Search by name" value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
 
-            {list.isLoading || !listLoaded ? (
+            {list.isLoading || !listLoaded || invite.isLoading ? (
               <div style={{ textAlign: 'center', color: 'var(--ink-soft)', fontSize: 13 }}>Loading…</div>
             ) : list.error ? (
               <div style={{ textAlign: 'center', color: 'var(--ink-soft)', fontSize: 13 }}>
                 Couldn't look up that invite code. Check it and try again.
               </div>
+            ) : invite.data?.status === 'not_found' ? (
+              <div style={{ textAlign: 'center', color: 'var(--ink-soft)', fontSize: 13 }}>
+                Code <code>{submittedCode}</code> didn't match any team. Check it and try again.
+              </div>
+            ) : invite.data?.status === 'expired' ? (
+              <div style={{ textAlign: 'center', color: 'var(--ink-soft)', fontSize: 13, lineHeight: 1.5 }}>
+                <b>{invite.data.team_name}</b>'s invite has expired. Ask a commander to renew the link, then try again.
+              </div>
             ) : !hasResults ? (
               <div style={{ textAlign: 'center', color: 'var(--ink-soft)', fontSize: 13 }}>
-                No unclaimed members for that invite code. Ask a commander to invite you.
+                No unclaimed members for <b>{invite.data?.team_name}</b>. Ask a commander to invite you.
               </div>
             ) : (
               <div style={{ maxHeight: 360, overflow: 'auto', margin: '0 -4px' }}>

@@ -261,4 +261,71 @@ describe('invite_expires_at enforcement', () => {
     );
     expect(rows.length).toBe(1);
   });
+
+  // ─────────────────────────────────────────────────────────────
+  // inspect_invite RPC — three-way discriminator for JoinScreen.
+  // Restores the explicit "expired" vs "not_found" UX after the
+  // teams-by-invite RLS carve-out started filtering expired rows.
+  // ─────────────────────────────────────────────────────────────
+  describe('inspect_invite RPC', () => {
+    interface Inspect {
+      status: 'valid' | 'expired' | 'not_found';
+      team_id: string | null;
+      team_name: string | null;
+      division_id: string | null;
+    }
+
+    it('returns status=valid + team_id + team_name for a fresh invite', async () => {
+      await setExpiry(teamId, FUTURE);
+      const rows = await rest<Inspect[]>('/rpc/inspect_invite', {
+        method: 'POST',
+        body: JSON.stringify({ p_invite_code: inviteCode }),
+        ...AS_ANON,
+      });
+      expect(rows.length).toBe(1);
+      expect(rows[0].status).toBe('valid');
+      expect(rows[0].team_id).toBe(teamId);
+      expect(rows[0].team_name).toBe('Invite Expiry Test Team');
+      expect(rows[0].division_id).toBe(divisionId);
+    });
+
+    it('returns status=expired + team_name (no team_id) for a past invite', async () => {
+      await setExpiry(teamId, PAST);
+      const rows = await rest<Inspect[]>('/rpc/inspect_invite', {
+        method: 'POST',
+        body: JSON.stringify({ p_invite_code: inviteCode }),
+        ...AS_ANON,
+      });
+      expect(rows.length).toBe(1);
+      expect(rows[0].status).toBe('expired');
+      expect(rows[0].team_name).toBe('Invite Expiry Test Team');
+      expect(rows[0].team_id).toBeNull();
+      expect(rows[0].division_id).toBeNull();
+    });
+
+    it('returns status=not_found for an unknown invite_code', async () => {
+      const rows = await rest<Inspect[]>('/rpc/inspect_invite', {
+        method: 'POST',
+        body: JSON.stringify({ p_invite_code: 'def-not-a-real-invite-zzzz' }),
+        ...AS_ANON,
+      });
+      expect(rows.length).toBe(1);
+      expect(rows[0].status).toBe('not_found');
+      expect(rows[0].team_id).toBeNull();
+      expect(rows[0].team_name).toBeNull();
+      expect(rows[0].division_id).toBeNull();
+    });
+
+    it('returns status=valid when invite_expires_at is NULL (never-expires path)', async () => {
+      await setExpiry(teamId, null);
+      const rows = await rest<Inspect[]>('/rpc/inspect_invite', {
+        method: 'POST',
+        body: JSON.stringify({ p_invite_code: inviteCode }),
+        ...AS_ANON,
+      });
+      expect(rows.length).toBe(1);
+      expect(rows[0].status).toBe('valid');
+      expect(rows[0].team_id).toBe(teamId);
+    });
+  });
 });

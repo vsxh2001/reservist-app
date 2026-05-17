@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button } from './atoms';
 import { Icon } from './Icon';
 import { supabase } from '../lib/supabase';
-import { useSubmitJoinRequest, useTeamByInvite } from '../lib/queries';
-import { isInviteExpired } from '../lib/types';
+import { useInspectInvite, useSubmitJoinRequest } from '../lib/queries';
 
 interface Props {
   code: string;
@@ -15,7 +14,7 @@ interface TeamMeta {
 }
 
 export function JoinScreen({ code, onCancel }: Props) {
-  const team = useTeamByInvite(code);
+  const invite = useInspectInvite(code);
   const submit = useSubmitJoinRequest();
   const [meta, setMeta] = useState<TeamMeta | null>(null);
 
@@ -27,7 +26,7 @@ export function JoinScreen({ code, onCancel }: Props) {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
-    const divisionId = team.data?.division_id;
+    const divisionId = invite.data?.division_id;
     if (!divisionId) return;
     (async () => {
       const s = await supabase.from('skills').select('name').eq('division_id', divisionId).order('name');
@@ -35,19 +34,22 @@ export function JoinScreen({ code, onCancel }: Props) {
         skills: (s.data ?? []).map((x: any) => x.name),
       });
     })();
-  }, [team.data]);
+  }, [invite.data]);
+
+  const teamId = invite.data?.status === 'valid' ? invite.data.team_id : null;
+  const teamName = invite.data?.team_name ?? null;
 
   const canSubmit = useMemo(
-    () => name.trim().length > 1 && phone.trim().length >= 7 && !!team.data,
-    [name, phone, team.data],
+    () => name.trim().length > 1 && phone.trim().length >= 7 && !!teamId,
+    [name, phone, teamId],
   );
 
   const doSubmit = async () => {
-    if (!team.data) return;
+    if (!teamId) return;
     setSubmitError(null);
     try {
       await submit.mutateAsync({
-        teamId: team.data.id,
+        teamId,
         name: name.trim(),
         phone: phone.trim(),
         skillNames: skills,
@@ -75,22 +77,22 @@ export function JoinScreen({ code, onCancel }: Props) {
         padding: 28,
         boxShadow: 'var(--shadow-md)',
       }}>
-        {team.isLoading ? (
+        {invite.isLoading ? (
           <div style={{ color: 'var(--ink-soft)' }}>Loading invite…</div>
-        ) : !team.data ? (
+        ) : invite.data?.status === 'not_found' ? (
           <>
             <h2 style={{ fontFamily: 'var(--serif)', fontSize: 24, margin: '0 0 6px' }}>Invite not found</h2>
             <p style={{ color: 'var(--ink-soft)', fontSize: 13 }}>
-              Code <code>{code}</code> didn't match any active team. Ask a commander for a fresh link.
+              Code <code>{code}</code> didn't match any team. Ask a commander for a fresh link.
             </p>
             <Button variant="outline" onClick={onCancel}>Back</Button>
           </>
-        ) : isInviteExpired(team.data) ? (
+        ) : invite.data?.status === 'expired' ? (
           <>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10.5, textTransform: 'uppercase',
                           letterSpacing: '.08em', color: 'var(--ink-mute)' }}>Invite expired</div>
             <h2 style={{ fontFamily: 'var(--serif)', fontSize: 24, margin: '4px 0 6px' }}>
-              {team.data.name}
+              {teamName}
             </h2>
             <p style={{ color: 'var(--ink-soft)', fontSize: 13, lineHeight: 1.5 }}>
               This invite link has expired. Ask your commander to regenerate or renew the team's invite link, then try again.
@@ -107,7 +109,7 @@ export function JoinScreen({ code, onCancel }: Props) {
             }}><Icon name="check" size={28} stroke={2} /></div>
             <h2 style={{ fontFamily: 'var(--serif)', fontSize: 24, margin: '0 0 6px' }}>Request sent</h2>
             <p style={{ color: 'var(--ink-soft)', fontSize: 13, lineHeight: 1.5 }}>
-              A commander of <b>{team.data.name}</b> will review your request. You'll get a notification once approved (PRD §10 risk 3 — no roster visibility until then).
+              A commander of <b>{teamName}</b> will review your request. You'll get a notification once approved (PRD §10 risk 3 — no roster visibility until then).
             </p>
             <Button variant="outline" onClick={onCancel}>Back</Button>
           </>
@@ -117,7 +119,7 @@ export function JoinScreen({ code, onCancel }: Props) {
               <div style={{ fontFamily: 'var(--mono)', fontSize: 10.5, textTransform: 'uppercase',
                             letterSpacing: '.08em', color: 'var(--ink-mute)' }}>Join team</div>
               <h2 style={{ fontFamily: 'var(--serif)', fontSize: 26, margin: '4px 0 0', fontWeight: 400, letterSpacing: '-.01em' }}>
-                {team.data.name}
+                {teamName}
               </h2>
             </div>
 

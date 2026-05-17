@@ -110,8 +110,75 @@ export function DeploymentPickScreen({ window: w, onClose, onToast }: Props) {
             </div>
           </section>
         ))}
+
+        <CommanderDecisions picks={picks.data ?? []} />
       </div>
     </div>
+  );
+}
+
+function CommanderDecisions({ picks }: { picks: DeploymentPick[] }) {
+  const decided = picks
+    .filter((p) => p.commander_note && p.commander_note.trim().length > 0)
+    .sort((a, b) => {
+      const ar = a.resolved_at ?? a.proposed_at;
+      const br = b.resolved_at ?? b.proposed_at;
+      return br.localeCompare(ar);
+    });
+  if (decided.length === 0) return null;
+  return (
+    <section
+      data-testid="commander-decisions"
+      style={{
+        marginTop: 6, padding: 16,
+        background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12,
+      }}
+    >
+      <div style={{
+        fontFamily: 'var(--mono)', fontSize: 10.5, fontWeight: 500,
+        textTransform: 'uppercase', letterSpacing: '.08em',
+        color: 'var(--ink-mute)', marginBottom: 10,
+      }}>Commander notes</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {decided.map((p) => (
+          <div
+            key={p.id}
+            style={{
+              display: 'flex', flexDirection: 'column', gap: 4,
+              padding: '8px 10px',
+              background: 'var(--paper-deep)', border: '1px solid var(--line-soft)',
+              borderRadius: 8,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+              <span style={{ fontFamily: 'var(--mono)', color: 'var(--ink-2)' }}>{p.date}</span>
+              <span
+                style={{
+                  fontSize: 10, fontFamily: 'var(--mono)',
+                  padding: '2px 6px', borderRadius: 4,
+                  textTransform: 'uppercase', letterSpacing: '.06em',
+                  background: p.state === 'approved' ? 'var(--accent-tint)'
+                    : p.state === 'rejected' ? 'var(--urgent-bg)'
+                    : 'var(--paper-deep)',
+                  color: p.state === 'approved' ? 'var(--accent-deep)'
+                    : p.state === 'rejected' ? 'var(--urgent-deep)'
+                    : 'var(--ink-mute)',
+                  border: '1px solid '
+                    + (p.state === 'approved' ? 'var(--accent)'
+                    : p.state === 'rejected' ? 'var(--urgent)'
+                    : 'var(--line-soft)'),
+                }}
+              >
+                {p.state}
+              </span>
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--ink-2)', whiteSpace: 'pre-wrap' }}>
+              {p.commander_note}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

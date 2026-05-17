@@ -9,7 +9,7 @@ import {
   useRemoveMemberSkill, useSelfUpdateStatus, useSetMemberSkill,
   useSetPhoneVisibility, useSkills,
 } from './lib/queries';
-import { fmtWhen } from './lib/calendarUtils';
+import { fmtWhen, windowCountdown } from './lib/calendarUtils';
 import { useRealtime } from './lib/realtime';
 import {
   currentSubscription, sendTestPush, subscribeToPush, unsubscribeFromPush,
@@ -355,7 +355,12 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
             ? all.filter((w) => w.id !== nextWindow.id)
             : all;
           if (others.length === 0) return null;
-          const open = others.filter((w) => w.state === 'open');
+          // Open windows: soonest start_date first (most actionable for the
+          // reservist). Closed/recent retain the underlying DESC order.
+          const open = others
+            .filter((w) => w.state === 'open')
+            .slice()
+            .sort((a, b) => a.start_date.localeCompare(b.start_date));
           const closed = others.filter((w) => w.state !== 'open');
           return (
             <Card title="My deployments">
@@ -962,6 +967,7 @@ function DeploymentRow({
   dim?: boolean;
 }) {
   const labelColor = dim ? 'var(--ink-soft)' : 'var(--ink)';
+  const countdown = w.state === 'open' ? windowCountdown(w.start_date, w.end_date) : null;
   return (
     <div
       role="button"
@@ -984,8 +990,21 @@ function DeploymentRow({
       }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 500, fontSize: 13, color: labelColor }}>
-          {w.label}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: 500, fontSize: 13, color: labelColor }}>
+            {w.label}
+          </span>
+          {countdown && (
+            <span
+              data-testid="window-countdown"
+              style={{
+                fontFamily: 'var(--mono)', fontSize: 10.5,
+                color: countdown === 'in progress' ? 'var(--accent-deep)' : 'var(--ink-soft)',
+              }}
+            >
+              {countdown}
+            </span>
+          )}
         </div>
         <div style={{
           fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 2,

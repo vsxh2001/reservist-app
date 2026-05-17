@@ -81,3 +81,33 @@ export function fmtWhen(iso: string, now: Date = new Date()): string {
   if (dayDiff >= 2 && dayDiff <= 6) return `in ${dayDiff} days · ${calendar}, ${time}`;
   return `${calendar}, ${time}`;
 }
+
+/**
+ * Returns a relative-time hint for a deployment-window pair of dates,
+ * used in the reservist's "My deployments" list. Both arguments are
+ * `YYYY-MM-DD` strings (date-only). Returns null when nothing useful
+ * applies (e.g. the window is already finished, or more than 60 days
+ * out — we don't want to clutter every row with "in 184 days").
+ *
+ *   today < start  ≤ start+60  → "starts in N days" / "starts tomorrow"
+ *   start ≤ today ≤ end        → "in progress"
+ *   today > end                → null (caller can still show state pill)
+ *
+ * `now` is injectable so tests don't drift with the wall clock.
+ */
+export function windowCountdown(startISO: string, endISO: string, now: Date = new Date()): string | null {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const [sy, sm, sd] = startISO.split('-').map(Number);
+  const [ey, em, ed] = endISO.split('-').map(Number);
+  const start = new Date(sy, sm - 1, sd);
+  const end = new Date(ey, em - 1, ed);
+  const dayMs = 86_400_000;
+
+  if (today > end) return null;
+  if (today >= start) return 'in progress';
+
+  const days = Math.round((start.getTime() - today.getTime()) / dayMs);
+  if (days === 1) return 'starts tomorrow';
+  if (days <= 60) return `starts in ${days} days`;
+  return null;
+}

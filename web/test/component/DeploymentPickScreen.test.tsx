@@ -23,7 +23,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { DeploymentPick, DeploymentWindow } from '../../src/lib/types';
 
@@ -321,5 +321,58 @@ describe('DeploymentPickScreen', () => {
     expect(backBtn).not.toBeNull();
     await user.click(backBtn!);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // -------- commander notes section ----------------------------------
+
+  it('Commander notes section is hidden when no picks have a commander_note', () => {
+    renderScreen({
+      picks: [makePick({ id: 'p-a', date: '2026-06-02', state: 'proposed', commander_note: null })],
+    });
+    expect(screen.queryByTestId('commander-decisions')).not.toBeInTheDocument();
+  });
+
+  it('Commander notes section lists picks with a note, most recent resolved_at first', () => {
+    renderScreen({
+      picks: [
+        makePick({
+          id: 'p-rej', date: '2026-06-03', state: 'rejected',
+          commander_note: 'No coverage that week',
+          resolved_at: '2026-05-15T10:00:00.000Z',
+        }),
+        makePick({
+          id: 'p-app', date: '2026-06-05', state: 'approved',
+          commander_note: 'OK — paired with Alice',
+          resolved_at: '2026-05-16T09:00:00.000Z',
+        }),
+        makePick({
+          id: 'p-other', date: '2026-06-06', state: 'proposed',
+          commander_note: null,
+          resolved_at: null,
+        }),
+      ],
+    });
+    const card = screen.getByTestId('commander-decisions');
+    expect(card).toBeInTheDocument();
+    expect(card.textContent).toMatch(/No coverage that week/);
+    expect(card.textContent).toMatch(/OK — paired with Alice/);
+    // Ordered by resolved_at desc → approved (2026-05-16) precedes rejected (2026-05-15).
+    const approvedIdx = card.textContent!.indexOf('OK — paired with Alice');
+    const rejectedIdx = card.textContent!.indexOf('No coverage that week');
+    expect(approvedIdx).toBeLessThan(rejectedIdx);
+  });
+
+  it('Commander notes section renders the state pill (approved/rejected)', () => {
+    renderScreen({
+      picks: [
+        makePick({
+          id: 'p-rej', date: '2026-06-03', state: 'rejected',
+          commander_note: 'Conflicts with brigade ex',
+          resolved_at: '2026-05-15T10:00:00.000Z',
+        }),
+      ],
+    });
+    const card = screen.getByTestId('commander-decisions');
+    expect(within(card).getByText('rejected')).toBeInTheDocument();
   });
 });

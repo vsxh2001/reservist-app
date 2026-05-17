@@ -14,10 +14,11 @@ import { useRealtime } from './lib/realtime';
 import {
   currentSubscription, sendTestPush, subscribeToPush, unsubscribeFromPush,
 } from './lib/push';
+import { normalizePhoneToE164IL } from './lib/phone';
 import {
   SKILL_LEVELS, SKILL_LEVEL_LABEL,
   STATUS_LABEL,
-  type DeploymentWindow, type SkillLevel, type Status,
+  type DeploymentWindow, type Member, type SkillLevel, type Status,
 } from './lib/types';
 
 /** Today + offset days, formatted YYYY-MM-DD in local time (status_until is a DATE column). */
@@ -38,9 +39,9 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
   const slots = useMySlots(me.data?.id);
   const windows = useMyDeploymentWindows(user?.id, team?.id);
   const teamMembers = useMembers(team?.id);
-  const memberNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const m of teamMembers.data ?? []) map.set(m.id, m.name);
+  const memberById = useMemo(() => {
+    const map = new Map<string, Member>();
+    for (const m of teamMembers.data ?? []) map.set(m.id, m);
     return map;
   }, [teamMembers.data]);
   const [activeWindow, setActiveWindow] = useState<DeploymentWindow | null>(null);
@@ -787,7 +788,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
                     Cancelled
                   </div>
                   {cancelledAssigned.map((s) => (
-                    <SlotRow key={s.id} s={s} memberNameById={memberNameById} myMemberId={me.data!.id} />
+                    <SlotRow key={s.id} s={s} memberById={memberById} myMemberId={me.data!.id} />
                   ))}
                   {(urgent.length > 0 || regular.length > 0) && <div style={{ height: 4 }} />}
                 </div>
@@ -802,11 +803,11 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
                 </div>
               )}
               {urgent.map((s) => (
-                <SlotRow key={s.id} s={s} memberNameById={memberNameById} myMemberId={me.data!.id} />
+                <SlotRow key={s.id} s={s} memberById={memberById} myMemberId={me.data!.id} />
               ))}
               {urgent.length > 0 && regular.length > 0 && <div style={{ height: 4 }} />}
               {regular.map((s) => (
-                <SlotRow key={s.id} s={s} memberNameById={memberNameById} myMemberId={me.data!.id} />
+                <SlotRow key={s.id} s={s} memberById={memberById} myMemberId={me.data!.id} />
               ))}
             </div>
           )}
@@ -875,9 +876,9 @@ interface SlotRowSlot {
   assignee_ids: string[];
 }
 
-function SlotRow({ s, memberNameById, myMemberId }: {
+function SlotRow({ s, memberById, myMemberId }: {
   s: SlotRowSlot;
-  memberNameById?: Map<string, string>;
+  memberById?: Map<string, Member>;
   myMemberId?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -976,13 +977,60 @@ function SlotRow({ s, memberNameById, myMemberId }: {
               }}>
                 Assigned ({s.assignee_ids.length})
               </div>
-              <div style={{ fontSize: 12.5, color: 'var(--ink-2)' }}>
-                {s.assignee_ids
-                  .map((id) => {
-                    if (id === myMemberId) return 'You';
-                    return memberNameById?.get(id) ?? '—';
-                  })
-                  .join(', ')}
+              <div
+                data-testid="assignees"
+                style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+              >
+                {s.assignee_ids.map((id) => {
+                  const isMe = id === myMemberId;
+                  const m = memberById?.get(id);
+                  const name = isMe ? 'You' : (m?.name ?? '—');
+                  const e164 = !isMe && m?.phone ? normalizePhoneToE164IL(m.phone) : null;
+                  return (
+                    <div
+                      key={id}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        fontSize: 12.5, color: 'var(--ink-2)',
+                      }}
+                    >
+                      <span style={{ flex: 1, minWidth: 0, fontWeight: isMe ? 500 : 400 }}>
+                        {name}
+                      </span>
+                      {e164 && (
+                        <>
+                          <a
+                            href={`tel:+${e164}`}
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label={`Call ${name}`}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              width: 26, height: 26, borderRadius: 6,
+                              border: '1px solid var(--line-strong)', color: 'var(--ink-2)',
+                              textDecoration: 'none',
+                            }}
+                          >
+                            <Icon name="phone" size={12} />
+                          </a>
+                          <a
+                            href={`https://wa.me/${e164}`}
+                            target="_blank" rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label={`WhatsApp ${name}`}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              width: 26, height: 26, borderRadius: 6,
+                              border: '1px solid var(--line-strong)', color: 'var(--ink-2)',
+                              textDecoration: 'none',
+                            }}
+                          >
+                            <Icon name="whatsapp" size={12} />
+                          </a>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

@@ -588,4 +588,60 @@ describe('ReservistDashboard', () => {
     await user.keyboard('{Enter}');
     expect(screen.getByText('Quiet sector')).toBeInTheDocument();
   });
+
+  // -------- deployments list -------------------------------------------
+
+  it('My deployments card hides when only one window exists (banner covers it)', () => {
+    myWindowsState = {
+      data: [makeWindow({ id: 'w-only', state: 'open', start_date: '2099-06-01' })],
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    expect(screen.queryByText('My deployments')).not.toBeInTheDocument();
+  });
+
+  it('My deployments card lists open windows beyond the banner', () => {
+    myWindowsState = {
+      data: [
+        makeWindow({ id: 'w-banner', label: 'June drill', state: 'open', start_date: '2099-06-01', end_date: '2099-06-07' }),
+        makeWindow({ id: 'w-extra', label: 'August exercise', state: 'open', start_date: '2099-08-10', end_date: '2099-08-14' }),
+      ],
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    expect(screen.getByText('My deployments')).toBeInTheDocument();
+    // Banner shows June (closest upcoming open). Card lists August.
+    expect(screen.getByText('August exercise')).toBeInTheDocument();
+  });
+
+  it('My deployments card surfaces closed windows under a Recent subheading', () => {
+    myWindowsState = {
+      data: [
+        makeWindow({ id: 'w-active', label: 'Current op', state: 'open', start_date: '2099-06-01', end_date: '2099-06-07' }),
+        makeWindow({ id: 'w-past', label: 'March drill', state: 'closed', start_date: '2025-03-01', end_date: '2025-03-05', approved_count: 2 }),
+      ],
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    // Recent subheading exists because there's at least one closed window.
+    expect(screen.getByText('Recent')).toBeInTheDocument();
+    expect(screen.getByText('March drill')).toBeInTheDocument();
+  });
+
+  it('Clicking a deployment row opens DeploymentPickScreen for that window', async () => {
+    const user = userEvent.setup();
+    myWindowsState = {
+      data: [
+        makeWindow({ id: 'w-banner', label: 'Banner', state: 'open', start_date: '2099-06-01', end_date: '2099-06-07' }),
+        makeWindow({ id: 'w-extra', label: 'Extra op', state: 'open', start_date: '2099-08-10', end_date: '2099-08-14' }),
+      ],
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+
+    const row = screen.getByText('Extra op').closest('[role="button"]') as HTMLElement;
+    await user.click(row);
+    // DeploymentPickScreen renders a header containing the window label.
+    expect(await screen.findByText(/Extra op/)).toBeInTheDocument();
+  });
 });

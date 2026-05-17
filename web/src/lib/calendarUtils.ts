@@ -73,7 +73,18 @@ export function fmtWhen(iso: string, now: Date = new Date()): string {
       86_400_000,
   );
 
-  if (dayDiff === 0) return `Today, ${time}`;
+  if (dayDiff === 0) {
+    // Imminent same-day slots: append "(in N min)" or "(in N hr)" when the
+    // start is in the future within 5 hours, so a reservist tapping the app
+    // right before a duty doesn't need to subtract clock times themselves.
+    const deltaMin = Math.round((d.getTime() - now.getTime()) / 60_000);
+    if (deltaMin > 0 && deltaMin <= 300) {
+      if (deltaMin < 60) return `Today, ${time} · in ${deltaMin} min`;
+      const hr = Math.round(deltaMin / 60);
+      return `Today, ${time} · in ${hr} hr`;
+    }
+    return `Today, ${time}`;
+  }
   if (dayDiff === 1) return `Tomorrow, ${time}`;
   if (dayDiff === -1) return `Yesterday, ${time}`;
 

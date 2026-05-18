@@ -14,11 +14,18 @@ import type { DeploymentPick, DeploymentWindow } from '../lib/types';
 
 interface Props {
   window: DeploymentWindow;
+  /**
+   * Display name of the commander who created the window. Surfaced in the
+   * header so the reservist knows who's requesting their availability;
+   * resolved by the caller from `window.created_by` against its members map.
+   * `null` when the creator is unknown (member deleted, RLS-hidden, etc.).
+   */
+  creatorName?: string | null;
   onClose: () => void;
   onToast: (msg: string) => void;
 }
 
-export function DeploymentPickScreen({ window: w, onClose, onToast }: Props) {
+export function DeploymentPickScreen({ window: w, creatorName, onClose, onToast }: Props) {
   const picks = useDeploymentPicks(w.id);
   const propose = useProposeDayPick();
   const withdraw = useWithdrawDayPick();
@@ -61,7 +68,22 @@ export function DeploymentPickScreen({ window: w, onClose, onToast }: Props) {
         <Button variant="ghost" size="icon" onClick={onClose} data-tip="Back">
           <Icon name="chevRight" size={15} style={{ transform: 'rotate(180deg)' }} />
         </Button>
-        <h1 className="topbar-title">{w.label} <em>{w.start_date} → {w.end_date}</em></h1>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h1 className="topbar-title" style={{ margin: 0 }}>
+            {w.label} <em>{w.start_date} → {w.end_date}</em>
+          </h1>
+          {creatorName && (
+            <div
+              data-testid="window-creator"
+              style={{
+                fontSize: 11, color: 'var(--ink-mute)',
+                fontFamily: 'var(--mono)', marginTop: 2,
+              }}
+            >
+              Set by {creatorName}
+            </div>
+          )}
+        </div>
       </header>
 
       <div className="scroll" style={{ padding: '16px 14px 60px' }}>

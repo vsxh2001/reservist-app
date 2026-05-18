@@ -188,9 +188,13 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
   }
 
   if (activeWindow) {
+    const creator = activeWindow.created_by
+      ? memberById.get(activeWindow.created_by)?.name ?? null
+      : null;
     return (
       <DeploymentPickScreen
         window={activeWindow}
+        creatorName={creator}
         onClose={() => setActiveWindow(null)}
         onToast={showToast}
       />

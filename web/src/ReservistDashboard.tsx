@@ -16,6 +16,7 @@ import {
   currentSubscription, sendTestPush, subscribeToPush, unsubscribeFromPush,
 } from './lib/push';
 import { fmtPhoneIL, normalizePhoneToE164IL } from './lib/phone';
+import { splitName } from './lib/text';
 import {
   SKILL_LEVELS, SKILL_LEVEL_LABEL,
   STATUS_LABEL,
@@ -308,7 +309,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
             <div style={{
               fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 400, lineHeight: 1.1,
             }}>
-              {me.data.name.split(' ')[0]} <em style={{ color: 'var(--ink-soft)' }}>{me.data.name.split(' ').slice(1).join(' ')}</em>
+              {(() => { const n = splitName(me.data.name); return <>{n.first} <em style={{ color: 'var(--ink-soft)' }}>{n.rest}</em></>; })()}
             </div>
             <div
               data-testid="profile-team"

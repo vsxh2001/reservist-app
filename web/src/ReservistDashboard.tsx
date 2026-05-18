@@ -205,6 +205,13 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
 
   const save = async () => {
     if (!me.data || !user) return;
+    // Some browsers let a user free-type into the date input, bypassing the
+    // `min` attribute. Guard the save path so an "until" in the past never
+    // reaches the DB. An empty string clears the override and is always OK.
+    if (until && until < computeUntilDate(0)) {
+      showToast('"Until" date must be today or later');
+      return;
+    }
     await update.mutateAsync({
       memberId: me.data.id,
       status: pending,
@@ -585,6 +592,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
                   </div>
                 )}
                 <input className="input" type="date" value={until}
+                       min={computeUntilDate(0)}
                        onChange={(e) => setUntil(e.target.value)} />
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>

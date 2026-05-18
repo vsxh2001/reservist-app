@@ -1038,6 +1038,38 @@ describe('ReservistDashboard', () => {
     expect(dateInput.value).toBe(expected);
   });
 
+  it('status until input carries a `min` attribute set to today (YYYY-MM-DD)', async () => {
+    const user = userEvent.setup();
+    myMemberState = { data: makeMember({ status: 'unavailable' }), isLoading: false };
+    render(<ReservistDashboard />);
+    await user.click(screen.getByRole('button', { name: /Change/i }));
+    const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
+    const todayISO = (() => {
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    })();
+    expect(dateInput.min).toBe(todayISO);
+  });
+
+  it('Save with a past "until" date is rejected client-side (toast + no mutation)', async () => {
+    const user = userEvent.setup();
+    myMemberState = { data: makeMember({ id: 'm1', status: 'unavailable' }), isLoading: false };
+    render(<ReservistDashboard />);
+
+    await user.click(screen.getByRole('button', { name: /Change/i }));
+
+    // Type a clearly-past date directly (some browsers let users bypass `min`).
+    const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
+    await user.clear(dateInput);
+    await user.type(dateInput, '2020-01-01');
+
+    await user.click(screen.getByRole('button', { name: /Save/i }));
+    expect(selfUpdateStatusMut.mutateAsync).not.toHaveBeenCalled();
+  });
+
   it('Clear chip empties the until field; chip only shows when a value is set', async () => {
     const user = userEvent.setup();
     myMemberState = { data: makeMember({ status: 'unavailable' }), isLoading: false };

@@ -3,6 +3,7 @@ import { Icon } from './Icon';
 import { Button } from './atoms';
 import { useBulkCancelSlots } from '../lib/queries';
 import { useAuth } from '../lib/auth';
+import { isoDay } from '../lib/calendarUtils';
 import type { Slot } from '../lib/types';
 
 interface Props {
@@ -11,14 +12,6 @@ interface Props {
   slots: Slot[];
   onClose: () => void;
   onToast: (msg: string) => void;
-}
-
-/** Format yyyy-mm-dd for a Date in the user's local timezone. */
-function isoDay(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
 }
 
 /**

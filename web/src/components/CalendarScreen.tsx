@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Icon } from './Icon';
 import { Avatar, Button, SkillChip } from './atoms';
+import { isoDay } from '../lib/calendarUtils';
 import type { Member, Slot } from '../lib/types';
 
 interface Props {
@@ -15,9 +16,6 @@ function startOfMonth(d: Date) {
 function addMonths(d: Date, n: number) {
   return new Date(d.getFullYear(), d.getMonth() + n, 1);
 }
-function dayKey(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 function fmtTime(iso: string) {
   const d = new Date(iso);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -25,13 +23,13 @@ function fmtTime(iso: string) {
 
 export function CalendarScreen({ slots, members, onSlotClick }: Props) {
   const [cursor, setCursor] = useState<Date>(() => startOfMonth(new Date()));
-  const [selected, setSelected] = useState<string | null>(dayKey(new Date()));
+  const [selected, setSelected] = useState<string | null>(isoDay(new Date()));
 
   const byDay = useMemo(() => {
     const m = new Map<string, Slot[]>();
     for (const s of slots) {
       if (s.state === 'cancelled') continue;
-      const k = dayKey(new Date(s.start_at));
+      const k = isoDay(new Date(s.start_at));
       if (!m.has(k)) m.set(k, []);
       m.get(k)!.push(s);
     }
@@ -57,7 +55,7 @@ export function CalendarScreen({ slots, members, onSlotClick }: Props) {
     if (cells.length >= 42) break;
   }
 
-  const todayKey = dayKey(new Date());
+  const todayKey = isoDay(new Date());
   const selectedSlots = selected ? (byDay.get(selected) ?? []) : [];
 
   return (
@@ -97,7 +95,7 @@ export function CalendarScreen({ slots, members, onSlotClick }: Props) {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
           {cells.map(({ date, inMonth }, i) => {
-            const k = dayKey(date);
+            const k = isoDay(date);
             const daySlots = byDay.get(k) ?? [];
             const isToday = k === todayKey;
             const isSelected = k === selected;

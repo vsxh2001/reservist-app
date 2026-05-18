@@ -13,6 +13,7 @@ import {
 } from '../lib/queries';
 import { useAuth } from '../lib/auth';
 import { fmtPhoneIL, normalizePhoneToE164IL } from '../lib/phone';
+import { splitName } from '../lib/text';
 
 interface Props {
   person: Member;
@@ -164,7 +165,7 @@ export function PersonDrawer({ person, team, allSkills, divisionId, onClose, onT
           <Avatar initials={person.initials} tone={person.tone} status={person.status} size="xl" />
           <div className="drawer-head-meta">
             <h3 className="name">
-              {person.name.split(' ')[0]} <em>{person.name.split(' ').slice(1).join(' ')}</em>
+              {(() => { const n = splitName(person.name); return <>{n.first} <em>{n.rest}</em></>; })()}
             </h3>
             {person.teams.find((tm) => tm.team_id === team.id)?.role === 'commander' && (
               <div className="role-line">
@@ -538,7 +539,7 @@ export function PersonDrawer({ person, team, allSkills, divisionId, onClose, onT
                           disabled={person.id === user?.id}
                           onClick={() => setConfirmDelete(true)}
                           style={{ color: 'var(--urgent-deep)', borderColor: 'var(--urgent)' }}>
-                    Remove {person.name.split(' ')[0]}
+                    Remove {splitName(person.name).first}
                   </Button>
                 ) : (
                   <div style={{

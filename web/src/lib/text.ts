@@ -16,3 +16,22 @@ export function initialsFromName(name: string | null | undefined): string {
     .toUpperCase();
   return letters || '?';
 }
+
+/**
+ * Split a full name into `{ first, rest }` for the "first name + faded
+ * surname" treatment used by the profile card and person drawer.
+ *
+ *   "Yael Cohen"        → { first: "Yael", rest: "Cohen" }
+ *   "Tamar Levi Avi"    → { first: "Tamar", rest: "Levi Avi" }
+ *   "Madonna"           → { first: "Madonna", rest: "" }
+ *   ""/null/undefined   → { first: "", rest: "" }
+ *
+ * Whitespace is collapsed; leading/trailing spaces are trimmed.
+ */
+export function splitName(name: string | null | undefined): { first: string; rest: string } {
+  if (!name) return { first: '', rest: '' };
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { first: '', rest: '' };
+  const [first, ...restParts] = parts;
+  return { first, rest: restParts.join(' ') };
+}

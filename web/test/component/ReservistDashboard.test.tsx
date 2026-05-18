@@ -1296,6 +1296,41 @@ describe('ReservistDashboard', () => {
     expect(screen.queryByRole('link', { name: 'Call You' })).not.toBeInTheDocument();
   });
 
+  it('expanded SlotRow renders "You" before other assignees regardless of incoming order', async () => {
+    const user = userEvent.setup();
+    myMemberState = { data: makeMember({ id: 'm1', name: 'Yael Cohen' }), isLoading: false };
+    teamMembersState = {
+      data: [
+        { id: 'm-other-a', name: 'Daniel Katz' },
+        { id: 'm-other-b', name: 'Noa Shapira' },
+        { id: 'm1', name: 'Yael Cohen' },
+      ],
+      isLoading: false,
+    };
+    // assignee_ids has the reservist last; the row should still show "You" first.
+    mySlotsState = {
+      data: [makeSlot({
+        id: 's-sort',
+        title: 'Sort-order patrol',
+        needed: 3, filled: 3,
+        assignee_ids: ['m-other-a', 'm-other-b', 'm1'],
+      })],
+      isLoading: false,
+    };
+
+    render(<ReservistDashboard />);
+    await user.click(screen.getByText('Sort-order patrol').closest('[role="button"]') as HTMLElement);
+
+    const block = screen.getByTestId('assignees');
+    const text = block.textContent ?? '';
+    const iYou = text.indexOf('You');
+    const iDan = text.indexOf('Daniel Katz');
+    const iNoa = text.indexOf('Noa Shapira');
+    expect(iYou).toBeGreaterThan(-1);
+    expect(iYou).toBeLessThan(iDan);
+    expect(iYou).toBeLessThan(iNoa);
+  });
+
   it('tapping a co-assignee call link does not collapse the SlotRow', async () => {
     const user = userEvent.setup();
     myMemberState = { data: makeMember({ id: 'm1' }), isLoading: false };

@@ -148,6 +148,16 @@ describe('DeploymentPickScreen', () => {
     expect(screen.getByText('3 rejected')).toBeInTheDocument();
   });
 
+  it('renders a "N withdrawn" legend entry when withdrawn_count > 0', () => {
+    renderScreen({ window: { withdrawn_count: 2 } });
+    expect(screen.getByText('2 withdrawn')).toBeInTheDocument();
+  });
+
+  it('hides the withdrawn legend entry when withdrawn_count is 0', () => {
+    renderScreen({ window: { withdrawn_count: 0 } });
+    expect(screen.queryByText(/withdrawn/)).not.toBeInTheDocument();
+  });
+
   it('renders a Closed badge in the legend when window.state === "closed"', () => {
     renderScreen({ window: { state: 'closed' } });
     expect(screen.getByText('Closed')).toBeInTheDocument();

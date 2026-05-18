@@ -73,6 +73,9 @@ export function DeploymentPickScreen({ window: w, onClose, onToast }: Props) {
           <Legend color="var(--accent)"      label={`${w.approved_count} approved`}  />
           <Legend color="var(--accent-tint)" label={`${w.proposed_count} proposed`}  />
           <Legend color="var(--urgent-bg)"   label={`${w.rejected_count} rejected`}  />
+          {w.withdrawn_count > 0 && (
+            <Legend color="var(--paper-deep)" label={`${w.withdrawn_count} withdrawn`} />
+          )}
           {w.state === 'closed' && (
             <span style={{ marginInlineStart: 'auto', fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.08em' }}>
               Closed

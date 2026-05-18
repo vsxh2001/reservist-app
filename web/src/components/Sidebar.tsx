@@ -3,6 +3,7 @@ import { Icon, type IconName } from './Icon';
 import { Avatar } from './atoms';
 import type { Member, Screen, Slot, Status, Team } from '../lib/types';
 import { useAuth } from '../lib/auth';
+import { initialsFromName } from '../lib/text';
 
 interface Props {
   team: Team;
@@ -180,7 +181,7 @@ export function Sidebar({ team, teams, setTeamId, members, slots, pendingRequest
       </div>
 
       <div className="sb-me" onClick={() => { void signOut(); }} title="Sign out">
-        <Avatar initials={user?.name.split(' ').map((p) => p[0]).slice(0, 2).join('') ?? '?'} tone={0} status="available" />
+        <Avatar initials={initialsFromName(user?.name)} tone={0} status="available" />
         <div className="sb-me-meta">
           <div className="sb-me-name">{user?.name ?? 'Unknown'}</div>
           <div className="sb-me-role">Commander · {team.name}</div>

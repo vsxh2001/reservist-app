@@ -1503,4 +1503,22 @@ describe('ReservistDashboard', () => {
     // Relative-time hint surfaces from `relativeAgo`.
     expect(card.textContent).toMatch(/3 days ago|2 hr ago/);
   });
+
+  it('My recent activity rows render a <time> element with a precise dateTime + title', () => {
+    const t = new Date(Date.now() - 86_400_000).toISOString();
+    myActivityState = {
+      data: [{
+        id: 'a-time', team_id: 'team1', actor_id: 'm1', actor_name: 'Yael Cohen',
+        verb: 'set status', what: 'standby',
+        tone: null, created_at: t,
+      }],
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    const card = screen.getByTestId('my-activity');
+    const timeEl = card.querySelector('time');
+    expect(timeEl).not.toBeNull();
+    expect(timeEl!.getAttribute('dateTime')).toBe(t);
+    expect(timeEl!.getAttribute('title')).toBe(new Date(t).toLocaleString());
+  });
 });

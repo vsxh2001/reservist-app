@@ -921,14 +921,16 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
                     <b>{a.verb}</b>
                     {a.what ? <> · {a.what}</> : null}
                   </span>
-                  <span
+                  <time
+                    dateTime={a.created_at}
+                    title={new Date(a.created_at).toLocaleString()}
                     style={{
                       fontFamily: 'var(--mono)', fontSize: 10.5,
                       color: 'var(--ink-mute)', flexShrink: 0,
                     }}
                   >
                     {relativeAgo(a.created_at) ?? ''}
-                  </span>
+                  </time>
                 </div>
               ))}
             </div>

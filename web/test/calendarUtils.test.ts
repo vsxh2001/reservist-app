@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fmtWhen, relativeAgo, untilHint, windowCountdown } from '../src/lib/calendarUtils';
+import { fmtClock, fmtWhen, relativeAgo, untilHint, windowCountdown } from '../src/lib/calendarUtils';
 
 describe('fmtWhen', () => {
   const now = new Date(2026, 5, 10, 12, 0, 0); // 2026-06-10 12:00 local
@@ -161,5 +161,21 @@ describe('relativeAgo', () => {
 
   it('returns null for a malformed ISO string', () => {
     expect(relativeAgo('not-a-date', now)).toBeNull();
+  });
+});
+
+describe('fmtClock', () => {
+  it('formats a Date as HH:MM (24h, zero-padded)', () => {
+    expect(fmtClock(new Date(2026, 5, 10, 7, 5))).toBe('07:05');
+    expect(fmtClock(new Date(2026, 5, 10, 14, 30))).toBe('14:30');
+  });
+
+  it('accepts an ISO string and applies local-time clock fields', () => {
+    const iso = new Date(2026, 5, 10, 9, 0).toISOString();
+    expect(fmtClock(iso)).toBe('09:00');
+  });
+
+  it('zero-pads minutes ≥10 untouched', () => {
+    expect(fmtClock(new Date(2026, 5, 10, 23, 59))).toBe('23:59');
   });
 });

@@ -687,6 +687,7 @@ export function useSelfUpdateStatus() {
       qc.invalidateQueries({ queryKey: ['members'] });
       qc.invalidateQueries({ queryKey: ['my-member'] });
       qc.invalidateQueries({ queryKey: ['activity'] });
+      qc.invalidateQueries({ queryKey: ['my-activity'] });
     },
   });
 }
@@ -766,6 +767,7 @@ export function useSetMemberSkill() {
       qc.invalidateQueries({ queryKey: ['members'] });
       qc.invalidateQueries({ queryKey: ['my-member'] });
       qc.invalidateQueries({ queryKey: ['activity'] });
+      qc.invalidateQueries({ queryKey: ['my-activity'] });
     },
   });
 }
@@ -800,6 +802,7 @@ export function useRemoveMemberSkill() {
       qc.invalidateQueries({ queryKey: ['members'] });
       qc.invalidateQueries({ queryKey: ['my-member'] });
       qc.invalidateQueries({ queryKey: ['activity'] });
+      qc.invalidateQueries({ queryKey: ['my-activity'] });
     },
   });
 }

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useToast } from './lib/useToast';
 import { Sidebar } from './components/Sidebar';
 import { Roster } from './components/Roster';
 import { PersonDrawer } from './components/PersonDrawer';
@@ -56,7 +57,7 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
   const [selected, setSelected] = useState<string[]>([]);
   const [person, setPerson] = useState<Member | null>(null);
   const [slotDrawer, setSlotDrawer] = useState<Slot | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, showToast } = useToast(2200);
   const [modal, setModal] = useState<{ open: boolean; urgent: boolean; preselected: string[]; cloneFrom?: Slot | null }>({
     open: false, urgent: false, preselected: [],
   });
@@ -79,19 +80,6 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [modal.open, person, bellOpen, slotDrawer]);
-
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-  }, []);
-  const showToast = (msg: string) => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setToast(msg);
-    toastTimerRef.current = setTimeout(() => {
-      setToast(null);
-      toastTimerRef.current = null;
-    }, 2200);
-  };
 
   useEffect(() => {
     if (person && members.data) {

@@ -1224,7 +1224,10 @@ function DeploymentRow({
             <>{' · '}{w.proposed_count} proposed</>
           )}
           {w.rejected_count > 0 && (
-            <>{' · '}{w.rejected_count} rejected</>
+            <>
+              {' · '}
+              <span style={{ color: 'var(--urgent-deep)' }}>{w.rejected_count} rejected</span>
+            </>
           )}
         </div>
       </div>

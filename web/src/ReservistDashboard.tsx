@@ -212,16 +212,20 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
       showToast('"Until" date must be today or later');
       return;
     }
-    await update.mutateAsync({
-      memberId: me.data.id,
-      status: pending,
-      note: note.trim() ? note.trim() : null,
-      until: until || null,
-      teamId: team?.id ?? '',
-      actorName: user.name,
-    });
-    setEditing(false);
-    showToast(`Status set to ${STATUS_LABEL[pending]}`);
+    try {
+      await update.mutateAsync({
+        memberId: me.data.id,
+        status: pending,
+        note: note.trim() ? note.trim() : null,
+        until: until || null,
+        teamId: team?.id ?? '',
+        actorName: user.name,
+      });
+      setEditing(false);
+      showToast(`Status set to ${STATUS_LABEL[pending]}`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to update status');
+    }
   };
 
   // PRD §7.6 — when the team's `show_unit_schedule` flag is off, reservists
@@ -326,6 +330,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
 
         {nextWindow && (
           <section role="button" tabIndex={0}
+            aria-label={`Open ${nextWindow.label} deployment window`}
             onClick={() => setActiveWindow(nextWindow)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
@@ -612,7 +617,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
             <div style={{ flex: 1, fontSize: 13 }}>
               Share my phone with division members
               <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 2 }}>
-                PRD §7.2 — when off, only commanders and division admins can see your phone.
+                When off, only commanders and division admins can see your phone.
               </div>
             </div>
             <div className="filter-group">
@@ -903,6 +908,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
                   <div
                     className="timeline-dot"
                     data-tone={a.tone}
+                    aria-hidden="true"
                     style={{ marginTop: 0, flexShrink: 0 }}
                   />
                   <span style={{ flex: 1, minWidth: 0, color: 'var(--ink-2)' }}>
@@ -960,7 +966,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
         </Card>
 
         <div style={{ marginTop: 18, fontSize: 11, color: 'var(--ink-mute)', textAlign: 'center', fontFamily: 'var(--mono)' }}>
-          {team?.name} · PRD §7.6 reservist view
+          {team?.name}
         </div>
       </div>
 
@@ -1148,7 +1154,7 @@ function SlotRow({ s, memberById, myMemberId }: {
                             aria-label={`Call ${name}`}
                             style={{
                               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                              width: 26, height: 26, borderRadius: 6,
+                              width: 40, height: 40, borderRadius: 6,
                               border: '1px solid var(--line-strong)', color: 'var(--ink-2)',
                               textDecoration: 'none',
                             }}
@@ -1162,7 +1168,7 @@ function SlotRow({ s, memberById, myMemberId }: {
                             aria-label={`WhatsApp ${name}`}
                             style={{
                               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                              width: 26, height: 26, borderRadius: 6,
+                              width: 40, height: 40, borderRadius: 6,
                               border: '1px solid var(--line-strong)', color: 'var(--ink-2)',
                               textDecoration: 'none',
                             }}

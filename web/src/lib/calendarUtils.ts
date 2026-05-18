@@ -6,6 +6,15 @@ export function isoDay(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/**
+ * Local-time wall-clock formatter: returns `HH:MM` (24h, zero-padded).
+ * Accepts either a Date or an ISO string for caller convenience.
+ */
+export function fmtClock(t: Date | string): string {
+  const d = typeof t === 'string' ? new Date(t) : t;
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 export function monthsBetween(startISO: string, endISO: string): Date[] {
   const start = new Date(startISO);
   const end = new Date(endISO);

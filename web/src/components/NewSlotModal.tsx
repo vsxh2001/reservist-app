@@ -9,7 +9,7 @@ import {
 } from '../lib/types';
 import { useCreateSlot } from '../lib/queries';
 import { useAuth } from '../lib/auth';
-import { isoDay } from '../lib/calendarUtils';
+import { fmtClock, isoDay } from '../lib/calendarUtils';
 
 interface Props {
   open: boolean;
@@ -61,8 +61,8 @@ export function NewSlotModal({
       const today = new Date();
       // Keep time-of-day, shift date to today so the clone is forward-dated by default.
       setDate(isoDay(today));
-      setStart(`${String(startD.getHours()).padStart(2, '0')}:${String(startD.getMinutes()).padStart(2, '0')}`);
-      setEnd(`${String(endD.getHours()).padStart(2, '0')}:${String(endD.getMinutes()).padStart(2, '0')}`);
+      setStart(fmtClock(startD));
+      setEnd(fmtClock(endD));
       const reqs: SkillReqMap = {};
       for (const s of cloneFrom.skills) reqs[s.name] = s.min_level;
       setSkillReqs(reqs);

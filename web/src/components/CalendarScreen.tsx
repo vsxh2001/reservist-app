@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Icon } from './Icon';
 import { Avatar, Button, SkillChip } from './atoms';
-import { isoDay } from '../lib/calendarUtils';
+import { fmtClock, isoDay } from '../lib/calendarUtils';
 import type { Member, Slot } from '../lib/types';
 
 interface Props {
@@ -15,10 +15,6 @@ function startOfMonth(d: Date) {
 }
 function addMonths(d: Date, n: number) {
   return new Date(d.getFullYear(), d.getMonth() + n, 1);
-}
-function fmtTime(iso: string) {
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 export function CalendarScreen({ slots, members, onSlotClick }: Props) {
@@ -133,7 +129,7 @@ export function CalendarScreen({ slots, members, onSlotClick }: Props) {
                       color: s.urgent ? 'var(--urgent-deep)' : 'var(--accent-deep)',
                       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     }}>
-                      {fmtTime(s.start_at)} {s.title}
+                      {fmtClock(s.start_at)} {s.title}
                     </div>
                   ))}
                   {daySlots.length > 3 && (
@@ -182,7 +178,7 @@ export function CalendarScreen({ slots, members, onSlotClick }: Props) {
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--ink-soft)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Icon name="clock" size={11}/> {fmtTime(s.start_at)}{s.duration ? ` · ${s.duration}` : ''}
+                      <Icon name="clock" size={11}/> {fmtClock(s.start_at)}{s.duration ? ` · ${s.duration}` : ''}
                     </span>
                     {s.location && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       <Icon name="pin" size={11}/> {s.location}

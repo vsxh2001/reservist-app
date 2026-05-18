@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useToast } from './lib/useToast';
 import { Avatar, Button, SkillChip, StatusPill } from './components/atoms';
 import { Icon } from './components/Icon';
 import { DeploymentPickScreen } from './components/DeploymentPickScreen';
@@ -67,7 +68,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
   const [pending, setPending] = useState<Status>('available');
   const [note, setNote] = useState('');
   const [until, setUntil] = useState('');
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, showToast } = useToast(2000);
 
   // Push notification state — mirrors the commander SettingsScreen surface
   // so reservists can opt into urgent call-up + pick-decision alerts.
@@ -81,22 +82,6 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
     });
     return () => { cancelled = true; };
   }, []);
-
-  // Track the pending clear-timeout so a rapid sequence of toasts doesn't
-  // race: the previous timer would otherwise fire mid-display and prematurely
-  // clear a fresh toast that landed within 2s of its predecessor.
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-  }, []);
-  const showToast = (m: string) => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setToast(m);
-    toastTimerRef.current = setTimeout(() => {
-      setToast(null);
-      toastTimerRef.current = null;
-    }, 2000);
-  };
 
   const handleEnablePush = async () => {
     if (!user) { showToast('Sign in to enable notifications'); return; }

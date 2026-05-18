@@ -297,7 +297,7 @@ function MyNotes({
                     placeholder="Why this day — wedding, exam, etc."
                     style={{
                       width: '100%', resize: 'vertical',
-                      padding: '6px 8px', fontSize: 12.5,
+                      padding: '6px 8px', fontSize: 16,
                       background: 'var(--card)', color: 'var(--ink)',
                       border: '1px solid var(--line-strong)', borderRadius: 6,
                       font: 'inherit',

@@ -193,7 +193,6 @@ describe('RLS policies', () => {
           end_at: '2030-06-01T18:00:00Z',
           duration: '8h',
           location: 'Base',
-          needed: 1,
         }),
         ...AS_SOLDIER,
       });
@@ -260,7 +259,6 @@ describe('RLS policies', () => {
           end_at: '2030-07-01T18:00:00Z',
           duration: '8h',
           location: 'Base',
-          needed: 2,
         }),
         ...AS_COMMANDER,
       });
@@ -345,7 +343,6 @@ describe('RLS policies', () => {
           end_at: '2030-08-01T18:00:00Z',
           duration: '8h',
           location: 'Remote base',
-          needed: 1,
         }),
         ...AS_COMMANDER,
       });

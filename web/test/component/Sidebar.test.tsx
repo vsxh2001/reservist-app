@@ -229,7 +229,7 @@ describe('Sidebar', () => {
     expect(setTeamId).toHaveBeenCalledWith('team-2');
   });
 
-  it('marks slots nav as urgent when an unfilled urgent slot exists', () => {
+  it('marks slots nav as urgent when an unassigned urgent slot exists', () => {
     const urgentSlot: Slot = {
       id: 'slot-1',
       team_id: 'team-1',
@@ -240,12 +240,8 @@ describe('Sidebar', () => {
       end_at: null,
       duration: null,
       location: null,
-      needed: 2,
       notes: null,
-      role: null,
-      skills: [],
-      assignee_ids: [],
-      filled: 0,
+      assignee_id: null,
     };
 
     renderSidebar({ slots: [urgentSlot] });

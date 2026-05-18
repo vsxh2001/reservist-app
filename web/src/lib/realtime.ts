@@ -28,10 +28,8 @@ export function useRealtime(teamId: string | undefined) {
           qc.invalidateQueries({ queryKey: ['activity'] });
           qc.invalidateQueries({ queryKey: ['my-activity'] });
         })
+      // slots now carry assignee_id directly; one subscription covers create / edit / assign / unassign.
       .on('postgres_changes', { event: '*', schema: 'public', table: 'slots', filter: `team_id=eq.${teamId}` },
-        () => qc.invalidateQueries({ queryKey: ['slots'] }))
-      // slot_assignees has no team_id — broad invalidation
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'slot_assignees' },
         () => {
           qc.invalidateQueries({ queryKey: ['slots'] });
           qc.invalidateQueries({ queryKey: ['my-slots'] });

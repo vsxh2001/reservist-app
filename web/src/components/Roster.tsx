@@ -143,7 +143,7 @@ interface Props {
   setSelected: (s: string[]) => void;
   onPerson: (m: Member) => void;
   onToast: (msg: string) => void;
-  onNewSlotWith: (memberIds: string[]) => void;
+  onNewSlotWith: (memberId: string | null) => void;
 }
 
 export function Roster(props: Props) {
@@ -172,30 +172,30 @@ export function Roster(props: Props) {
     };
   }, [popOpen]);
 
-  // Slots that can still take more people.
+  // Slots that are still open (no assignee yet).
   const openSlots = useMemo(
     () => slots
-      .filter((s) => s.state === 'published' && s.filled < s.needed)
+      .filter((s) => s.state === 'published' && s.assignee_id === null)
       .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime()),
     [slots],
   );
 
   const assignSelectedToSlot = async (s: Slot) => {
     if (!user) return;
-    const fresh = selected.filter((id) => !s.assignee_ids.includes(id));
-    if (fresh.length === 0) {
-      onToast(`Already on "${s.title}"`);
-      setPopOpen(false);
-      return;
-    }
-    const names = fresh.map((id) => members.find((m) => m.id === id)?.name).filter(Boolean) as string[];
+    // Each slot takes exactly one assignee; recruit pop-up assigns the first
+    // selected member and toasts the result. UI prevents reaching here with
+    // an empty selection, but guard anyway.
+    const firstId = selected[0];
+    if (!firstId) { setPopOpen(false); return; }
+    const member = members.find((m) => m.id === firstId);
+    if (!member) { setPopOpen(false); return; }
     await assignToSlot.mutateAsync({
-      slotId: s.id, memberIds: fresh, assignedBy: user.id,
-      teamId, actorName: user.name, slotTitle: s.title, memberNames: names,
+      slotId: s.id, memberId: firstId, assignedBy: user.id,
+      teamId, actorName: user.name, slotTitle: s.title, memberName: member.name,
     });
     setSelected([]);
     setPopOpen(false);
-    onToast(`Assigned ${fresh.length} to ${s.title}`);
+    onToast(`Assigned ${member.name} to ${s.title}`);
   };
   const [sort, setSort] = useState<{ key: 'status' | 'name'; dir: 'asc' | 'desc' }>({ key: 'status', dir: 'asc' });
 
@@ -380,17 +380,15 @@ export function Roster(props: Props) {
                   </div>
                 ) : (
                   openSlots.map((s) => {
-                    const fresh = selected.filter((id) => !s.assignee_ids.includes(id));
-                    const dup = selected.length - fresh.length;
-                    const room = s.needed - s.filled;
                     const when = new Date(s.start_at).toLocaleString('en-US', {
                       month: 'short', day: 'numeric',
                       hour: '2-digit', minute: '2-digit',
                     });
+                    const multi = selected.length > 1;
                     return (
                       <button key={s.id}
                               onClick={() => assignSelectedToSlot(s)}
-                              disabled={assignToSlot.isPending || fresh.length === 0}
+                              disabled={assignToSlot.isPending || selected.length === 0}
                               style={{
                                 display: 'grid',
                                 gridTemplateColumns: '1fr auto',
@@ -404,8 +402,8 @@ export function Roster(props: Props) {
                                 font: 'inherit',
                                 padding: '8px 10px',
                                 borderRadius: 7,
-                                cursor: fresh.length === 0 ? 'not-allowed' : 'pointer',
-                                opacity: fresh.length === 0 ? 0.55 : 1,
+                                cursor: selected.length === 0 ? 'not-allowed' : 'pointer',
+                                opacity: selected.length === 0 ? 0.55 : 1,
                                 minBlockSize: 40,
                               }}>
                         <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>
@@ -413,12 +411,11 @@ export function Roster(props: Props) {
                           {s.title}
                         </span>
                         <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-soft)', whiteSpace: 'nowrap' }}>
-                          {s.filled}/{s.needed}
+                          Open
                         </span>
                         <span style={{ gridColumn: '1 / -1', fontSize: 11.5, color: 'var(--ink-soft)' }}>
                           {when}
-                          {dup > 0 && <> · <em style={{ fontStyle: 'normal', color: 'var(--ink-mute)' }}>{dup} already on slot</em></>}
-                          {fresh.length > room && <> · <em style={{ fontStyle: 'normal', color: 'var(--urgent-deep)' }}>only {room} seat{room === 1 ? '' : 's'} left</em></>}
+                          {multi && <> · <em style={{ fontStyle: 'normal', color: 'var(--ink-mute)' }}>only first selected member will be assigned</em></>}
                         </span>
                       </button>
                     );
@@ -426,7 +423,7 @@ export function Roster(props: Props) {
                 )}
                 <div style={{ height: 1, background: 'var(--line-soft)', margin: '4px 6px' }} />
                 <button
-                  onClick={() => { onNewSlotWith(selected); setPopOpen(false); }}
+                  onClick={() => { onNewSlotWith(selected[0] ?? null); setPopOpen(false); }}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6,
                     inlineSize: '100%', appearance: 'none', border: 0,

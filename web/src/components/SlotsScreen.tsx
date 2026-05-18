@@ -130,8 +130,7 @@ export function SlotsScreen({ slots, members, onUrgent, onNewSlot, onSlotClick, 
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {visible.map((s) => {
-            const assignees = s.assignee_ids.map((id) => members.find((m) => m.id === id)).filter(Boolean) as Member[];
-            const empty = Math.max(0, s.needed - s.filled);
+            const assignee = s.assignee_id ? members.find((m) => m.id === s.assignee_id) ?? null : null;
             const isDraft = s.state === 'draft';
             const isReadOnly = s.state === 'completed' || s.state === 'cancelled';
             const accent = isDraft || isReadOnly ? 'var(--line)' : (s.urgent ? 'var(--urgent)' : 'var(--line)');
@@ -190,15 +189,23 @@ export function SlotsScreen({ slots, members, onUrgent, onNewSlot, onSlotClick, 
                     </span>}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex' }}>
-                      {assignees.map((m, i) => (
-                        <div key={m.id} style={{ marginInlineStart: i === 0 ? 0 : -8 }}>
-                          <Avatar initials={m.initials} tone={m.tone} size="sm" />
-                        </div>
-                      ))}
-                      {[...Array(empty)].map((_, i) => (
-                        <div key={'e' + i} style={{
-                          marginInlineStart: -8,
+                    {assignee ? (
+                      <>
+                        <Avatar initials={assignee.initials} tone={assignee.tone} size="sm" />
+                        <span style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500 }}>
+                          {assignee.name}
+                        </span>
+                        {assignee.skills.length > 0 && (
+                          <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 4 }}>
+                            {assignee.skills.slice(0, 3).map((sk) => (
+                              <SkillChip key={sk.name} name={sk.name} level={sk.level} />
+                            ))}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <div style={{
                           width: 26, height: 26, borderRadius: 99,
                           border: '1.5px dashed var(--line-strong)',
                           background: 'var(--paper-deep)',
@@ -207,15 +214,11 @@ export function SlotsScreen({ slots, members, onUrgent, onNewSlot, onSlotClick, 
                         }}>
                           <Icon name="plus" size={11}/>
                         </div>
-                      ))}
-                    </div>
-                    <span style={{
-                      fontFamily: 'var(--mono)', fontSize: 12,
-                      color: s.filled === s.needed ? 'var(--st-avail)' : 'var(--ink-soft)',
-                    }}>
-                      {s.filled} / {s.needed} {s.filled === s.needed ? 'filled' : 'needed'}
-                    </span>
-                    {s.skills.map((sk) => <SkillChip key={sk.name} name={sk.name} min_level={sk.min_level} />)}
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--ink-soft)' }}>
+                          Unassigned
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}
@@ -230,7 +233,7 @@ export function SlotsScreen({ slots, members, onUrgent, onNewSlot, onSlotClick, 
                       Publish
                     </Button>
                   )}
-                  {!isDraft && !isReadOnly && s.filled < s.needed && s.state === 'published' && (
+                  {!isDraft && !isReadOnly && !s.assignee_id && s.state === 'published' && (
                     <Button size="sm" icon="plus" onClick={() => onSlotClick(s)}>
                       Assign
                     </Button>

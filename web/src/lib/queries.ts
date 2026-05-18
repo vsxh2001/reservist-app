@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 import { initialsFromName } from './text';
 import type {
   ActivityItem, DeploymentPick, DeploymentWindow, Division, JoinRequest,
-  Member, Project, Slot, SlotSkill, SkillLevel, Status, Team, TeamRole,
+  Member, Project, Slot, SkillLevel, Status, Team, TeamRole,
 } from './types';
 
 // ---------------------------------------------------------------------------
@@ -205,17 +205,10 @@ export function useMySlots(memberId: string | undefined) {
     queryKey: ['my-slots', memberId],
     enabled: !!memberId,
     queryFn: async (): Promise<Slot[]> => {
-      const { data: rows, error: rErr } = await supabase
-        .from('slot_assignees')
-        .select('slot_id')
-        .eq('member_id', memberId!);
-      if (rErr) throw rErr;
-      const ids = (rows ?? []).map((x: any) => x.slot_id);
-      if (ids.length === 0) return [];
       const { data, error } = await supabase
         .from('slots_view')
         .select('*')
-        .in('id', ids)
+        .eq('assignee_id', memberId!)
         .order('start_at');
       if (error) throw error;
       return data as Slot[];
@@ -382,14 +375,15 @@ export function useTeamDayAggregate(teamId: string | undefined, dateISO: string)
         .eq('deployment_windows.team_id', teamId!);
       if (picksErr) throw picksErr;
 
-      // 2. Published slot assignees whose slot overlaps with this day
+      // 2. Published slots whose window overlaps with this day, joined to their single assignee
       const { data: assignees, error: assigneesErr } = await supabase
-        .from('slot_assignees')
-        .select('member_id, slots!inner(id, title, state, start_at, end_at, team_id), members!inner(id, name, initials, tone, status)')
-        .eq('slots.state', 'published')
-        .eq('slots.team_id', teamId!)
-        .lte('slots.start_at', dayEndISO)
-        .or(`end_at.gte.${dayStartISO},end_at.is.null`, { referencedTable: 'slots' });
+        .from('slots')
+        .select('id, title, state, start_at, end_at, team_id, assignee_id, members!inner(id, name, initials, tone, status)')
+        .eq('state', 'published')
+        .eq('team_id', teamId!)
+        .not('assignee_id', 'is', null)
+        .lte('start_at', dayEndISO)
+        .or(`end_at.gte.${dayStartISO},end_at.is.null`);
       if (assigneesErr) throw assigneesErr;
 
       const map = new Map<string, DayAggregateMember>();
@@ -415,11 +409,10 @@ export function useTeamDayAggregate(teamId: string | undefined, dateISO: string)
         map.get(memberId)!.reasons.push({ kind: 'pick' });
       }
 
-      // Process slot assignees
+      // Process slot assignees (single assignee per slot)
       for (const row of (assignees ?? []) as any[]) {
-        const slot = row.slots;
         const member = row.members;
-        if (!slot || !member) continue;
+        if (!member) continue;
         const memberId: string = member.id;
         if (!map.has(memberId)) {
           map.set(memberId, {
@@ -433,10 +426,10 @@ export function useTeamDayAggregate(teamId: string | undefined, dateISO: string)
         }
         const existing = map.get(memberId)!.reasons;
         const alreadyHasSlot = existing.some(
-          (r) => r.kind === 'slot' && r.slotTitle === slot.title,
+          (r) => r.kind === 'slot' && r.slotTitle === row.title,
         );
         if (!alreadyHasSlot) {
-          existing.push({ kind: 'slot', slotTitle: slot.title });
+          existing.push({ kind: 'slot', slotTitle: row.title });
         }
       }
 
@@ -839,7 +832,6 @@ export function useCreateSlot() {
   return useMutation({
     mutationFn: async (vars: {
       teamId: string;
-      divisionId: string;
       title: string;
       urgent: boolean;
       state: 'draft' | 'published';
@@ -847,9 +839,7 @@ export function useCreateSlot() {
       endAt: string | null;
       duration: string | null;
       location: string | null;
-      skills: SlotSkill[];
-      needed: number;
-      assigneeIds: string[];
+      assigneeId: string | null;
       createdBy: string;
       actorName: string;
     }) => {
@@ -864,7 +854,7 @@ export function useCreateSlot() {
           end_at: vars.endAt,
           duration: vars.duration,
           location: vars.location,
-          needed: vars.needed,
+          assignee_id: vars.assigneeId,
           created_by: vars.createdBy,
         })
         .select('id')
@@ -872,28 +862,6 @@ export function useCreateSlot() {
       if (sErr) throw sErr;
       const slotId = slot.id as string;
 
-      if (vars.skills.length) {
-        const names = vars.skills.map((s) => s.name);
-        const { data: skillRows } = await supabase
-          .from('skills').select('id, name')
-          .eq('division_id', vars.divisionId).in('name', names);
-        if (skillRows && skillRows.length) {
-          const byName = new Map(skillRows.map((s: any) => [s.name, s.id]));
-          await supabase.from('slot_skills').insert(
-            vars.skills.flatMap((s) => {
-              const id = byName.get(s.name);
-              return id ? [{ slot_id: slotId, skill_id: id, min_level: s.min_level }] : [];
-            }),
-          );
-        }
-      }
-      if (vars.assigneeIds.length) {
-        await supabase.from('slot_assignees').insert(
-          vars.assigneeIds.map((id) => ({
-            slot_id: slotId, member_id: id, assigned_by: vars.createdBy,
-          })),
-        );
-      }
       await supabase.from('activity_log').insert({
         team_id: vars.teamId,
         actor_id: vars.createdBy,
@@ -915,27 +883,26 @@ export function useAssignToSlot() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (vars: {
-      slotId: string; memberIds: string[]; assignedBy: string;
-      teamId: string; actorName: string; slotTitle: string; memberNames: string[];
+      slotId: string; memberId: string; assignedBy: string;
+      teamId: string; actorName: string; slotTitle: string; memberName: string;
     }) => {
-      if (!vars.memberIds.length) return;
-      const { error } = await supabase.from('slot_assignees').insert(
-        vars.memberIds.map((id) => ({
-          slot_id: vars.slotId, member_id: id, assigned_by: vars.assignedBy,
-        })),
-      );
+      const { error } = await supabase
+        .from('slots')
+        .update({ assignee_id: vars.memberId })
+        .eq('id', vars.slotId);
       if (error) throw error;
       await supabase.from('activity_log').insert({
         team_id: vars.teamId,
         actor_id: vars.assignedBy,
         actor_name: vars.actorName,
         verb: 'assigned',
-        what: `${vars.memberNames.join(', ')} to ${vars.slotTitle}`,
+        what: `${vars.memberName} to ${vars.slotTitle}`,
         tone: 'accent',
       });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['slots'] });
+      qc.invalidateQueries({ queryKey: ['my-slots'] });
       qc.invalidateQueries({ queryKey: ['activity'] });
     },
   });
@@ -949,10 +916,10 @@ export function useUnassignFromSlot() {
       teamId: string; actorName: string; slotTitle: string; memberName: string;
     }) => {
       const { error } = await supabase
-        .from('slot_assignees')
-        .delete()
-        .eq('slot_id', vars.slotId)
-        .eq('member_id', vars.memberId);
+        .from('slots')
+        .update({ assignee_id: null })
+        .eq('id', vars.slotId)
+        .eq('assignee_id', vars.memberId);
       if (error) throw error;
       await supabase.from('activity_log').insert({
         team_id: vars.teamId,
@@ -965,6 +932,7 @@ export function useUnassignFromSlot() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['slots'] });
+      qc.invalidateQueries({ queryKey: ['my-slots'] });
       qc.invalidateQueries({ queryKey: ['activity'] });
     },
   });
@@ -976,7 +944,6 @@ export function useUpdateSlot() {
     mutationFn: async (vars: {
       slotId: string;
       teamId: string;
-      divisionId: string;
       patch: {
         title?: string;
         urgent?: boolean;
@@ -984,10 +951,8 @@ export function useUpdateSlot() {
         endAt?: string | null;
         duration?: string | null;
         location?: string | null;
-        needed?: number;
         notes?: string | null;
       };
-      replaceSkills?: SlotSkill[];
       actorId: string;
       actorName: string;
     }) => {
@@ -998,31 +963,11 @@ export function useUpdateSlot() {
       if (vars.patch.endAt !== undefined)    row.end_at    = vars.patch.endAt;
       if (vars.patch.duration !== undefined) row.duration  = vars.patch.duration;
       if (vars.patch.location !== undefined) row.location  = vars.patch.location;
-      if (vars.patch.needed !== undefined)   row.needed    = vars.patch.needed;
       if (vars.patch.notes !== undefined)    row.notes     = vars.patch.notes;
 
       if (Object.keys(row).length) {
         const { error } = await supabase.from('slots').update(row).eq('id', vars.slotId);
         if (error) throw error;
-      }
-
-      if (vars.replaceSkills) {
-        await supabase.from('slot_skills').delete().eq('slot_id', vars.slotId);
-        if (vars.replaceSkills.length) {
-          const names = vars.replaceSkills.map((s) => s.name);
-          const { data: skillRows } = await supabase
-            .from('skills').select('id, name')
-            .eq('division_id', vars.divisionId).in('name', names);
-          if (skillRows && skillRows.length) {
-            const byName = new Map(skillRows.map((s: any) => [s.name, s.id]));
-            await supabase.from('slot_skills').insert(
-              vars.replaceSkills.flatMap((s) => {
-                const id = byName.get(s.name);
-                return id ? [{ slot_id: vars.slotId, skill_id: id, min_level: s.min_level }] : [];
-              }),
-            );
-          }
-        }
       }
 
       await supabase.from('activity_log').insert({

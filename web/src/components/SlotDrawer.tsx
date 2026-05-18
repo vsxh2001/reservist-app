@@ -2,10 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Icon } from './Icon';
 import { Avatar, Button, IconButton, SkillChip, StatusPill } from './atoms';
 import {
-  SKILL_LEVELS, SKILL_LEVEL_LABEL,
-  memberMatchesAllSkillReqs,
   findMemberConflicts, findDeploymentConflicts,
-  type Member, type SkillLevel, type Slot, type SlotSkill,
+  type Member, type Slot,
 } from '../lib/types';
 import { useAssignToSlot, useUnassignFromSlot, useUpdateSlot, useUpdateSlotState } from '../lib/queries';
 import { useAuth } from '../lib/auth';
@@ -14,38 +12,26 @@ import { fmtClock, isoDay } from '../lib/calendarUtils';
 interface Props {
   slot: Slot;
   members: Member[];
-  skills: string[];
   allSlots: Slot[];
   approvedPicks: { member_id: string; date: string }[];
   teamId: string;
-  divisionId: string;
   onClose: () => void;
   onClone: (slot: Slot) => void;
   onToast: (msg: string) => void;
 }
 
-type SkillReqMap = Record<string, SkillLevel | undefined>;
-
-const cycleNext = (cur: SkillLevel | undefined): SkillLevel | undefined => {
-  if (cur === undefined) return 'junior';
-  const i = SKILL_LEVELS.indexOf(cur);
-  return i === SKILL_LEVELS.length - 1 ? undefined : SKILL_LEVELS[i + 1];
-};
-
 // Local date/time helpers — value-binding for native date/time inputs needs local strings.
-// Aliased here for call-site clarity; `isoToLocalDate` is `isoDay(new Date(iso))`,
-// `isoToLocalTime` is `fmtClock(iso)`.
 const isoToLocalDate = (iso: string): string => isoDay(new Date(iso));
 const isoToLocalTime = (iso: string): string => fmtClock(iso);
 
-export function SlotDrawer({ slot, members, skills: allSkills, allSlots, approvedPicks, teamId, divisionId, onClose, onClone, onToast }: Props) {
+export function SlotDrawer({ slot, members, allSlots, approvedPicks, teamId, onClose, onClone, onToast }: Props) {
   const { user } = useAuth();
   const assign = useAssignToSlot();
   const unassign = useUnassignFromSlot();
   const updateState = useUpdateSlotState();
   const updateSlot = useUpdateSlot();
   const [picking, setPicking] = useState(false);
-  const [picks, setPicks] = useState<string[]>([]);
+  const [pickId, setPickId] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
 
   // Edit form state — seeded from slot when entering edit mode.
@@ -55,8 +41,6 @@ export function SlotDrawer({ slot, members, skills: allSkills, allSlots, approve
   const [eStart, setEStart] = useState(isoToLocalTime(slot.start_at));
   const [eEnd, setEEnd] = useState(slot.end_at ? isoToLocalTime(slot.end_at) : isoToLocalTime(slot.start_at));
   const [eLocation, setELocation] = useState(slot.location ?? '');
-  const [eNeeded, setENeeded] = useState(slot.needed);
-  const [eSkillReqs, setESkillReqs] = useState<SkillReqMap>({});
 
   const canEdit = slot.state === 'draft' || slot.state === 'published';
 
@@ -69,10 +53,6 @@ export function SlotDrawer({ slot, members, skills: allSkills, allSlots, approve
     setEStart(isoToLocalTime(slot.start_at));
     setEEnd(slot.end_at ? isoToLocalTime(slot.end_at) : isoToLocalTime(slot.start_at));
     setELocation(slot.location ?? '');
-    setENeeded(slot.needed);
-    const map: SkillReqMap = {};
-    slot.skills.forEach((s) => { map[s.name] = s.min_level; });
-    setESkillReqs(map);
   }, [editing, slot.id]);
 
   // Esc closes edit/picking before the drawer (Dashboard owns final drawer close).
@@ -80,47 +60,42 @@ export function SlotDrawer({ slot, members, skills: allSkills, allSlots, approve
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       if (editing) { e.stopPropagation(); setEditing(false); }
-      else if (picking) { e.stopPropagation(); setPicking(false); setPicks([]); }
+      else if (picking) { e.stopPropagation(); setPicking(false); setPickId(null); }
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, [editing, picking]);
 
-  const assignees = useMemo(
-    () => slot.assignee_ids.map((id) => members.find((m) => m.id === id)).filter(Boolean) as Member[],
-    [slot.assignee_ids, members],
+  const assignee = useMemo(
+    () => slot.assignee_id ? members.find((m) => m.id === slot.assignee_id) ?? null : null,
+    [slot.assignee_id, members],
   );
   const candidates = useMemo(() => {
-    const taken = new Set(slot.assignee_ids);
     return members
-      .filter((m) => !taken.has(m.id))
+      .filter((m) => m.id !== slot.assignee_id)
       .filter((m) => m.status === 'available' || m.status === 'standby')
-      .filter((m) => memberMatchesAllSkillReqs(m.skills, slot.skills))
       .sort((a, b) => {
         if (a.status !== b.status) return a.status === 'available' ? -1 : 1;
         return a.name.localeCompare(b.name);
       });
-  }, [members, slot]);
-
-  const togglePick = (id: string) => {
-    setPicks((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
-  };
+  }, [members, slot.assignee_id]);
 
   const commitAssign = async () => {
-    if (!user || picks.length === 0) { setPicking(false); return; }
-    const names = picks.map((id) => members.find((m) => m.id === id)?.name).filter(Boolean) as string[];
+    if (!user || !pickId) { setPicking(false); return; }
+    const m = members.find((x) => x.id === pickId);
+    if (!m) return;
     await assign.mutateAsync({
       slotId: slot.id,
-      memberIds: picks,
+      memberId: pickId,
       assignedBy: user.id,
       teamId,
       actorName: user.name,
       slotTitle: slot.title,
-      memberNames: names,
+      memberName: m.name,
     });
-    setPicks([]);
+    setPickId(null);
     setPicking(false);
-    onToast(`Assigned ${picks.length}`);
+    onToast(`Assigned ${m.name}`);
   };
 
   const doUnassign = async (m: Member) => {
@@ -147,24 +122,16 @@ export function SlotDrawer({ slot, members, skills: allSkills, allSlots, approve
     }
   };
 
-  const cycleSkill = (s: string) => {
-    setESkillReqs((p) => ({ ...p, [s]: cycleNext(p[s]) }));
-  };
-
   const saveEdit = async () => {
     if (!user) return;
     const startD = new Date(`${eDate}T${eStart}:00`);
     const endD = new Date(`${eDate}T${eEnd}:00`);
     if (endD <= startD) endD.setDate(endD.getDate() + 1);
     const hrs = Math.max(1, Math.round((endD.getTime() - startD.getTime()) / 3600000));
-    const replaceSkills: SlotSkill[] = Object.entries(eSkillReqs)
-      .filter(([, lvl]) => lvl !== undefined)
-      .map(([name, min_level]) => ({ name, min_level: min_level as SkillLevel }));
 
     await updateSlot.mutateAsync({
       slotId: slot.id,
       teamId,
-      divisionId,
       patch: {
         title: eTitle.trim() || slot.title,
         urgent: eUrgent,
@@ -172,9 +139,7 @@ export function SlotDrawer({ slot, members, skills: allSkills, allSlots, approve
         endAt: endD.toISOString(),
         duration: `${hrs}h`,
         location: eLocation.trim() ? eLocation.trim() : null,
-        needed: Math.max(1, eNeeded),
       },
-      replaceSkills,
       actorId: user.id,
       actorName: user.name,
     });
@@ -282,63 +247,6 @@ export function SlotDrawer({ slot, members, skills: allSkills, allSlots, approve
                   </div>
                 </div>
 
-                <div className="form-row">
-                  <label>People needed</label>
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    border: '1px solid var(--line-strong)', borderRadius: 7,
-                    background: 'var(--card)', height: 34, paddingInline: 6,
-                    maxInlineSize: 180,
-                  }}>
-                    <button type="button" className="action-btn" style={{ background: 'transparent', border: 0 }}
-                            onClick={() => setENeeded(Math.max(1, eNeeded - 1))}>
-                      <Icon name="minus" size={12} />
-                    </button>
-                    <div style={{ flex: 1, textAlign: 'center', fontFamily: 'var(--serif)', fontSize: 18 }}>
-                      {eNeeded}
-                    </div>
-                    <button type="button" className="action-btn" style={{ background: 'transparent', border: 0 }}
-                            onClick={() => setENeeded(eNeeded + 1)}>
-                      <Icon name="plus" size={12} />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="form-row">
-                  <label>
-                    Required skills
-                    <span style={{ marginInlineStart: 8, color: 'var(--ink-soft)', fontSize: 11, fontWeight: 400 }}>
-                      tap to cycle
-                    </span>
-                  </label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {allSkills.map((s) => {
-                      const lvl = eSkillReqs[s];
-                      const on = lvl !== undefined;
-                      return (
-                        <button key={s} type="button" onClick={() => cycleSkill(s)} aria-pressed={on} style={{
-                          appearance: 'none', font: 'inherit',
-                          display: 'inline-flex', alignItems: 'center', gap: 6,
-                          fontSize: 11.5, padding: '4px 9px', borderRadius: 5,
-                          border: '1px solid ' + (on ? 'var(--accent)' : 'var(--line)'),
-                          background: on ? 'var(--accent-tint)' : 'var(--card)',
-                          color: on ? 'var(--accent-deep)' : 'var(--ink-2)',
-                          cursor: 'pointer', fontWeight: 500,
-                        }}>
-                          <span>{s}</span>
-                          <span style={{
-                            fontSize: 10, fontFamily: 'var(--mono)',
-                            letterSpacing: '.04em',
-                            opacity: on ? 1 : 0.55,
-                          }}>
-                            {on ? `≥ ${SKILL_LEVEL_LABEL[lvl!]}` : 'off'}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
                   <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
                   <Button size="sm" variant="primary" icon="check"
@@ -351,53 +259,54 @@ export function SlotDrawer({ slot, members, skills: allSkills, allSlots, approve
             </div>
           ) : (
             <>
-              {slot.skills.length > 0 && (
-                <div className="drawer-section">
-                  <h4>Required skills</h4>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {slot.skills.map((s) => <SkillChip key={s.name} name={s.name} min_level={s.min_level} />)}
-                  </div>
-                </div>
-              )}
-
               <div className="drawer-section">
                 <h4>
-                  Assignees · {slot.filled}/{slot.needed}
-                  {slot.state === 'published' && slot.filled < slot.needed && (
+                  Assigned
+                  {slot.state === 'published' && !assignee && (
                     <span className="edit" onClick={() => setPicking((v) => !v)}>
-                      {picking ? 'Cancel' : '+ Assign more'}
+                      {picking ? 'Cancel' : '+ Assign'}
+                    </span>
+                  )}
+                  {slot.state === 'published' && assignee && (
+                    <span className="edit" onClick={() => doUnassign(assignee)}>
+                      Unassign
                     </span>
                   )}
                 </h4>
-                {assignees.length === 0 && !picking && (
+                {!assignee && !picking && (
                   <div style={{ color: 'var(--ink-soft)', fontSize: 12.5, fontStyle: 'italic' }}>
-                    Nobody assigned yet.
+                    Unassigned.
                   </div>
                 )}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {assignees.map((m) => (
-                    <div key={m.id} style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      padding: '8px 10px', borderRadius: 7,
-                      background: 'var(--paper-deep)',
-                      border: '1px solid var(--line-soft)',
-                    }}>
-                      <Avatar initials={m.initials} tone={m.tone} size="sm" status={m.status}/>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 500 }}>{m.name}</div>
-                      </div>
-                      <StatusPill status={m.status} />
-                      {slot.state === 'published' && (
-                        <IconButton icon="x" tip="Unassign" onClick={() => doUnassign(m)} />
+                {assignee && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '8px 10px', borderRadius: 7,
+                    background: 'var(--paper-deep)',
+                    border: '1px solid var(--line-soft)',
+                  }}>
+                    <Avatar initials={assignee.initials} tone={assignee.tone} size="sm" status={assignee.status}/>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>{assignee.name}</div>
+                      {assignee.skills.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                          {assignee.skills.map((sk) => (
+                            <SkillChip key={sk.name} name={sk.name} level={sk.level} />
+                          ))}
+                        </div>
                       )}
                     </div>
-                  ))}
-                </div>
+                    <StatusPill status={assignee.status} />
+                    {slot.state === 'published' && (
+                      <IconButton icon="x" tip="Unassign" onClick={() => doUnassign(assignee)} />
+                    )}
+                  </div>
+                )}
 
                 {picking && (
                   <div style={{ marginTop: 10 }}>
                     <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', margin: '8px 0 6px' }}>
-                      {candidates.length} match (available + standby, skill levels met)
+                      {candidates.length} available
                     </div>
                     <div className="who-grid">
                       {candidates.length === 0 && (
@@ -416,12 +325,19 @@ export function SlotDrawer({ slot, members, skills: allSkills, allSlots, approve
                           : undefined;
                         return (
                           <div key={m.id} className="who-card"
-                               data-on={picks.includes(m.id) ? '1' : '0'}
-                               onClick={() => togglePick(m.id)}
+                               data-on={pickId === m.id ? '1' : '0'}
+                               onClick={() => setPickId(pickId === m.id ? null : m.id)}
                                title={tooltipText}
                                style={totalConflicts ? { borderColor: 'var(--urgent)' } : undefined}>
                             <Avatar initials={m.initials} tone={m.tone} size="sm" status={m.status}/>
                             <span className="nm">{m.name}</span>
+                            {m.skills.length > 0 && (
+                              <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 3 }}>
+                                {m.skills.slice(0, 2).map((sk) => (
+                                  <SkillChip key={sk.name} name={sk.name} level={sk.level} />
+                                ))}
+                              </span>
+                            )}
                             {totalConflicts > 0 && (
                               <span style={{
                                 display: 'inline-flex', alignItems: 'center', gap: 3,
@@ -440,11 +356,11 @@ export function SlotDrawer({ slot, members, skills: allSkills, allSlots, approve
                       })}
                     </div>
                     <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
-                      <Button size="sm" variant="ghost" onClick={() => { setPicking(false); setPicks([]); }}>Cancel</Button>
+                      <Button size="sm" variant="ghost" onClick={() => { setPicking(false); setPickId(null); }}>Cancel</Button>
                       <Button size="sm" variant="primary" icon="check"
-                              disabled={picks.length === 0 || assign.isPending}
+                              disabled={!pickId || assign.isPending}
                               onClick={commitAssign}>
-                        Assign {picks.length || ''}
+                        Assign
                       </Button>
                     </div>
                   </div>

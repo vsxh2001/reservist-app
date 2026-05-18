@@ -165,49 +165,26 @@ where ms.member_id = m.id and ms.skill_id = s.id
     ('Rotem Avidan',   'Mechanic')
   );
 
--- ── 9. Slots (scoped to team)
-insert into slots (team_id, title, urgent, state, start_at, end_at, duration, location, needed)
+-- ── 9. Slots (scoped to team) — each slot represents one duty period for one person
+insert into slots (team_id, title, urgent, state, start_at, end_at, duration, location)
 select t.id, s.title, s.urgent, 'published'::slot_state_enum,
-       s.start_at::timestamptz, s.end_at::timestamptz, s.duration, s.location, s.needed
+       s.start_at::timestamptz, s.end_at::timestamptz, s.duration, s.location
 from teams t, (values
-  ('Northern QRF — Sector 4',            true,  '2026-05-15T19:00:00Z', '2026-05-16T07:00:00Z', '12h', 'Tzomet Bilu staging',  6),
-  ('Outpost Rotation — Givat HaShlosha', false, '2026-05-19T03:00:00Z', '2026-05-22T03:00:00Z', '72h', 'Givat HaShlosha',     4),
-  ('Convoy escort — Route 90',           false, '2026-05-21T01:30:00Z', '2026-05-21T11:30:00Z', '10h', 'Beit She''an staging', 3)
-) as s(title, urgent, start_at, end_at, duration, location, needed);
+  ('Northern QRF — Sector 4',            true,  '2026-05-15T19:00:00Z', '2026-05-16T07:00:00Z', '12h', 'Tzomet Bilu staging'),
+  ('Outpost Rotation — Givat HaShlosha', false, '2026-05-19T03:00:00Z', '2026-05-22T03:00:00Z', '72h', 'Givat HaShlosha'),
+  ('Convoy escort — Route 90',           false, '2026-05-21T01:30:00Z', '2026-05-21T11:30:00Z', '10h', 'Beit She''an staging')
+) as s(title, urgent, start_at, end_at, duration, location);
 
--- ── 10. Slot skills
-insert into slot_skills (slot_id, skill_id)
-select sl.id, sk.id
-from slots sl
-join teams t on t.id = sl.team_id
-join skills sk on sk.division_id = t.division_id
-join (values
-  ('Northern QRF — Sector 4',  'Night Ops'),
-  ('Convoy escort — Route 90', 'Heavy Truck')
-) as ss(slot_title, skill_name) on ss.slot_title = sl.title and ss.skill_name = sk.name;
-
--- Northern QRF requires senior Night Ops
-update slot_skills ss set min_level = 'senior'
-from slots sl, skills sk
-where ss.slot_id = sl.id and ss.skill_id = sk.id
-  and sl.title = 'Northern QRF — Sector 4' and sk.name = 'Night Ops';
-
--- ── 11. Slot assignees
-insert into slot_assignees (slot_id, member_id)
-select sl.id, m.id
-from slots sl
-join teams t on t.id = sl.team_id
-join team_members tm on tm.team_id = t.id
-join members m on m.id = tm.member_id
-join (values
+-- ── 10. Slot assignees (one per slot — skill matching is no longer required, commander picks by judgment)
+update slots sl
+set assignee_id = m.id
+from teams t, team_members tm, members m, (values
   ('Northern QRF — Sector 4',            'Yoni Avraham'),
-  ('Northern QRF — Sector 4',            'Avi Mizrahi'),
   ('Outpost Rotation — Givat HaShlosha', 'Avi Mizrahi'),
-  ('Outpost Rotation — Givat HaShlosha', 'Uri Goldstein'),
-  ('Outpost Rotation — Givat HaShlosha', 'Yair Ben-Ami'),
-  ('Outpost Rotation — Givat HaShlosha', 'Idan Carmel'),
   ('Convoy escort — Route 90',           'Omer Halevi')
-) as sa(slot_title, member_name) on sa.slot_title = sl.title and sa.member_name = m.name;
+) as sa(slot_title, member_name)
+where t.id = sl.team_id and tm.team_id = t.id and tm.member_id = m.id
+  and sa.slot_title = sl.title and sa.member_name = m.name;
 
 -- ── 12. Activity log (scoped to team)
 insert into activity_log (team_id, actor_name, verb, what, tone, created_at)
@@ -396,47 +373,26 @@ where ms.member_id = m.id and ms.skill_id = s.id
   );
 
 -- ── I. Slots for Bravo-6 (2 published + 1 draft)
-insert into slots (team_id, title, urgent, state, start_at, end_at, duration, location, needed)
+insert into slots (team_id, title, urgent, state, start_at, end_at, duration, location)
 select t.id, s.title, s.urgent, s.state::slot_state_enum,
-       s.start_at::timestamptz, s.end_at::timestamptz, s.duration, s.location, s.needed
+       s.start_at::timestamptz, s.end_at::timestamptz, s.duration, s.location
 from teams t, (values
-  ('Bravo gate watch — North Camp',   true,  'published', '2026-05-17T20:00:00Z', '2026-05-18T08:00:00Z', '12h', 'North Camp gate',     4),
-  ('Bravo recon — Ridge 7',           false, 'published', '2026-05-23T05:00:00Z', '2026-05-23T17:00:00Z', '12h', 'Ridge 7 trailhead',   3),
-  ('Bravo training — sim day',        false, 'draft',     '2026-06-02T07:00:00Z', '2026-06-02T17:00:00Z', '10h', 'Tze''elim sim range', 5)
-) as s(title, urgent, state, start_at, end_at, duration, location, needed)
+  ('Bravo gate watch — North Camp',   true,  'published', '2026-05-17T20:00:00Z', '2026-05-18T08:00:00Z', '12h', 'North Camp gate'),
+  ('Bravo recon — Ridge 7',           false, 'published', '2026-05-23T05:00:00Z', '2026-05-23T17:00:00Z', '12h', 'Ridge 7 trailhead'),
+  ('Bravo training — sim day',        false, 'draft',     '2026-06-02T07:00:00Z', '2026-06-02T17:00:00Z', '10h', 'Tze''elim sim range')
+) as s(title, urgent, state, start_at, end_at, duration, location)
 where t.short_name = 'Bravo-6';
 
 -- ── J. Slots for Alpha-7 (2 published + 1 draft)
-insert into slots (team_id, title, urgent, state, start_at, end_at, duration, location, needed)
+insert into slots (team_id, title, urgent, state, start_at, end_at, duration, location)
 select t.id, s.title, s.urgent, s.state::slot_state_enum,
-       s.start_at::timestamptz, s.end_at::timestamptz, s.duration, s.location, s.needed
+       s.start_at::timestamptz, s.end_at::timestamptz, s.duration, s.location
 from teams t, (values
-  ('Alpha drone sweep — Sector 2',    true,  'published', '2026-05-18T22:00:00Z', '2026-05-19T04:00:00Z', '6h',  'Sector 2 OP',         3),
-  ('Alpha perimeter — Outpost Lev',   false, 'published', '2026-05-25T06:00:00Z', '2026-05-26T06:00:00Z', '24h', 'Outpost Lev',         5),
-  ('Alpha staff prep — HQ briefing',  false, 'draft',     '2026-06-04T08:00:00Z', '2026-06-04T12:00:00Z', '4h',  'HQ briefing room',    2)
-) as s(title, urgent, state, start_at, end_at, duration, location, needed)
+  ('Alpha drone sweep — Sector 2',    true,  'published', '2026-05-18T22:00:00Z', '2026-05-19T04:00:00Z', '6h',  'Sector 2 OP'),
+  ('Alpha perimeter — Outpost Lev',   false, 'published', '2026-05-25T06:00:00Z', '2026-05-26T06:00:00Z', '24h', 'Outpost Lev'),
+  ('Alpha staff prep — HQ briefing',  false, 'draft',     '2026-06-04T08:00:00Z', '2026-06-04T12:00:00Z', '4h',  'HQ briefing room')
+) as s(title, urgent, state, start_at, end_at, duration, location)
 where t.short_name = 'Alpha-7';
-
--- ── K. Slot skill requirements
-insert into slot_skills (slot_id, skill_id)
-select sl.id, sk.id
-from slots sl
-join teams t on t.id = sl.team_id
-join skills sk on sk.division_id = t.division_id
-join (values
-  ('Bravo gate watch — North Camp',  'Night Ops'),
-  ('Bravo gate watch — North Camp',  'Krav Maga Inst.'),
-  ('Bravo recon — Ridge 7',          'Urban Combat'),
-  ('Alpha drone sweep — Sector 2',   'Drone Op.'),
-  ('Alpha drone sweep — Sector 2',   'Night Ops'),
-  ('Alpha perimeter — Outpost Lev',  'Urban Combat')
-) as ss(slot_title, skill_name) on ss.slot_title = sl.title and ss.skill_name = sk.name;
-
--- Senior requirement: Alpha drone sweep needs senior Drone Op.
-update slot_skills ss set min_level = 'senior'
-from slots sl, skills sk
-where ss.slot_id = sl.id and ss.skill_id = sk.id
-  and sl.title = 'Alpha drone sweep — Sector 2' and sk.name = 'Drone Op.';
 
 -- ── L. Activity log for Bravo-6
 insert into activity_log (team_id, actor_name, verb, what, tone, created_at)
@@ -463,21 +419,17 @@ from teams t, (values
 ) as a(actor, verb, what, tone, mins)
 where t.short_name = 'Alpha-7';
 
--- ── N. Slot assignees for new teams
-insert into slot_assignees (slot_id, member_id)
-select sl.id, m.id
-from slots sl
-join teams t on t.id = sl.team_id
-join team_members tm on tm.team_id = t.id
-join members m on m.id = tm.member_id
-join (values
+-- ── N. Slot assignees for new teams (one per slot)
+update slots sl
+set assignee_id = m.id
+from teams t, team_members tm, members m, (values
   ('Bravo gate watch — North Camp',  'Asaf Doron'),
-  ('Bravo gate watch — North Camp',  'Mor Kaplan'),
   ('Bravo recon — Ridge 7',          'Erez Halperin'),
   ('Alpha drone sweep — Sector 2',   'Tomer Bachar'),
-  ('Alpha drone sweep — Sector 2',   'Nimrod Saban'),
   ('Alpha perimeter — Outpost Lev',  'Yarden Mualem')
-) as sa(slot_title, member_name) on sa.slot_title = sl.title and sa.member_name = m.name;
+) as sa(slot_title, member_name)
+where t.id = sl.team_id and tm.team_id = t.id and tm.member_id = m.id
+  and sa.slot_title = sl.title and sa.member_name = m.name;
 
 -- ── O. Invite expiry backfill (PRD §7.1 default 7 days)
 update teams set invite_expires_at = now() + interval '7 days' where invite_code is not null;

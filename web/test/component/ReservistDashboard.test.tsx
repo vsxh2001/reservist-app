@@ -193,12 +193,8 @@ function makeSlot(overrides: Partial<Slot> = {}): Slot {
     end_at: null,
     duration: '4h',
     location: 'Base North',
-    needed: 1,
     notes: null,
-    role: null,
-    skills: [],
-    assignee_ids: ['m1'],
-    filled: 1,
+    assignee_id: 'm1',
     ...overrides,
   };
 }
@@ -408,7 +404,7 @@ describe('ReservistDashboard', () => {
       title: 'Was: patrol',
       state: 'cancelled',
       start_at: new Date(Date.now() + 2 * 86_400_000).toISOString(),
-      assignee_ids: ['m1'],
+      assignee_id: 'm1',
     });
     mySlotsState = { data: [cancelled], isLoading: false };
 
@@ -439,7 +435,7 @@ describe('ReservistDashboard', () => {
       title: 'Other team patrol',
       state: 'cancelled',
       start_at: new Date(Date.now() + 2 * 86_400_000).toISOString(),
-      assignee_ids: ['m-other'],
+      assignee_id: 'm-other',
     });
     mySlotsState = { data: [cancelled], isLoading: false };
 
@@ -453,7 +449,7 @@ describe('ReservistDashboard', () => {
       title: 'Last month patrol',
       state: 'cancelled',
       start_at: new Date(Date.now() - 14 * 86_400_000).toISOString(),
-      assignee_ids: ['m1'],
+      assignee_id: 'm1',
     });
     mySlotsState = { data: [stale], isLoading: false };
 
@@ -469,7 +465,7 @@ describe('ReservistDashboard', () => {
       title: 'Was: drill',
       state: 'cancelled',
       start_at: new Date(Date.now() + 86_400_000).toISOString(),
-      assignee_ids: ['m1'],
+      assignee_id: 'm1',
     });
     mySlotsState = { data: [cancelled], isLoading: false };
 
@@ -718,7 +714,7 @@ describe('ReservistDashboard', () => {
 
   // -------- slot row expand --------------------------------------------
 
-  it('SlotRow shows filled/needed inline; tap reveals notes + skill chips', async () => {
+  it('SlotRow tap reveals notes', async () => {
     const user = userEvent.setup();
     mySlotsState = {
       data: [
@@ -726,9 +722,7 @@ describe('ReservistDashboard', () => {
           id: 's-detail',
           title: 'Border drill',
           notes: 'Pickup at base 06:30. Bring rifle + 2 mags.',
-          needed: 3,
-          filled: 1,
-          skills: [{ name: 'Night Ops', min_level: 'senior' }],
+          assignee_id: 'm1',
         }),
       ],
       isLoading: false,
@@ -736,8 +730,6 @@ describe('ReservistDashboard', () => {
 
     render(<ReservistDashboard />);
 
-    // Filled/needed badge is always visible (no tap required).
-    expect(screen.getByText('1/3')).toBeInTheDocument();
     // Notes hidden until tap.
     expect(screen.queryByText(/Pickup at base/)).not.toBeInTheDocument();
 
@@ -747,20 +739,16 @@ describe('ReservistDashboard', () => {
     await user.click(row);
     expect(row.getAttribute('aria-expanded')).toBe('true');
     expect(screen.getByText(/Pickup at base/)).toBeInTheDocument();
-    expect(screen.getByText('Night Ops')).toBeInTheDocument();
   });
 
-  it('SlotRow without detail (no notes, no skills, needed=0, no assignees) is not interactive', () => {
+  it('SlotRow without detail (no notes, unassigned) is not interactive', () => {
     mySlotsState = {
       data: [
         makeSlot({
           id: 's-bare',
           title: 'Bare patrol',
           notes: null,
-          needed: 0,
-          filled: 0,
-          skills: [],
-          assignee_ids: [],
+          assignee_id: null,
         }),
       ],
       isLoading: false,
@@ -781,8 +769,7 @@ describe('ReservistDashboard', () => {
           id: 's-kbd',
           title: 'KBD patrol',
           notes: 'Quiet sector',
-          needed: 1,
-          filled: 0,
+          assignee_id: 'm1',
         }),
       ],
       isLoading: false,
@@ -1186,50 +1173,39 @@ describe('ReservistDashboard', () => {
     );
   });
 
-  // -------- slot co-assignees ------------------------------------------
+  // -------- slot single-assignee ---------------------------------------
 
-  it('expanded SlotRow shows co-assignees with "You" for current member', async () => {
+  it('expanded SlotRow shows "You" when the slot is assigned to the current member', async () => {
     const user = userEvent.setup();
     myMemberState = { data: makeMember({ id: 'm1', name: 'Yael Cohen' }), isLoading: false };
     teamMembersState = {
-      data: [
-        { id: 'm1', name: 'Yael Cohen' },
-        { id: 'm2', name: 'Daniel Katz' },
-        { id: 'm3', name: 'Noa Shapira' },
-      ],
+      data: [{ id: 'm1', name: 'Yael Cohen' }],
       isLoading: false,
     };
     mySlotsState = {
       data: [
         makeSlot({
-          id: 's-assignees',
-          title: 'Three-up patrol',
+          id: 's-self',
+          title: 'Self patrol',
           notes: null,
-          needed: 3,
-          filled: 3,
-          assignee_ids: ['m1', 'm2', 'm3'],
+          assignee_id: 'm1',
         }),
       ],
       isLoading: false,
     };
 
     render(<ReservistDashboard />);
-    const row = screen.getByText('Three-up patrol').closest('[role="button"]') as HTMLElement;
+    const row = screen.getByText('Self patrol').closest('[role="button"]') as HTMLElement;
     await user.click(row);
 
-    // Header renders with the assignee count.
-    expect(screen.getByText('Assigned (3)')).toBeInTheDocument();
-    // Each assignee now renders on its own row inside the assignees block.
+    expect(screen.getByText('Assigned')).toBeInTheDocument();
     const block = screen.getByTestId('assignees');
     expect(within(block).getByText('You')).toBeInTheDocument();
-    expect(within(block).getByText('Daniel Katz')).toBeInTheDocument();
-    expect(within(block).getByText('Noa Shapira')).toBeInTheDocument();
   });
 
-  it('falls back to em-dash for assignee ids missing from the members map', async () => {
+  it('falls back to em-dash when assignee id is missing from the members map', async () => {
     const user = userEvent.setup();
     myMemberState = { data: makeMember({ id: 'm1' }), isLoading: false };
-    // Note: only 'm1' is in the members map; 'm-unknown' should render as '—'.
     teamMembersState = {
       data: [{ id: 'm1', name: 'Yael Cohen' }],
       isLoading: false,
@@ -1239,9 +1215,7 @@ describe('ReservistDashboard', () => {
         makeSlot({
           id: 's-mystery',
           title: 'Mystery slot',
-          needed: 2,
-          filled: 2,
-          assignee_ids: ['m1', 'm-unknown'],
+          assignee_id: 'm-unknown',
         }),
       ],
       isLoading: false,
@@ -1250,88 +1224,38 @@ describe('ReservistDashboard', () => {
     render(<ReservistDashboard />);
     await user.click(screen.getByText('Mystery slot').closest('[role="button"]') as HTMLElement);
     const block = screen.getByTestId('assignees');
-    expect(within(block).getByText('You')).toBeInTheDocument();
     expect(within(block).getByText('—')).toBeInTheDocument();
   });
 
-  it('expanded SlotRow renders call + WhatsApp links for peers with visible phones', async () => {
+  it('expanded SlotRow renders call + WhatsApp links when slot is assigned to a peer with visible phone', async () => {
     const user = userEvent.setup();
     myMemberState = { data: makeMember({ id: 'm1', name: 'Yael Cohen' }), isLoading: false };
     teamMembersState = {
       data: [
-        // The reservist (self). Their own phone is never linked from the
-        // assignees list — "You" is just a label, no tap-to-call shortcut.
         makeMember({ id: 'm1', name: 'Yael Cohen', phone: '+972 50-111-2222' }),
-        // Peer with phone visible.
         makeMember({ id: 'm2', name: 'Daniel Katz', phone: '054-123-4567', phone_visible_to_peers: true }),
-        // Peer who opted out: members_view returns phone=null.
-        { ...makeMember({ id: 'm3', name: 'Noa Shapira' }), phone: null } as unknown as ReturnType<typeof makeMember>,
       ],
       isLoading: false,
     };
     mySlotsState = {
       data: [makeSlot({
-        id: 's-tap',
-        title: 'Tap-coordination patrol',
-        needed: 3, filled: 3,
-        assignee_ids: ['m1', 'm2', 'm3'],
+        id: 's-peer',
+        title: 'Peer patrol',
+        assignee_id: 'm2',
       })],
       isLoading: false,
     };
 
     render(<ReservistDashboard />);
-    await user.click(screen.getByText('Tap-coordination patrol').closest('[role="button"]') as HTMLElement);
+    await user.click(screen.getByText('Peer patrol').closest('[role="button"]') as HTMLElement);
 
-    // Daniel (phone present) → both tel: and wa.me links.
     const call = screen.getByRole('link', { name: 'Call Daniel Katz' });
     expect(call).toHaveAttribute('href', 'tel:+972541234567');
     const wa = screen.getByRole('link', { name: 'WhatsApp Daniel Katz' });
     expect(wa).toHaveAttribute('href', 'https://wa.me/972541234567');
-
-    // Noa (phone hidden / null) → no links.
-    expect(screen.queryByRole('link', { name: 'Call Noa Shapira' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'WhatsApp Noa Shapira' })).not.toBeInTheDocument();
-
-    // Self ("You") never gets links.
-    expect(screen.queryByRole('link', { name: 'Call You' })).not.toBeInTheDocument();
   });
 
-  it('expanded SlotRow renders "You" before other assignees regardless of incoming order', async () => {
-    const user = userEvent.setup();
-    myMemberState = { data: makeMember({ id: 'm1', name: 'Yael Cohen' }), isLoading: false };
-    teamMembersState = {
-      data: [
-        { id: 'm-other-a', name: 'Daniel Katz' },
-        { id: 'm-other-b', name: 'Noa Shapira' },
-        { id: 'm1', name: 'Yael Cohen' },
-      ],
-      isLoading: false,
-    };
-    // assignee_ids has the reservist last; the row should still show "You" first.
-    mySlotsState = {
-      data: [makeSlot({
-        id: 's-sort',
-        title: 'Sort-order patrol',
-        needed: 3, filled: 3,
-        assignee_ids: ['m-other-a', 'm-other-b', 'm1'],
-      })],
-      isLoading: false,
-    };
-
-    render(<ReservistDashboard />);
-    await user.click(screen.getByText('Sort-order patrol').closest('[role="button"]') as HTMLElement);
-
-    const block = screen.getByTestId('assignees');
-    const text = block.textContent ?? '';
-    const iYou = text.indexOf('You');
-    const iDan = text.indexOf('Daniel Katz');
-    const iNoa = text.indexOf('Noa Shapira');
-    expect(iYou).toBeGreaterThan(-1);
-    expect(iYou).toBeLessThan(iDan);
-    expect(iYou).toBeLessThan(iNoa);
-  });
-
-  it('tapping a co-assignee call link does not collapse the SlotRow', async () => {
+  it('tapping an assignee call link does not collapse the SlotRow', async () => {
     const user = userEvent.setup();
     myMemberState = { data: makeMember({ id: 'm1' }), isLoading: false };
     teamMembersState = {
@@ -1345,8 +1269,7 @@ describe('ReservistDashboard', () => {
       data: [makeSlot({
         id: 's-stop',
         title: 'StopProp patrol',
-        needed: 2, filled: 2,
-        assignee_ids: ['m1', 'm2'],
+        assignee_id: 'm2',
       })],
       isLoading: false,
     };
@@ -1358,7 +1281,7 @@ describe('ReservistDashboard', () => {
 
     const call = screen.getByRole('link', { name: 'Call Daniel Katz' });
     await user.click(call);
-    expect(row).toHaveAttribute('aria-expanded', 'true'); // still open
+    expect(row).toHaveAttribute('aria-expanded', 'true');
   });
 
   // -------- "Set as available" shortcut on collapsed status card ------

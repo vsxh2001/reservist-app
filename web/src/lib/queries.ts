@@ -243,6 +243,30 @@ export function useActivity(teamId: string | undefined) {
   });
 }
 
+/**
+ * Reservist-scoped activity feed: actions where the reservist is the actor,
+ * scoped to a single team. Used by the My recent activity card on the
+ * reservist dashboard so they can see a short history of their own status
+ * changes / pick proposals without seeing other members' actions.
+ */
+export function useMyRecentActivity(memberId: string | undefined, teamId: string | undefined) {
+  return useQuery({
+    queryKey: ['my-activity', memberId, teamId],
+    enabled: !!memberId && !!teamId,
+    queryFn: async (): Promise<ActivityItem[]> => {
+      const { data, error } = await supabase
+        .from('activity_log')
+        .select('*')
+        .eq('actor_id', memberId!)
+        .eq('team_id', teamId!)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data as ActivityItem[];
+    },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Join requests
 // ---------------------------------------------------------------------------

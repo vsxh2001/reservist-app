@@ -39,6 +39,29 @@ describe('Button', () => {
     render(<Button variant="ghost">Ghost</Button>);
     expect(screen.getByRole('button', { name: 'Ghost' })).toHaveAttribute('data-variant', 'ghost');
   });
+
+  it('derives aria-label from data-tip on an icon-only Button (size="icon")', () => {
+    render(<Button variant="ghost" size="icon" data-tip="Back" />);
+    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
+  });
+
+  it('derives aria-label from data-tip on an icon-only Button (size="icon-sm")', () => {
+    render(<Button variant="ghost" size="icon-sm" data-tip="Close" />);
+    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
+  });
+
+  it('does not override an explicit aria-label on an icon Button', () => {
+    render(<Button variant="ghost" size="icon" data-tip="Back" aria-label="Go back" />);
+    expect(screen.getByRole('button', { name: 'Go back' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
+  });
+
+  it('does not derive aria-label for a labelled (text-content) Button even if data-tip is set', () => {
+    render(<Button variant="ghost" size="sm" data-tip="Commander view">Commander</Button>);
+    expect(screen.getByRole('button', { name: 'Commander' })).toBeInTheDocument();
+    // Sanity check: the data-tip value is not also exposed as the accessible name.
+    expect(screen.queryByRole('button', { name: 'Commander view' })).not.toBeInTheDocument();
+  });
 });
 
 // ---------------------------------------------------------------------------

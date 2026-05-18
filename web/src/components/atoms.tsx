@@ -79,8 +79,27 @@ interface BtnProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 export function Button({ children, variant, size, icon, iconRight, className, ...rest }: BtnProps) {
+  // Icon-only buttons (no visible children, just an icon) need an a11y name.
+  // Many callers already pass `data-tip` for the visual tooltip but skip
+  // `aria-label`; derive one from data-tip when the caller didn't provide an
+  // explicit aria-label or aria-labelledby. Cheap, backward-compatible, and
+  // means screen readers stop hearing an unnamed button.
+  const restAny = rest as Record<string, unknown>;
+  const ariaLabelled = restAny['aria-label'] != null || restAny['aria-labelledby'] != null;
+  const dataTip = typeof restAny['data-tip'] === 'string' ? (restAny['data-tip'] as string) : undefined;
+  const needsDerivedLabel =
+    !ariaLabelled
+    && dataTip
+    && (size === 'icon' || size === 'icon-sm' || (icon && children == null));
+  const derivedProps = needsDerivedLabel ? { 'aria-label': dataTip } : null;
   return (
-    <button className={'btn' + (className ? ' ' + className : '')} data-variant={variant} data-size={size} {...rest}>
+    <button
+      className={'btn' + (className ? ' ' + className : '')}
+      data-variant={variant}
+      data-size={size}
+      {...rest}
+      {...derivedProps}
+    >
       {icon && <Icon name={icon} />}
       {children}
       {iconRight && <Icon name={iconRight} />}

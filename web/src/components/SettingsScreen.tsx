@@ -1,16 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from './atoms';
 import { Icon } from './Icon';
 import { supabase } from '../lib/supabase';
 import { useAddSkill, useDeleteSkill, useSetTeamShowUnitSchedule } from '../lib/queries';
 import { usePrefs } from '../lib/prefs';
 import { useAuth } from '../lib/auth';
-import {
-  subscribeToPush,
-  unsubscribeFromPush,
-  currentSubscription,
-  sendTestPush,
-} from '../lib/push';
+import { usePushSubscription } from '../lib/usePushSubscription';
 import type { Team } from '../lib/types';
 import { isInviteExpired } from '../lib/types';
 
@@ -62,43 +57,8 @@ export function SettingsScreen({ team, divisionId, skills, onToast, onRefresh }:
   const delSkill = useDeleteSkill();
   const setShowUnitSchedule = useSetTeamShowUnitSchedule();
 
-  // ── Notifications state ──────────────────────────────────────────────────
-  const [pushSub, setPushSub] = useState<PushSubscription | null | 'loading'>('loading');
-  const [pushBusy, setPushBusy] = useState(false);
-
-  useEffect(() => {
-    currentSubscription().then((sub) => setPushSub(sub));
-  }, []);
-
-  const handleEnablePush = async () => {
-    if (!user) { onToast('Sign in to enable notifications'); return; }
-    setPushBusy(true);
-    const result = await subscribeToPush(user.id);
-    setPushBusy(false);
-    if (result.ok) {
-      const sub = await currentSubscription();
-      setPushSub(sub);
-      onToast('Push notifications enabled');
-    } else {
-      onToast(result.reason ?? 'Failed to enable push');
-    }
-  };
-
-  const handleDisablePush = async () => {
-    if (!user) return;
-    setPushBusy(true);
-    await unsubscribeFromPush(user.id);
-    setPushSub(null);
-    setPushBusy(false);
-    onToast('Push notifications disabled');
-  };
-
-  const handleTestPush = async () => {
-    setPushBusy(true);
-    await sendTestPush();
-    setPushBusy(false);
-    onToast('Test notification sent — check your device');
-  };
+  const { pushSub, pushBusy, handleEnablePush, handleDisablePush, handleTestPush } =
+    usePushSubscription(user?.id, onToast);
 
   const [newSkill, setNewSkill] = useState('');
 

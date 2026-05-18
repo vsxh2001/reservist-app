@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useToast } from './lib/useToast';
 import { Avatar, Button, SkillChip, StatusPill } from './components/atoms';
 import { Icon } from './components/Icon';
@@ -12,9 +12,7 @@ import {
 } from './lib/queries';
 import { fmtWhen, isoDay, relativeAgo, untilHint, windowCountdown } from './lib/calendarUtils';
 import { useRealtime } from './lib/realtime';
-import {
-  currentSubscription, sendTestPush, subscribeToPush, unsubscribeFromPush,
-} from './lib/push';
+import { usePushSubscription } from './lib/usePushSubscription';
 import { fmtPhoneIL, normalizePhoneToE164IL } from './lib/phone';
 import { splitName } from './lib/text';
 import {
@@ -71,48 +69,8 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
   const [until, setUntil] = useState('');
   const { toast, showToast } = useToast(2000);
 
-  // Push notification state — mirrors the commander SettingsScreen surface
-  // so reservists can opt into urgent call-up + pick-decision alerts.
-  const [pushSub, setPushSub] = useState<PushSubscription | null | 'loading'>('loading');
-  const [pushBusy, setPushBusy] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    currentSubscription().then((sub) => {
-      if (!cancelled) setPushSub(sub);
-    });
-    return () => { cancelled = true; };
-  }, []);
-
-  const handleEnablePush = async () => {
-    if (!user) { showToast('Sign in to enable notifications'); return; }
-    setPushBusy(true);
-    const result = await subscribeToPush(user.id);
-    setPushBusy(false);
-    if (result.ok) {
-      const sub = await currentSubscription();
-      setPushSub(sub);
-      showToast('Push notifications enabled');
-    } else {
-      showToast(result.reason ?? 'Failed to enable push');
-    }
-  };
-
-  const handleDisablePush = async () => {
-    if (!user) return;
-    setPushBusy(true);
-    await unsubscribeFromPush(user.id);
-    setPushSub(null);
-    setPushBusy(false);
-    showToast('Push notifications disabled');
-  };
-
-  const handleTestPush = async () => {
-    setPushBusy(true);
-    await sendTestPush();
-    setPushBusy(false);
-    showToast('Test notification sent — check your device');
-  };
+  const { pushSub, pushBusy, handleEnablePush, handleDisablePush, handleTestPush } =
+    usePushSubscription(user?.id, showToast);
 
   const cycleSkillLevel = async (name: string, currentLevel: SkillLevel) => {
     if (!me.data || !user || !team) return;

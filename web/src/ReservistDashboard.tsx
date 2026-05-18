@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Avatar, Button, SkillChip, StatusPill } from './components/atoms';
 import { Icon } from './components/Icon';
 import { DeploymentPickScreen } from './components/DeploymentPickScreen';
@@ -86,9 +86,20 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
     return () => { cancelled = true; };
   }, []);
 
+  // Track the pending clear-timeout so a rapid sequence of toasts doesn't
+  // race: the previous timer would otherwise fire mid-display and prematurely
+  // clear a fresh toast that landed within 2s of its predecessor.
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+  }, []);
   const showToast = (m: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast(m);
-    setTimeout(() => setToast(null), 2000);
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, 2000);
   };
 
   const handleEnablePush = async () => {

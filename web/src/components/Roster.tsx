@@ -8,10 +8,10 @@ import {
 } from '../lib/types';
 import { useAssignToSlot } from '../lib/queries';
 import { useAuth } from '../lib/auth';
-import { normalizePhoneToE164IL } from '../lib/phone';
+import { fmtPhoneIL, normalizePhoneToE164IL } from '../lib/phone';
 import { CrossTeamRecruitDrawer } from './CrossTeamRecruitDrawer';
 
-const fmtPhone = (p: string) => p.replace('+972 ', '0').replace(/-/g, ' ');
+const fmtPhone = fmtPhoneIL;
 
 interface CountsByStatus { total: number; available: number; standby: number; released: number; unavailable: number }
 

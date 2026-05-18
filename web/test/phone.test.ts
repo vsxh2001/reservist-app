@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizePhoneToE164IL } from '../src/lib/phone';
+import { fmtPhoneIL, normalizePhoneToE164IL } from '../src/lib/phone';
 
 describe('normalizePhoneToE164IL', () => {
   it('converts dashed IL mobile to 972-prefixed E.164', () => {
@@ -44,5 +44,19 @@ describe('normalizePhoneToE164IL', () => {
 
   it('handles parentheses and punctuation', () => {
     expect(normalizePhoneToE164IL('(054) 123-4567')).toBe('972541234567');
+  });
+});
+
+describe('fmtPhoneIL', () => {
+  it('turns the canonical seed shape "+972 50-000-0000" into local "050 000 0000"', () => {
+    expect(fmtPhoneIL('+972 50-000-0000')).toBe('050 000 0000');
+  });
+
+  it('strips dashes from already-local strings', () => {
+    expect(fmtPhoneIL('054-123-4567')).toBe('054 123 4567');
+  });
+
+  it('returns the input unchanged when no "+972 " prefix and no dashes are present', () => {
+    expect(fmtPhoneIL('0541234567')).toBe('0541234567');
   });
 });

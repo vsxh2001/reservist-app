@@ -848,7 +848,13 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
         </div>
       </div>
 
-      <div className="toast" data-open={toast ? '1' : '0'}>
+      <div
+        className="toast"
+        data-open={toast ? '1' : '0'}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
         <Icon name="check" size={12}/> {toast}
       </div>
     </div>

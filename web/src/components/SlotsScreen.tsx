@@ -4,6 +4,7 @@ import { Avatar, Button, SkillChip } from './atoms';
 import { BulkCancelModal } from './BulkCancelModal';
 import { useMyMember, useUpdateSlotState } from '../lib/queries';
 import { useAuth } from '../lib/auth';
+import { fmtWhen } from '../lib/calendarUtils';
 import type { Member, Slot, SlotState } from '../lib/types';
 
 interface Props {
@@ -23,15 +24,6 @@ const STATE_LABEL: Record<SlotState, string> = {
   cancelled: 'Cancelled',
 };
 
-function fmtWhen(iso: string): string {
-  const d = new Date(iso);
-  const today = new Date();
-  const sameDay = d.toDateString() === today.toDateString();
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  if (sameDay) return `Today, ${hh}:${mm}`;
-  return d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + `, ${hh}:${mm}`;
-}
 
 const stateBadgeStyle: Record<SlotState, { bg: string; color: string }> = {
   draft:     { bg: 'var(--card-soft)',   color: 'var(--ink-soft)' },

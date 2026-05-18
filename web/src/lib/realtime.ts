@@ -24,7 +24,10 @@ export function useRealtime(teamId: string | undefined) {
           qc.invalidateQueries({ queryKey: ['teams-for-division'] });
         })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_log', filter: `team_id=eq.${teamId}` },
-        () => qc.invalidateQueries({ queryKey: ['activity'] }))
+        () => {
+          qc.invalidateQueries({ queryKey: ['activity'] });
+          qc.invalidateQueries({ queryKey: ['my-activity'] });
+        })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'slots', filter: `team_id=eq.${teamId}` },
         () => qc.invalidateQueries({ queryKey: ['slots'] }))
       // slot_assignees has no team_id — broad invalidation

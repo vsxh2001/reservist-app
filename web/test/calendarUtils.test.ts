@@ -4,12 +4,27 @@ import { fmtWhen, relativeAgo, untilHint, windowCountdown } from '../src/lib/cal
 describe('fmtWhen', () => {
   const now = new Date(2026, 5, 10, 12, 0, 0); // 2026-06-10 12:00 local
 
-  it('returns Today, HH:MM for same calendar day', () => {
-    const iso = new Date(2026, 5, 10, 14, 30).toISOString();
-    expect(fmtWhen(iso, now)).toBe('Today, 14:30');
+  it('returns Today, HH:MM for same calendar day (far future)', () => {
+    const iso = new Date(2026, 5, 10, 23, 0).toISOString(); // 11 hr away
+    expect(fmtWhen(iso, now)).toBe('Today, 23:00');
   });
 
-  it('returns Today even when start is earlier in the day', () => {
+  it('appends "in N min" when same-day start is within an hour', () => {
+    const iso = new Date(2026, 5, 10, 12, 23).toISOString(); // +23 min
+    expect(fmtWhen(iso, now)).toBe('Today, 12:23 · in 23 min');
+  });
+
+  it('appends "in N hr" when same-day start is within 5 hours', () => {
+    const iso = new Date(2026, 5, 10, 14, 30).toISOString(); // +2.5 hr → rounds to 3 hr
+    expect(fmtWhen(iso, now)).toBe('Today, 14:30 · in 3 hr');
+  });
+
+  it('returns plain "Today, HH:MM" when start is more than 5 hours away same day', () => {
+    const iso = new Date(2026, 5, 10, 18, 0).toISOString(); // +6 hr
+    expect(fmtWhen(iso, now)).toBe('Today, 18:00');
+  });
+
+  it('returns Today even when start is earlier in the day (no imminent hint for past)', () => {
     const iso = new Date(2026, 5, 10, 6, 5).toISOString();
     expect(fmtWhen(iso, now)).toBe('Today, 06:05');
   });

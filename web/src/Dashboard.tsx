@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Roster } from './components/Roster';
 import { PersonDrawer } from './components/PersonDrawer';
@@ -80,10 +80,17 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
     return () => window.removeEventListener('keydown', onKey);
   }, [modal.open, person, bellOpen, slotDrawer]);
 
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+  }, []);
   const showToast = (msg: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast(msg);
-    clearTimeout((showToast as any)._tid);
-    (showToast as any)._tid = setTimeout(() => setToast(null), 2200);
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, 2200);
   };
 
   useEffect(() => {

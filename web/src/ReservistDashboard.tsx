@@ -908,6 +908,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
               {(myActivity.data ?? []).map((a) => (
                 <div
                   key={a.id}
+                  data-testid={`my-activity-row-${a.id}`}
                   style={{
                     padding: '8px 10px',
                     background: 'var(--paper-deep)',
@@ -917,6 +918,11 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
                     fontSize: 12.5,
                   }}
                 >
+                  <div
+                    className="timeline-dot"
+                    data-tone={a.tone}
+                    style={{ marginTop: 0, flexShrink: 0 }}
+                  />
                   <span style={{ flex: 1, minWidth: 0, color: 'var(--ink-2)' }}>
                     <b>{a.verb}</b>
                     {a.what ? <> · {a.what}</> : null}

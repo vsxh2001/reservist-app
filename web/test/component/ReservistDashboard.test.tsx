@@ -1504,6 +1504,34 @@ describe('ReservistDashboard', () => {
     expect(card.textContent).toMatch(/3 days ago|2 hr ago/);
   });
 
+  it('My recent activity rows render a tone dot reflecting activity_log.tone', () => {
+    myActivityState = {
+      data: [
+        {
+          id: 'a-accent', team_id: 'team1', actor_id: 'm1', actor_name: 'Yael Cohen',
+          verb: 'proposed deployment day', what: '2026-08-15',
+          tone: 'accent', created_at: new Date(Date.now() - 60_000).toISOString(),
+        },
+        {
+          id: 'a-plain', team_id: 'team1', actor_id: 'm1', actor_name: 'Yael Cohen',
+          verb: 'withdrew deployment day', what: '2026-08-12',
+          tone: null, created_at: new Date(Date.now() - 120_000).toISOString(),
+        },
+      ],
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    const accentRow = screen.getByTestId('my-activity-row-a-accent');
+    const accentDot = accentRow.querySelector('.timeline-dot');
+    expect(accentDot).not.toBeNull();
+    expect(accentDot!.getAttribute('data-tone')).toBe('accent');
+    const plainRow = screen.getByTestId('my-activity-row-a-plain');
+    const plainDot = plainRow.querySelector('.timeline-dot');
+    expect(plainDot).not.toBeNull();
+    // null tone yields no attribute on the DOM node
+    expect(plainDot!.getAttribute('data-tone')).toBeNull();
+  });
+
   it('My recent activity rows render a <time> element with a precise dateTime + title', () => {
     const t = new Date(Date.now() - 86_400_000).toISOString();
     myActivityState = {

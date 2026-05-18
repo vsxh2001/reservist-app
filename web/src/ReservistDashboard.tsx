@@ -632,6 +632,28 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
               >Off</button>
             </div>
           </div>
+          <div
+            data-testid="phone-visibility-preview"
+            style={{
+              marginTop: 10, padding: '8px 10px',
+              background: 'var(--paper-deep)', border: '1px solid var(--line-soft)',
+              borderRadius: 8, fontSize: 11.5, lineHeight: 1.45,
+              color: 'var(--ink-soft)',
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}
+          >
+            <Icon name="phone" size={11} />
+            <span style={{ flex: 1 }}>
+              Peers in your division see:{' '}
+              {me.data.phone_visible_to_peers ? (
+                <b style={{ color: 'var(--ink-2)', fontFamily: 'var(--mono)' }}>
+                  {me.data.phone.replace('+972 ', '0').replace(/-/g, ' ')}
+                </b>
+              ) : (
+                <em>hidden</em>
+              )}
+            </span>
+          </div>
         </Card>
 
         {/* My skills self-edit (PRD §7.2) */}

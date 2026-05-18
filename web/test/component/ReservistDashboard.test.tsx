@@ -783,6 +783,63 @@ describe('ReservistDashboard', () => {
     expect(screen.getByText('March drill')).toBeInTheDocument();
   });
 
+  it('My deployments caps Recent closed windows at 5 and shows a "Show N more" button when there are more', async () => {
+    const user = userEvent.setup();
+    myWindowsState = {
+      data: [
+        makeWindow({ id: 'w-active', label: 'Current op', state: 'open', start_date: '2099-06-01', end_date: '2099-06-07' }),
+        ...Array.from({ length: 7 }, (_, i) =>
+          makeWindow({
+            id: `w-past-${i}`,
+            label: `Past op ${i}`,
+            state: 'closed',
+            // Distinct start_date so sort order is deterministic; older dates ranked later.
+            start_date: `202${5 - Math.floor(i / 4)}-${String(((i % 12) + 1)).padStart(2, '0')}-01`,
+            end_date: `202${5 - Math.floor(i / 4)}-${String(((i % 12) + 1)).padStart(2, '0')}-02`,
+          })
+        ),
+      ],
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+
+    // First 5 visible by default.
+    expect(screen.getByText('Past op 0')).toBeInTheDocument();
+    expect(screen.getByText('Past op 4')).toBeInTheDocument();
+    // 6th and 7th hidden behind the Show-more button.
+    expect(screen.queryByText('Past op 5')).not.toBeInTheDocument();
+    expect(screen.queryByText('Past op 6')).not.toBeInTheDocument();
+
+    const moreBtn = screen.getByTestId('show-more-closed');
+    expect(moreBtn).toHaveTextContent('Show 2 more');
+
+    await user.click(moreBtn);
+    expect(screen.getByText('Past op 5')).toBeInTheDocument();
+    expect(screen.getByText('Past op 6')).toBeInTheDocument();
+    // Button disappears once everything is shown.
+    expect(screen.queryByTestId('show-more-closed')).not.toBeInTheDocument();
+  });
+
+  it('My deployments does not render the Show-more button when there are 5 or fewer closed windows', () => {
+    myWindowsState = {
+      data: [
+        makeWindow({ id: 'w-active', label: 'Current op', state: 'open', start_date: '2099-06-01', end_date: '2099-06-07' }),
+        ...Array.from({ length: 3 }, (_, i) =>
+          makeWindow({
+            id: `w-past-${i}`,
+            label: `Past op ${i}`,
+            state: 'closed',
+            start_date: `2025-0${i + 1}-01`,
+            end_date: `2025-0${i + 1}-02`,
+          })
+        ),
+      ],
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    expect(screen.queryByTestId('show-more-closed')).not.toBeInTheDocument();
+  });
+
   it('Open deployment row renders a "starts in N days" countdown', () => {
     const isoDay = (d: Date) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

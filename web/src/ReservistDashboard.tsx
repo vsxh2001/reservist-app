@@ -45,6 +45,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
     return map;
   }, [teamMembers.data]);
   const [activeWindow, setActiveWindow] = useState<DeploymentWindow | null>(null);
+  const [showAllClosedDeployments, setShowAllClosedDeployments] = useState(false);
 
   const nextWindow = useMemo(() => {
     // Compare as YYYY-MM-DD strings to avoid UTC/local midnight skew.
@@ -394,23 +395,39 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
                     onOpen={() => setActiveWindow(w)}
                   />
                 ))}
-                {closed.length > 0 && (
-                  <>
-                    <div style={{
-                      fontFamily: 'var(--mono)', fontSize: 10.5, fontWeight: 500,
-                      textTransform: 'uppercase', letterSpacing: '.08em',
-                      color: 'var(--ink-mute)', marginTop: open.length > 0 ? 6 : 0,
-                    }}>Recent</div>
-                    {closed.map((w) => (
-                      <DeploymentRow
-                        key={w.id}
-                        w={w}
-                        onOpen={() => setActiveWindow(w)}
-                        dim
-                      />
-                    ))}
-                  </>
-                )}
+                {closed.length > 0 && (() => {
+                  const CAP = 5;
+                  const visible = showAllClosedDeployments ? closed : closed.slice(0, CAP);
+                  const hiddenCount = closed.length - visible.length;
+                  return (
+                    <>
+                      <div style={{
+                        fontFamily: 'var(--mono)', fontSize: 10.5, fontWeight: 500,
+                        textTransform: 'uppercase', letterSpacing: '.08em',
+                        color: 'var(--ink-mute)', marginTop: open.length > 0 ? 6 : 0,
+                      }}>Recent</div>
+                      {visible.map((w) => (
+                        <DeploymentRow
+                          key={w.id}
+                          w={w}
+                          onOpen={() => setActiveWindow(w)}
+                          dim
+                        />
+                      ))}
+                      {hiddenCount > 0 && (
+                        <button
+                          type="button"
+                          data-testid="show-more-closed"
+                          onClick={() => setShowAllClosedDeployments(true)}
+                          className="filter-clear"
+                          style={{ alignSelf: 'flex-start', marginTop: 2 }}
+                        >
+                          Show {hiddenCount} more
+                        </button>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </Card>
           );

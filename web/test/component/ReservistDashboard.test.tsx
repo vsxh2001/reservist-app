@@ -521,6 +521,30 @@ describe('ReservistDashboard', () => {
     });
   });
 
+  it('Phone visibility preview shows "hidden" when phone_visible_to_peers=false', () => {
+    myMemberState = {
+      data: makeMember({ phone_visible_to_peers: false, phone: '+972 52-000-0001' }),
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    const preview = screen.getByTestId('phone-visibility-preview');
+    expect(preview.textContent).toMatch(/hidden/);
+    // Phone digits never appear in the hidden preview.
+    expect(preview.textContent).not.toMatch(/052\b/);
+    expect(preview.textContent).not.toMatch(/2000/);
+  });
+
+  it('Phone visibility preview shows the reservist\'s formatted phone when phone_visible_to_peers=true', () => {
+    myMemberState = {
+      data: makeMember({ phone_visible_to_peers: true, phone: '+972 52-000-0001' }),
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    const preview = screen.getByTestId('phone-visibility-preview');
+    expect(preview.textContent).toMatch(/052 000 0001/);
+    expect(preview.textContent).not.toMatch(/hidden/);
+  });
+
   // -------- deployment windows -----------------------------------------
 
   it('renders the next deployment window banner and clicking it switches to DeploymentPickScreen', async () => {

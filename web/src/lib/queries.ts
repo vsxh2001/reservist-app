@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from './supabase';
+import { initialsFromName } from './text';
 import type {
   ActivityItem, DeploymentPick, DeploymentWindow, Division, JoinRequest,
   Member, Project, Slot, SlotSkill, SkillLevel, Status, Team, TeamRole,
@@ -1140,7 +1141,7 @@ export function useApproveJoinRequest() {
       actorId: string; actorName: string;
       name: string; phone: string; skillNames: string[];
     }) => {
-      const initials = vars.name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
+      const initials = initialsFromName(vars.name);
       const tone = Math.floor(Math.random() * 8);
 
       const { data: m, error: mErr } = await supabase

@@ -6,6 +6,7 @@ import {
 } from '../lib/queries';
 import { useAuth } from '../lib/auth';
 import { fmtRelCompact as fmtRel } from '../lib/calendarUtils';
+import { initialsFromName } from '../lib/text';
 import type { Team } from '../lib/types';
 
 interface Props {
@@ -73,7 +74,7 @@ export function RequestsScreen({ team, onToast }: Props) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {(requests.data ?? []).map((r) => {
-            const initials = r.name.split(' ').map((p: string) => p[0]).slice(0, 2).join('').toUpperCase();
+            const initials = initialsFromName(r.name);
             return (
               <div key={r.id} style={{
                 border: '1px solid var(--line)',

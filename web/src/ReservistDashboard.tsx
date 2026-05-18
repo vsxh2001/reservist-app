@@ -5,7 +5,7 @@ import { DeploymentPickScreen } from './components/DeploymentPickScreen';
 import { useAuth } from './lib/auth';
 import { useActiveTeam } from './lib/team-context';
 import {
-  useMembers, useMyDeploymentWindows, useMyMember, useMySlots,
+  useMembers, useMyDeploymentWindows, useMyMember, useMyRecentActivity, useMySlots,
   useRemoveMemberSkill, useSelfUpdateStatus, useSetMemberSkill,
   useSetPhoneVisibility, useSkills,
 } from './lib/queries';
@@ -39,6 +39,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
   const slots = useMySlots(me.data?.id);
   const windows = useMyDeploymentWindows(user?.id, team?.id);
   const teamMembers = useMembers(team?.id);
+  const myActivity = useMyRecentActivity(me.data?.id, team?.id);
   const memberById = useMemo(() => {
     const map = new Map<string, Member>();
     for (const m of teamMembers.data ?? []) map.set(m.id, m);
@@ -880,6 +881,42 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
             </div>
           )}
         </Card>
+
+        {(myActivity.data ?? []).length > 0 && (
+          <Card title="My recent activity">
+            <div
+              data-testid="my-activity"
+              style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+            >
+              {(myActivity.data ?? []).map((a) => (
+                <div
+                  key={a.id}
+                  style={{
+                    padding: '8px 10px',
+                    background: 'var(--paper-deep)',
+                    border: '1px solid var(--line-soft)',
+                    borderRadius: 8,
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    fontSize: 12.5,
+                  }}
+                >
+                  <span style={{ flex: 1, minWidth: 0, color: 'var(--ink-2)' }}>
+                    <b>{a.verb}</b>
+                    {a.what ? <> · {a.what}</> : null}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: 'var(--mono)', fontSize: 10.5,
+                      color: 'var(--ink-mute)', flexShrink: 0,
+                    }}
+                  >
+                    {relativeAgo(a.created_at) ?? ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
 
         <Card title="My contact">
           <div

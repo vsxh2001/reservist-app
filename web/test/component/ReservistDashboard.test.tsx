@@ -111,12 +111,17 @@ let teamMembersState: { data: { id: string; name: string }[] | undefined; isLoad
   data: [],
   isLoading: false,
 };
+let myActivityState: {
+  data: { id: string; team_id: string; actor_id: string | null; actor_name: string; verb: string; what: string | null; tone: string | null; created_at: string }[] | undefined;
+  isLoading: boolean;
+} = { data: [], isLoading: false };
 
 vi.mock('../../src/lib/queries', () => ({
   useMyMember: () => myMemberState,
   useMySlots: () => mySlotsState,
   useMyDeploymentWindows: () => myWindowsState,
   useMembers: () => teamMembersState,
+  useMyRecentActivity: () => myActivityState,
   useSelfUpdateStatus: () => selfUpdateStatusMut,
   useSetPhoneVisibility: () => setPhoneVisibilityMut,
   useSetMemberSkill: () => setMemberSkillMut,
@@ -229,6 +234,7 @@ describe('ReservistDashboard', () => {
     myMemberState = { data: makeMember(), isLoading: false };
     mySlotsState = { data: [], isLoading: false };
     myWindowsState = { data: [], isLoading: false };
+    myActivityState = { data: [], isLoading: false };
     selfUpdateStatusMut.mutateAsync.mockReset();
     selfUpdateStatusMut.mutateAsync.mockResolvedValue(undefined);
     selfUpdateStatusMut.isPending = false;
@@ -1426,5 +1432,40 @@ describe('ReservistDashboard', () => {
     };
     render(<ReservistDashboard />);
     expect(screen.getByTestId('status-until-hint')).toHaveTextContent('expired');
+  });
+
+  // -------- my recent activity ----------------------------------------
+
+  it('My recent activity card hides when the reservist has no activity', () => {
+    myActivityState = { data: [], isLoading: false };
+    render(<ReservistDashboard />);
+    expect(screen.queryByTestId('my-activity')).not.toBeInTheDocument();
+  });
+
+  it('My recent activity card lists the reservist\'s actor-id rows with verb + what + relative time', () => {
+    myActivityState = {
+      data: [
+        {
+          id: 'a1', team_id: 'team1', actor_id: 'm1', actor_name: 'Yael Cohen',
+          verb: 'set status', what: 'standby until 2026-07-01',
+          tone: null,
+          created_at: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+        },
+        {
+          id: 'a2', team_id: 'team1', actor_id: 'm1', actor_name: 'Yael Cohen',
+          verb: 'proposed deployment day', what: '2026-08-15',
+          tone: null,
+          created_at: new Date(Date.now() - 2 * 3600_000).toISOString(),
+        },
+      ],
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    const card = screen.getByTestId('my-activity');
+    expect(within(card).getByText('set status')).toBeInTheDocument();
+    expect(within(card).getByText(/standby until 2026-07-01/)).toBeInTheDocument();
+    expect(within(card).getByText('proposed deployment day')).toBeInTheDocument();
+    // Relative-time hint surfaces from `relativeAgo`.
+    expect(card.textContent).toMatch(/3 days ago|2 hr ago/);
   });
 });

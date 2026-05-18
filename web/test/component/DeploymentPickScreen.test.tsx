@@ -88,6 +88,7 @@ function makePick(overrides: Partial<DeploymentPick> = {}): DeploymentPick {
 interface RenderOpts {
   window?: Partial<DeploymentWindow>;
   picks?: DeploymentPick[];
+  creatorName?: string | null;
 }
 
 function renderScreen(opts: RenderOpts = {}) {
@@ -96,7 +97,12 @@ function renderScreen(opts: RenderOpts = {}) {
   const onClose = vi.fn();
   const onToast = vi.fn();
   const utils = render(
-    <DeploymentPickScreen window={w} onClose={onClose} onToast={onToast} />,
+    <DeploymentPickScreen
+      window={w}
+      creatorName={opts.creatorName ?? null}
+      onClose={onClose}
+      onToast={onToast}
+    />,
   );
   return { ...utils, window: w, onClose, onToast };
 }
@@ -134,6 +140,17 @@ describe('DeploymentPickScreen', () => {
     const heading = screen.getByRole('heading', { level: 1 });
     expect(heading).toHaveTextContent('June drill');
     expect(heading).toHaveTextContent('2026-06-01 → 2026-06-07');
+  });
+
+  it('renders "Set by {creatorName}" subtitle when creatorName is provided', () => {
+    renderScreen({ creatorName: 'Cmdr Smith' });
+    const sub = screen.getByTestId('window-creator');
+    expect(sub).toHaveTextContent('Set by Cmdr Smith');
+  });
+
+  it('omits the creator subtitle when creatorName is null', () => {
+    renderScreen({ creatorName: null });
+    expect(screen.queryByTestId('window-creator')).not.toBeInTheDocument();
   });
 
   it('renders pick-count legend reflecting the window counts', () => {

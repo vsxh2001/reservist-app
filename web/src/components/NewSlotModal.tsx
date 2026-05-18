@@ -9,6 +9,7 @@ import {
 } from '../lib/types';
 import { useCreateSlot } from '../lib/queries';
 import { useAuth } from '../lib/auth';
+import { isoDay } from '../lib/calendarUtils';
 
 interface Props {
   open: boolean;
@@ -59,7 +60,7 @@ export function NewSlotModal({
       const endD = cloneFrom.end_at ? new Date(cloneFrom.end_at) : new Date(startD.getTime() + 3600_000);
       const today = new Date();
       // Keep time-of-day, shift date to today so the clone is forward-dated by default.
-      setDate(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`);
+      setDate(isoDay(today));
       setStart(`${String(startD.getHours()).padStart(2, '0')}:${String(startD.getMinutes()).padStart(2, '0')}`);
       setEnd(`${String(endD.getHours()).padStart(2, '0')}:${String(endD.getMinutes()).padStart(2, '0')}`);
       const reqs: SkillReqMap = {};

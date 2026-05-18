@@ -9,7 +9,7 @@ import {
   useRemoveMemberSkill, useSelfUpdateStatus, useSetMemberSkill,
   useSetPhoneVisibility, useSkills,
 } from './lib/queries';
-import { fmtWhen, relativeAgo, untilHint, windowCountdown } from './lib/calendarUtils';
+import { fmtWhen, isoDay, relativeAgo, untilHint, windowCountdown } from './lib/calendarUtils';
 import { useRealtime } from './lib/realtime';
 import {
   currentSubscription, sendTestPush, subscribeToPush, unsubscribeFromPush,
@@ -25,10 +25,7 @@ import {
 function computeUntilDate(daysFromToday: number): string {
   const d = new Date();
   d.setDate(d.getDate() + daysFromToday);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+  return isoDay(d);
 }
 
 
@@ -50,8 +47,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
 
   const nextWindow = useMemo(() => {
     // Compare as YYYY-MM-DD strings to avoid UTC/local midnight skew.
-    const t = new Date();
-    const todayStr = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+    const todayStr = isoDay(new Date());
     return (windows.data ?? [])
       .filter((w) => w.state === 'open' && w.end_date >= todayStr)
       .sort((a, b) => a.start_date.localeCompare(b.start_date))[0] ?? null;

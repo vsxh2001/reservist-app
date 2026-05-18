@@ -9,6 +9,7 @@ import {
 } from '../lib/types';
 import { useAssignToSlot, useUnassignFromSlot, useUpdateSlot, useUpdateSlotState } from '../lib/queries';
 import { useAuth } from '../lib/auth';
+import { isoDay } from '../lib/calendarUtils';
 
 interface Props {
   slot: Slot;
@@ -32,13 +33,8 @@ const cycleNext = (cur: SkillLevel | undefined): SkillLevel | undefined => {
 };
 
 // Local date/time helpers — value-binding for native date/time inputs needs local strings.
-function isoToLocalDate(iso: string): string {
-  const d = new Date(iso);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
+// `isoToLocalDate` is just `isoDay(new Date(iso))`; aliased here for call-site clarity.
+const isoToLocalDate = (iso: string): string => isoDay(new Date(iso));
 function isoToLocalTime(iso: string): string {
   const d = new Date(iso);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;

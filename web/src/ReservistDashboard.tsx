@@ -14,7 +14,7 @@ import { useRealtime } from './lib/realtime';
 import {
   currentSubscription, sendTestPush, subscribeToPush, unsubscribeFromPush,
 } from './lib/push';
-import { normalizePhoneToE164IL } from './lib/phone';
+import { fmtPhoneIL, normalizePhoneToE164IL } from './lib/phone';
 import {
   SKILL_LEVELS, SKILL_LEVEL_LABEL,
   STATUS_LABEL,
@@ -669,7 +669,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
               Peers in your division see:{' '}
               {me.data.phone_visible_to_peers ? (
                 <b style={{ color: 'var(--ink-2)', fontFamily: 'var(--mono)' }}>
-                  {me.data.phone.replace('+972 ', '0').replace(/-/g, ' ')}
+                  {fmtPhoneIL(me.data.phone)}
                 </b>
               ) : (
                 <em>hidden</em>
@@ -966,7 +966,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
             fontFamily: 'var(--mono)', fontSize: 13,
             display: 'flex', alignItems: 'center', gap: 8,
           }}>
-            <span style={{ flex: 1 }}>{me.data.phone.replace('+972 ', '0').replace(/-/g, ' ')}</span>
+            <span style={{ flex: 1 }}>{fmtPhoneIL(me.data.phone)}</span>
             <button className="filter-clear" onClick={() => { navigator.clipboard?.writeText(me.data!.phone); showToast('Phone copied'); }}>
               Copy
             </button>

@@ -12,7 +12,7 @@ import {
   useUpdateTeamMembership, useRemoveTeamMembership, useTeamsForMember,
 } from '../lib/queries';
 import { useAuth } from '../lib/auth';
-import { normalizePhoneToE164IL } from '../lib/phone';
+import { fmtPhoneIL, normalizePhoneToE164IL } from '../lib/phone';
 
 interface Props {
   person: Member;
@@ -286,7 +286,7 @@ export function PersonDrawer({ person, team, allSkills, divisionId, onClose, onT
               <div className="drawer-section">
                 <h4>Contact<span className="edit">Visible to commanders only</span></h4>
                 <div className="drawer-contact">
-                  <span>{person.phone.replace('+972 ', '0').replace(/-/g, ' ')}</span>
+                  <span>{fmtPhoneIL(person.phone)}</span>
                   <IconButton icon="copy" tip="Copy" onClick={() => { navigator.clipboard?.writeText(person.phone); onToast('Phone copied'); }} />
                   {e164 ? (
                     <a className="action-btn" data-tip="WhatsApp" data-tone="whatsapp"

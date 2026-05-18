@@ -26,3 +26,11 @@ export function normalizePhoneToE164IL(raw: string): string | null {
   if (e164.length < 9 || e164.length > 15) return null;
   return e164;
 }
+
+/**
+ * Display-friendly Israeli phone format: turn the canonical seed shape
+ * `+972 50-000-0000` into `050 000 0000` (local prefix, space-separated).
+ * Used across the roster, person drawer, and reservist contact card.
+ */
+export const fmtPhoneIL = (p: string): string =>
+  p.replace('+972 ', '0').replace(/-/g, ' ');

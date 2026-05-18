@@ -1504,6 +1504,33 @@ describe('ReservistDashboard', () => {
     expect(card.textContent).toMatch(/3 days ago|2 hr ago/);
   });
 
+  it('My recent activity shows a "Showing latest 10" hint when the list is at cap', () => {
+    myActivityState = {
+      data: Array.from({ length: 10 }, (_, i) => ({
+        id: `a-${i}`, team_id: 'team1', actor_id: 'm1', actor_name: 'Yael Cohen',
+        verb: 'proposed deployment day', what: `2026-09-${String(i + 1).padStart(2, '0')}`,
+        tone: null,
+        created_at: new Date(Date.now() - i * 3600_000).toISOString(),
+      })),
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    expect(screen.getByTestId('my-activity-cap-hint')).toHaveTextContent('Showing latest 10');
+  });
+
+  it('My recent activity omits the cap hint when fewer than 10 rows', () => {
+    myActivityState = {
+      data: [{
+        id: 'a-only', team_id: 'team1', actor_id: 'm1', actor_name: 'Yael Cohen',
+        verb: 'set status', what: 'standby',
+        tone: null, created_at: new Date(Date.now() - 60_000).toISOString(),
+      }],
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    expect(screen.queryByTestId('my-activity-cap-hint')).not.toBeInTheDocument();
+  });
+
   it('My recent activity rows render a tone dot reflecting activity_log.tone', () => {
     myActivityState = {
       data: [

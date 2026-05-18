@@ -939,6 +939,18 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
                   </time>
                 </div>
               ))}
+              {(myActivity.data ?? []).length >= 10 && (
+                <div
+                  data-testid="my-activity-cap-hint"
+                  style={{
+                    marginTop: 4, fontSize: 10.5,
+                    fontFamily: 'var(--mono)', color: 'var(--ink-mute)',
+                    textAlign: 'center',
+                  }}
+                >
+                  Showing latest 10
+                </div>
+              )}
             </div>
           </Card>
         )}

@@ -21,11 +21,17 @@ interface Props {
    * `null` when the creator is unknown (member deleted, RLS-hidden, etc.).
    */
   creatorName?: string | null;
+  /**
+   * Reservist (current user) metadata used to write to `activity_log` so
+   * propose / withdraw actions surface in the My recent activity card.
+   */
+  actorMemberId?: string | null;
+  actorName?: string | null;
   onClose: () => void;
   onToast: (msg: string) => void;
 }
 
-export function DeploymentPickScreen({ window: w, creatorName, onClose, onToast }: Props) {
+export function DeploymentPickScreen({ window: w, creatorName, actorMemberId, actorName, onClose, onToast }: Props) {
   const picks = useDeploymentPicks(w.id);
   const propose = useProposeDayPick();
   const withdraw = useWithdrawDayPick();
@@ -47,10 +53,21 @@ export function DeploymentPickScreen({ window: w, creatorName, onClose, onToast 
     try {
       const existing = byDate.get(dateISO);
       if (!existing || existing.state === 'rejected' || existing.state === 'withdrawn') {
-        await propose.mutateAsync({ windowId: w.id, date: dateISO, reservistNote: null });
+        await propose.mutateAsync({
+          windowId: w.id, date: dateISO, reservistNote: null,
+          actorId: actorMemberId ?? undefined,
+          actorName: actorName ?? undefined,
+          teamId: w.team_id,
+        });
         onToast(`Marked ${dateISO}`);
       } else if (existing.state === 'proposed' || existing.state === 'approved') {
-        await withdraw.mutateAsync({ pickId: existing.id });
+        await withdraw.mutateAsync({
+          pickId: existing.id,
+          actorId: actorMemberId ?? undefined,
+          actorName: actorName ?? undefined,
+          teamId: w.team_id,
+          date: dateISO,
+        });
         onToast(`Withdrew ${dateISO}`);
       }
     } finally {

@@ -1304,6 +1304,9 @@ export function useProposeDayPick() {
   return useMutation({
     mutationFn: async (vars: {
       windowId: string; date: string; reservistNote: string | null;
+      /** Optional actor metadata; when present we log to activity_log so the
+       *  reservist's My recent activity card surfaces the pick. */
+      actorId?: string; actorName?: string; teamId?: string;
     }) => {
       const { error } = await supabase
         .from('deployment_picks')
@@ -1314,11 +1317,22 @@ export function useProposeDayPick() {
           proposed_at: new Date().toISOString(),
         }, { onConflict: 'window_id,date' });
       if (error) throw error;
+      if (vars.actorId && vars.teamId) {
+        await supabase.from('activity_log').insert({
+          team_id: vars.teamId,
+          actor_id: vars.actorId,
+          actor_name: vars.actorName ?? '',
+          verb: 'proposed deployment day',
+          what: vars.date,
+          tone: 'accent',
+        });
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['deployment-picks'] });
       qc.invalidateQueries({ queryKey: ['deployment-windows'] });
       qc.invalidateQueries({ queryKey: ['my-deployment-windows'] });
+      qc.invalidateQueries({ queryKey: ['my-activity'] });
     },
   });
 }
@@ -1342,17 +1356,33 @@ export function useSetReservistNote() {
 export function useWithdrawDayPick() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (vars: { pickId: string }) => {
+    mutationFn: async (vars: {
+      pickId: string;
+      /** Optional actor metadata for activity_log; pass the pick's date so the
+       *  log entry's `what` field carries enough context to render. */
+      actorId?: string; actorName?: string; teamId?: string; date?: string;
+    }) => {
       const { error } = await supabase
         .from('deployment_picks')
         .update({ state: 'withdrawn', resolved_at: new Date().toISOString() })
         .eq('id', vars.pickId);
       if (error) throw error;
+      if (vars.actorId && vars.teamId) {
+        await supabase.from('activity_log').insert({
+          team_id: vars.teamId,
+          actor_id: vars.actorId,
+          actor_name: vars.actorName ?? '',
+          verb: 'withdrew deployment day',
+          what: vars.date ?? null,
+          tone: null,
+        });
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['deployment-picks'] });
       qc.invalidateQueries({ queryKey: ['deployment-windows'] });
       qc.invalidateQueries({ queryKey: ['my-deployment-windows'] });
+      qc.invalidateQueries({ queryKey: ['my-activity'] });
     },
   });
 }

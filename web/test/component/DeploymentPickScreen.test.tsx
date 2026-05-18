@@ -89,6 +89,8 @@ interface RenderOpts {
   window?: Partial<DeploymentWindow>;
   picks?: DeploymentPick[];
   creatorName?: string | null;
+  actorMemberId?: string | null;
+  actorName?: string | null;
 }
 
 function renderScreen(opts: RenderOpts = {}) {
@@ -100,6 +102,8 @@ function renderScreen(opts: RenderOpts = {}) {
     <DeploymentPickScreen
       window={w}
       creatorName={opts.creatorName ?? null}
+      actorMemberId={opts.actorMemberId ?? null}
+      actorName={opts.actorName ?? null}
       onClose={onClose}
       onToast={onToast}
     />,
@@ -151,6 +155,41 @@ describe('DeploymentPickScreen', () => {
   it('omits the creator subtitle when creatorName is null', () => {
     renderScreen({ creatorName: null });
     expect(screen.queryByTestId('window-creator')).not.toBeInTheDocument();
+  });
+
+  it('propose mutation receives actor metadata when actorMemberId is provided', async () => {
+    const user = userEvent.setup();
+    renderScreen({
+      window: { id: 'w1', team_id: 't1', start_date: '2026-06-01', end_date: '2026-06-07' },
+      actorMemberId: 'm1',
+      actorName: 'Yael Cohen',
+    });
+    await user.click(findDayButton(4));
+    expect(mockPropose.mutateAsync.mock.calls[0][0]).toMatchObject({
+      windowId: 'w1',
+      date: '2026-06-04',
+      actorId: 'm1',
+      actorName: 'Yael Cohen',
+      teamId: 't1',
+    });
+  });
+
+  it('withdraw mutation receives actor metadata when actorMemberId is provided', async () => {
+    const user = userEvent.setup();
+    renderScreen({
+      window: { id: 'w1', team_id: 't1', start_date: '2026-06-01', end_date: '2026-06-07' },
+      picks: [makePick({ id: 'p-w', date: '2026-06-03', state: 'proposed' })],
+      actorMemberId: 'm1',
+      actorName: 'Yael Cohen',
+    });
+    await user.click(findDayButton(3));
+    expect(mockWithdraw.mutateAsync.mock.calls[0][0]).toMatchObject({
+      pickId: 'p-w',
+      actorId: 'm1',
+      actorName: 'Yael Cohen',
+      teamId: 't1',
+      date: '2026-06-03',
+    });
   });
 
   it('renders pick-count legend reflecting the window counts', () => {
@@ -246,7 +285,7 @@ describe('DeploymentPickScreen', () => {
     await user.click(findDayButton(4));
 
     expect(mockPropose.mutateAsync).toHaveBeenCalledTimes(1);
-    expect(mockPropose.mutateAsync.mock.calls[0][0]).toEqual({
+    expect(mockPropose.mutateAsync.mock.calls[0][0]).toMatchObject({
       windowId: 'w1',
       date: '2026-06-04',
       reservistNote: null,
@@ -296,7 +335,7 @@ describe('DeploymentPickScreen', () => {
     await user.click(findDayButton(3));
 
     expect(mockWithdraw.mutateAsync).toHaveBeenCalledTimes(1);
-    expect(mockWithdraw.mutateAsync.mock.calls[0][0]).toEqual({ pickId: 'p42' });
+    expect(mockWithdraw.mutateAsync.mock.calls[0][0]).toMatchObject({ pickId: 'p42', date: '2026-06-03' });
     expect(mockPropose.mutateAsync).not.toHaveBeenCalled();
     expect(onToast).toHaveBeenCalledWith('Withdrew 2026-06-03');
   });
@@ -317,7 +356,7 @@ describe('DeploymentPickScreen', () => {
     await user.click(findDayButton(3));
 
     expect(mockWithdraw.mutateAsync).toHaveBeenCalledTimes(1);
-    expect(mockWithdraw.mutateAsync.mock.calls[0][0]).toEqual({ pickId: 'p7' });
+    expect(mockWithdraw.mutateAsync.mock.calls[0][0]).toMatchObject({ pickId: 'p7', date: '2026-06-03' });
     expect(onToast).toHaveBeenCalledWith('Withdrew 2026-06-03');
   });
 

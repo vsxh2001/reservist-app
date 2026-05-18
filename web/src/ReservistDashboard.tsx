@@ -195,6 +195,8 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
       <DeploymentPickScreen
         window={activeWindow}
         creatorName={creator}
+        actorMemberId={me.data.id}
+        actorName={user?.name ?? me.data.name}
         onClose={() => setActiveWindow(null)}
         onToast={showToast}
       />

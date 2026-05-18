@@ -873,7 +873,15 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
           )}
         </Card>
 
-        <Card title="Contact (visible to commanders only)">
+        <Card title="My contact">
+          <div
+            data-testid="contact-visibility-hint"
+            style={{ fontSize: 11.5, color: 'var(--ink-soft)', lineHeight: 1.45, marginBottom: 8 }}
+          >
+            {me.data.phone_visible_to_peers
+              ? <>Visible to commanders <b>and division peers</b>. Flip the toggle above to hide from peers.</>
+              : <>Visible to commanders only. Flip the toggle above to share with division peers.</>}
+          </div>
           <div style={{
             padding: '10px 12px', background: 'var(--paper-deep)',
             borderRadius: 8, border: '1px solid var(--line-soft)',

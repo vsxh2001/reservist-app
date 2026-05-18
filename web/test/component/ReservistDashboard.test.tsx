@@ -545,6 +545,27 @@ describe('ReservistDashboard', () => {
     expect(preview.textContent).not.toMatch(/hidden/);
   });
 
+  it('Contact card hint reflects "commanders only" when phone_visible_to_peers=false', () => {
+    myMemberState = {
+      data: makeMember({ phone_visible_to_peers: false }),
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    const hint = screen.getByTestId('contact-visibility-hint');
+    expect(hint.textContent).toMatch(/commanders only/);
+    expect(hint.textContent).not.toMatch(/and\s+division peers/);
+  });
+
+  it('Contact card hint reflects "commanders and division peers" when phone_visible_to_peers=true', () => {
+    myMemberState = {
+      data: makeMember({ phone_visible_to_peers: true }),
+      isLoading: false,
+    };
+    render(<ReservistDashboard />);
+    const hint = screen.getByTestId('contact-visibility-hint');
+    expect(hint.textContent).toMatch(/commanders\s+and\s+division peers/);
+  });
+
   // -------- deployment windows -----------------------------------------
 
   it('renders the next deployment window banner and clicking it switches to DeploymentPickScreen', async () => {

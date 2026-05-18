@@ -1,9 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { getDivisionId, getMemberIdByName, getTeamId, rest, restStatus, supabaseReachable } from './_supabase.js';
+import { getMemberIdByName, getTeamId, rest, restStatus, supabaseReachable } from './_supabase.js';
 import { COMMANDER_AUTH_USER_ID, SOLDIER_AUTH_USER_ID } from './_jwt.js';
 
 describe('Supabase mutation roundtrips', () => {
-  let divisionId: string;
   let teamId: string;
   let memberId: string;
   let prevStatus: string;
@@ -17,7 +16,6 @@ describe('Supabase mutation roundtrips', () => {
     if (!(await supabaseReachable())) {
       throw new Error('Supabase not reachable. Run `supabase start` first.');
     }
-    divisionId = await getDivisionId();
     teamId = await getTeamId();
     eitanId = await getMemberIdByName('Eitan Cohen');
     memberId = eitanId;
@@ -108,7 +106,7 @@ describe('Supabase mutation roundtrips', () => {
     expect(after.length).toBe(0);
   });
 
-  it('slot creation with skill+min_level (create → verify view → cleanup) — commander', async () => {
+  it('slot creation as single duty period (create → verify view → cleanup) — commander', async () => {
     const slotRow = await rest<{ id: string }[]>('/slots', {
       method: 'POST',
       prefer: 'return=representation',
@@ -121,30 +119,17 @@ describe('Supabase mutation roundtrips', () => {
         end_at:   '2030-01-01T14:00:00Z',
         duration: '4h',
         location: 'Test base',
-        needed: 1,
       }),
       as: { asAuthUserId: COMMANDER_AUTH_USER_ID },
     });
     const slotId = slotRow[0].id;
 
-    const sk = await rest<{ id: string }[]>(
-      `/skills?division_id=eq.${divisionId}&name=eq.Sniper%20Cert.&select=id`,
+    const view = await rest<{ title: string; assignee_id: string | null }[]>(
+      `/slots_view?id=eq.${slotId}&select=title,assignee_id`,
       { as: { asAuthUserId: COMMANDER_AUTH_USER_ID } },
     );
-    const skillId = sk[0].id;
-
-    await rest('/slot_skills', {
-      method: 'POST',
-      body: JSON.stringify({ slot_id: slotId, skill_id: skillId, min_level: 'senior' }),
-      as: { asAuthUserId: COMMANDER_AUTH_USER_ID },
-    });
-
-    const view = await rest<{ skills: { name: string; min_level: string }[] }[]>(
-      `/slots_view?id=eq.${slotId}&select=skills`,
-      { as: { asAuthUserId: COMMANDER_AUTH_USER_ID } },
-    );
-    const sniper = view[0].skills.find((s) => s.name === 'Sniper Cert.');
-    expect(sniper?.min_level).toBe('senior');
+    expect(view[0].title).toBe('Integration test slot');
+    expect(view[0].assignee_id).toBeNull();
 
     // Cleanup (commander can delete slots they created)
     await rest(`/slots?id=eq.${slotId}`, {

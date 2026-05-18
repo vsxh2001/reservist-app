@@ -112,7 +112,7 @@ describe('findMemberConflicts', () => {
     start_at: '2026-06-01T10:00:00Z',
     end_at: '2026-06-01T14:00:00Z',
     state: 'published' as const,
-    assignee_ids: [memberId, 'm2'],
+    assignee_id: memberId,
   };
 
   it('detects exact overlap', () => {
@@ -157,8 +157,14 @@ describe('findMemberConflicts', () => {
   });
 
   it('skips slots where member is not assigned', () => {
-    const other = { ...baseSlot, assignee_ids: ['m2', 'm3'] };
+    const other = { ...baseSlot, assignee_id: 'm2' };
     const c = findMemberConflicts(memberId, '2026-06-01T10:00:00Z', '2026-06-01T14:00:00Z', [other]);
+    expect(c).toHaveLength(0);
+  });
+
+  it('skips slots with no assignee', () => {
+    const unassigned = { ...baseSlot, assignee_id: null };
+    const c = findMemberConflicts(memberId, '2026-06-01T10:00:00Z', '2026-06-01T14:00:00Z', [unassigned]);
     expect(c).toHaveLength(0);
   });
 

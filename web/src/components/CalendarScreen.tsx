@@ -157,7 +157,7 @@ export function CalendarScreen({ slots, members, onSlotClick }: Props) {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {selectedSlots.map((s) => {
-              const assignees = s.assignee_ids.map((id) => members.find((m) => m.id === id)).filter(Boolean) as Member[];
+              const assignee = s.assignee_id ? members.find((m) => m.id === s.assignee_id) ?? null : null;
               return (
                 <div key={s.id} onClick={() => onSlotClick?.(s)} style={{
                   border: '1px solid ' + (s.urgent ? 'var(--urgent)' : 'var(--line-soft)'),
@@ -183,22 +183,21 @@ export function CalendarScreen({ slots, members, onSlotClick }: Props) {
                     {s.location && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       <Icon name="pin" size={11}/> {s.location}
                     </span>}
-                    {s.role && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Icon name="shield" size={11}/> {s.role}
-                    </span>}
                   </div>
                   <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ display: 'flex' }}>
-                      {assignees.slice(0, 5).map((m, i) => (
-                        <div key={m.id} style={{ marginInlineStart: i === 0 ? 0 : -8 }}>
-                          <Avatar initials={m.initials} tone={m.tone} size="sm" />
-                        </div>
-                      ))}
-                    </div>
-                    <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-soft)' }}>
-                      {s.filled}/{s.needed}
-                    </span>
-                    {s.skills.map((sk) => <SkillChip key={sk.name} name={sk.name} min_level={sk.min_level} />)}
+                    {assignee ? (
+                      <>
+                        <Avatar initials={assignee.initials} tone={assignee.tone} size="sm" />
+                        <span style={{ fontSize: 12.5, fontWeight: 500 }}>{assignee.name}</span>
+                        {assignee.skills.length > 0 && assignee.skills.slice(0, 2).map((sk) => (
+                          <SkillChip key={sk.name} name={sk.name} level={sk.level} />
+                        ))}
+                      </>
+                    ) : (
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-soft)' }}>
+                        Unassigned
+                      </span>
+                    )}
                   </div>
                 </div>
               );

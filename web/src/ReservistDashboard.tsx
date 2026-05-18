@@ -193,7 +193,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
   const visibleSlots = (slots.data ?? []).filter((s) => {
     if (team && s.team_id !== team.id) return false;
     if (team && team.show_unit_schedule === false) {
-      return s.urgent === true || (myMemberId != null && s.assignee_ids.includes(myMemberId));
+      return s.urgent === true || (myMemberId != null && s.assignee_id === myMemberId);
     }
     return true;
   });
@@ -206,7 +206,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
   // passes by a week so the card doesn't accumulate stale rows.
   const cancelledAssigned = myMemberId == null ? [] : visibleSlots.filter((s) => {
     if (s.state !== 'cancelled') return false;
-    if (!s.assignee_ids.includes(myMemberId)) return false;
+    if (s.assignee_id !== myMemberId) return false;
     const t = new Date(s.start_at).getTime();
     const now = Date.now();
     return t >= now - 7 * 86_400_000 && t <= now + 30 * 86_400_000;
@@ -971,11 +971,8 @@ interface SlotRowSlot {
   start_at: string;
   duration: string | null;
   location: string | null;
-  needed: number;
-  filled: number;
   notes: string | null;
-  skills: { name: string; min_level: SkillLevel }[];
-  assignee_ids: string[];
+  assignee_id: string | null;
 }
 
 function SlotRow({ s, memberById, myMemberId }: {
@@ -987,9 +984,7 @@ function SlotRow({ s, memberById, myMemberId }: {
   const cancelled = s.state === 'cancelled';
   const hasDetail =
     Boolean(s.notes) ||
-    s.skills.length > 0 ||
-    s.needed > 0 ||
-    s.assignee_ids.length > 0;
+    s.assignee_id !== null;
   const toggle = () => { if (hasDetail) setOpen((v) => !v); };
   return (
     <div
@@ -1048,9 +1043,6 @@ function SlotRow({ s, memberById, myMemberId }: {
         {s.location && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
           <Icon name="pin" size={11}/> {s.location}
         </span>}
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'var(--mono)' }}>
-          {s.filled}/{s.needed}
-        </span>
       </div>
       {open && hasDetail && (
         <div style={{
@@ -1063,32 +1055,21 @@ function SlotRow({ s, memberById, myMemberId }: {
               {s.notes}
             </div>
           )}
-          {s.skills.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-              {s.skills.map((sk) => (
-                <SkillChip key={sk.name} name={sk.name} level={sk.min_level} />
-              ))}
-            </div>
-          )}
-          {s.assignee_ids.length > 0 && (
+          {s.assignee_id !== null && (
             <div>
               <div style={{
                 fontFamily: 'var(--mono)', fontSize: 10.5, fontWeight: 500,
                 textTransform: 'uppercase', letterSpacing: '.08em',
                 color: 'var(--ink-mute)', marginBottom: 4,
               }}>
-                Assigned ({s.assignee_ids.length})
+                Assigned
               </div>
               <div
                 data-testid="assignees"
                 style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
               >
-                {/* Render "You" first so the reservist's own row anchors the list. */}
-                {[...s.assignee_ids].sort((a, b) => {
-                  if (a === myMemberId) return -1;
-                  if (b === myMemberId) return 1;
-                  return 0;
-                }).map((id) => {
+                {(() => {
+                  const id = s.assignee_id!;
                   const isMe = id === myMemberId;
                   const m = memberById?.get(id);
                   const name = isMe ? 'You' : (m?.name ?? '—');
@@ -1137,7 +1118,7 @@ function SlotRow({ s, memberById, myMemberId }: {
                       )}
                     </div>
                   );
-                })}
+                })()}
               </div>
             </div>
           )}

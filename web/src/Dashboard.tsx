@@ -58,8 +58,8 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
   const [person, setPerson] = useState<Member | null>(null);
   const [slotDrawer, setSlotDrawer] = useState<Slot | null>(null);
   const { toast, showToast } = useToast(2200);
-  const [modal, setModal] = useState<{ open: boolean; urgent: boolean; preselected: string[]; cloneFrom?: Slot | null }>({
-    open: false, urgent: false, preselected: [],
+  const [modal, setModal] = useState<{ open: boolean; urgent: boolean; preselected: string | null; cloneFrom?: Slot | null }>({
+    open: false, urgent: false, preselected: null,
   });
   const [bellOpen, setBellOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -71,7 +71,7 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
         (document.querySelector('.search input') as HTMLInputElement | null)?.focus();
       }
       if (e.key === 'Escape') {
-        if (modal.open) setModal({ open: false, urgent: false, preselected: [] });
+        if (modal.open) setModal({ open: false, urgent: false, preselected: null });
         else if (slotDrawer) setSlotDrawer(null);
         else if (person) setPerson(null);
         else if (bellOpen) setBellOpen(false);
@@ -105,7 +105,7 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
   }
 
   const t = titleFor[active];
-  const hasUrgentOpen = (slots.data ?? []).some((s) => s.state === 'published' && s.urgent && s.filled < s.needed);
+  const hasUrgentOpen = (slots.data ?? []).some((s) => s.state === 'published' && s.urgent && s.assignee_id === null);
 
   return (
     <div className="app">
@@ -155,11 +155,11 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
             )}
             <span style={{ width: 1, height: 22, background: 'var(--line)' }}/>
             <Button variant="outline" icon="plus"
-                    onClick={() => setModal({ open: true, urgent: false, preselected: selected })}>
+                    onClick={() => setModal({ open: true, urgent: false, preselected: selected[0] ?? null })}>
               New slot
             </Button>
             <Button variant="urgent" icon="urgent"
-                    onClick={() => setModal({ open: true, urgent: true, preselected: [] })}>
+                    onClick={() => setModal({ open: true, urgent: true, preselected: null })}>
               Urgent call-up
             </Button>
           </div>
@@ -205,7 +205,7 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
                     setSelected={setSelected}
                     onPerson={setPerson}
                     onToast={showToast}
-                    onNewSlotWith={(ids) => setModal({ open: true, urgent: false, preselected: ids })}
+                    onNewSlotWith={(memberId) => setModal({ open: true, urgent: false, preselected: memberId })}
                   />
                 )
           )}
@@ -213,8 +213,8 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
             <SlotsScreen
               slots={slots.data ?? []}
               members={members.data ?? []}
-              onUrgent={() => setModal({ open: true, urgent: true, preselected: [] })}
-              onNewSlot={() => setModal({ open: true, urgent: false, preselected: [] })}
+              onUrgent={() => setModal({ open: true, urgent: true, preselected: null })}
+              onNewSlot={() => setModal({ open: true, urgent: false, preselected: null })}
               onSlotClick={setSlotDrawer}
               onToast={showToast}
             />
@@ -265,15 +265,13 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
           <SlotDrawer
             slot={slotDrawer}
             members={members.data ?? []}
-            skills={skills.data ?? []}
             allSlots={slots.data ?? []}
             approvedPicks={approvedPicks.data ?? []}
             teamId={team.id}
-            divisionId={division.data?.id ?? ''}
             onClose={() => setSlotDrawer(null)}
             onClone={(s) => {
               setSlotDrawer(null);
-              setModal({ open: true, urgent: s.urgent, preselected: [], cloneFrom: s });
+              setModal({ open: true, urgent: s.urgent, preselected: null, cloneFrom: s });
             }}
             onToast={showToast}
           />
@@ -283,14 +281,12 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
           open={modal.open}
           urgent={modal.urgent}
           members={members.data ?? []}
-          skills={skills.data ?? []}
           slots={slots.data ?? []}
           approvedPicks={approvedPicks.data ?? []}
           teamId={team.id}
-          divisionId={division.data?.id ?? ''}
           preselected={modal.preselected}
           cloneFrom={modal.cloneFrom ?? null}
-          onClose={() => setModal({ open: false, urgent: false, preselected: [] })}
+          onClose={() => setModal({ open: false, urgent: false, preselected: null })}
           onToast={showToast}
         />
 

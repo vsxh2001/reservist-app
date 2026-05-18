@@ -2,10 +2,8 @@ import { useEffect, useState } from 'react';
 import { Icon } from './Icon';
 import { Avatar, Button, SkillChip, StatusPill } from './atoms';
 import {
-  SKILL_LEVELS, SKILL_LEVEL_LABEL,
-  memberMatchesAllSkillReqs, meetsSkillReq,
   findMemberConflicts, findDeploymentConflicts,
-  type Member, type SkillLevel, type Slot, type SlotSkill,
+  type Member, type Slot,
 } from '../lib/types';
 import { useCreateSlot } from '../lib/queries';
 import { useAuth } from '../lib/auth';
@@ -15,27 +13,18 @@ interface Props {
   open: boolean;
   urgent: boolean;
   members: Member[];
-  skills: string[];
   slots: Slot[];
   approvedPicks: { member_id: string; date: string }[];
   teamId: string;
-  divisionId: string;
-  preselected: string[];
+  /** Member ID to preselect as the slot's assignee, or null for "no one yet". */
+  preselected: string | null;
   cloneFrom?: Slot | null;
   onClose: () => void;
   onToast: (msg: string) => void;
 }
 
-type SkillReqMap = Record<string, SkillLevel | undefined>;
-
-const cycleNext = (cur: SkillLevel | undefined): SkillLevel | undefined => {
-  if (cur === undefined) return 'junior';
-  const i = SKILL_LEVELS.indexOf(cur);
-  return i === SKILL_LEVELS.length - 1 ? undefined : SKILL_LEVELS[i + 1];
-};
-
 export function NewSlotModal({
-  open, urgent: defaultUrgent, members, skills: allSkills, slots, approvedPicks, teamId, divisionId,
+  open, urgent: defaultUrgent, members, slots, approvedPicks, teamId,
   preselected, cloneFrom, onClose, onToast,
 }: Props) {
   const { user } = useAuth();
@@ -46,9 +35,7 @@ export function NewSlotModal({
   const [start, setStart] = useState('22:00');
   const [end, setEnd] = useState('06:00');
   const [location, setLocation] = useState('');
-  const [skillReqs, setSkillReqs] = useState<SkillReqMap>({});
-  const [needed, setNeeded] = useState(3);
-  const [picked, setPicked] = useState<string[]>(preselected);
+  const [pickedId, setPickedId] = useState<string | null>(preselected);
 
   useEffect(() => {
     if (!open) return;
@@ -63,43 +50,25 @@ export function NewSlotModal({
       setDate(isoDay(today));
       setStart(fmtClock(startD));
       setEnd(fmtClock(endD));
-      const reqs: SkillReqMap = {};
-      for (const s of cloneFrom.skills) reqs[s.name] = s.min_level;
-      setSkillReqs(reqs);
-      setNeeded(cloneFrom.needed);
-      setPicked(preselected);
+      setPickedId(preselected);
       return;
     }
     setUrgent(defaultUrgent);
     setTitle(defaultUrgent ? 'Northern QRF — Sector 4' : '');
     setLocation(defaultUrgent ? 'Tzomet Bilu staging' : '');
-    setSkillReqs(defaultUrgent ? { 'Night Ops': 'intermediate' } : {});
-    setNeeded(defaultUrgent ? 6 : 3);
-    setPicked(preselected);
+    setPickedId(preselected);
   }, [open, defaultUrgent, preselected, cloneFrom]);
 
   if (!open) return null;
 
-  const requiredSkills: SlotSkill[] = Object.entries(skillReqs)
-    .filter(([, lvl]) => lvl !== undefined)
-    .map(([name, min_level]) => ({ name, min_level: min_level as SkillLevel }));
-
+  // Show every active member, sorted by status then name. Skills are shown for
+  // the commander's reference; selection is not constrained.
   const candidates = members
     .filter((m) => (m.status === 'available' || m.status === 'standby'))
-    .filter((m) => memberMatchesAllSkillReqs(m.skills, requiredSkills))
     .sort((a, b) => {
       if (a.status !== b.status) return a.status === 'available' ? -1 : 1;
-      const seniorA = requiredSkills.filter((r) => meetsSkillReq(a.skills, { name: r.name, min_level: 'senior' })).length;
-      const seniorB = requiredSkills.filter((r) => meetsSkillReq(b.skills, { name: r.name, min_level: 'senior' })).length;
-      return seniorB - seniorA || a.name.localeCompare(b.name);
+      return a.name.localeCompare(b.name);
     });
-
-  const toggle = (id: string) => {
-    setPicked((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
-  };
-  const cycleSkill = (s: string) => {
-    setSkillReqs((p) => ({ ...p, [s]: cycleNext(p[s]) }));
-  };
 
   const submit = async (state: 'draft' | 'published') => {
     if (!user) return;
@@ -113,7 +82,6 @@ export function NewSlotModal({
     try {
       await createSlot.mutateAsync({
         teamId,
-        divisionId,
         title: title || (urgent ? 'Urgent call-up' : 'New duty slot'),
         urgent,
         state,
@@ -121,9 +89,7 @@ export function NewSlotModal({
         endAt,
         duration: `${hrs}h`,
         location: location || null,
-        skills: requiredSkills,
-        needed,
-        assigneeIds: picked,
+        assigneeId: pickedId,
         createdBy: user.id,
         actorName: user.name,
       });
@@ -138,7 +104,9 @@ export function NewSlotModal({
         ? 'Slot saved as draft'
         : urgent
           ? `Urgent call-up published — notified ${members.length}`
-          : `Slot published — notified ${picked.length}`,
+          : pickedId
+            ? 'Slot published — assignee notified'
+            : 'Slot published — unassigned',
     );
   };
 
@@ -192,80 +160,16 @@ export function NewSlotModal({
           </div>
 
           <div className="form-row">
-            <label>People needed</label>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              border: '1px solid var(--line-strong)', borderRadius: 7,
-              background: 'var(--card)', height: 34, padding: '0 6px',
-              maxInlineSize: 180,
-            }}>
-              <button className="action-btn" style={{ background: 'transparent', border: 0 }}
-                      onClick={() => setNeeded(Math.max(1, needed - 1))}>
-                <Icon name="minus" size={12} />
-              </button>
-              <div style={{ flex: 1, textAlign: 'center', fontFamily: 'var(--serif)', fontSize: 18 }}>
-                {needed}
-              </div>
-              <button className="action-btn" style={{ background: 'transparent', border: 0 }}
-                      onClick={() => setNeeded(needed + 1)}>
-                <Icon name="plus" size={12} />
-              </button>
-            </div>
-          </div>
-
-          <div className="form-row">
-            <label>
-              Required skills
-              <span style={{ marginInlineStart: 8, color: 'var(--ink-soft)', fontSize: 11, fontWeight: 400 }}>
-                tap to cycle: off → ≥ Junior → ≥ Intermediate → ≥ Senior
-              </span>
-            </label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {allSkills.map((s) => {
-                const lvl = skillReqs[s];
-                const on = lvl !== undefined;
-                return (
-                  <button key={s} onClick={() => cycleSkill(s)} aria-pressed={on} style={{
-                    appearance: 'none', font: 'inherit',
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                    fontSize: 11.5, padding: '4px 9px', borderRadius: 5,
-                    border: '1px solid ' + (on ? 'var(--accent)' : 'var(--line)'),
-                    background: on ? 'var(--accent-tint)' : 'var(--card)',
-                    color: on ? 'var(--accent-deep)' : 'var(--ink-2)',
-                    cursor: 'pointer', fontWeight: 500,
-                  }}>
-                    <span>{s}</span>
-                    <span style={{
-                      fontSize: 10, fontFamily: 'var(--mono)',
-                      letterSpacing: '.04em',
-                      opacity: on ? 1 : 0.55,
-                    }}>
-                      {on ? `≥ ${SKILL_LEVEL_LABEL[lvl!]}` : 'off'}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            {requiredSkills.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBlockStart: 8 }}>
-                {requiredSkills.map((r) => (
-                  <SkillChip key={r.name} name={r.name} min_level={r.min_level} />
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="form-row">
             <label style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Assign reservists</span>
+              <span>Assign reservist</span>
               <span style={{ color: 'var(--ink-soft)', fontFamily: 'var(--mono)', fontSize: 11 }}>
-                {picked.length} / {needed} picked · {candidates.length} match
+                {pickedId ? '1 picked' : 'none picked'} · {candidates.length} available
               </span>
             </label>
             <div className="who-grid">
               {candidates.length === 0 && (
                 <div style={{ gridColumn: '1 / -1', padding: 12, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12.5 }}>
-                  No available reservists match the filters above.
+                  No available reservists.
                 </div>
               )}
               {(() => {
@@ -293,12 +197,19 @@ export function NewSlotModal({
                     : undefined;
                   return (
                     <div key={m.id} className="who-card"
-                         data-on={picked.includes(m.id) ? '1' : '0'}
-                         onClick={() => toggle(m.id)}
+                         data-on={pickedId === m.id ? '1' : '0'}
+                         onClick={() => setPickedId(pickedId === m.id ? null : m.id)}
                          title={tooltipText}
                          style={totalConflicts ? { borderColor: 'var(--urgent)' } : undefined}>
                       <Avatar initials={m.initials} tone={m.tone} size="sm" status={m.status}/>
                       <span className="nm">{m.name}</span>
+                      {m.skills.length > 0 && (
+                        <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 3 }}>
+                          {m.skills.slice(0, 2).map((sk) => (
+                            <SkillChip key={sk.name} name={sk.name} level={sk.level} />
+                          ))}
+                        </span>
+                      )}
                       {totalConflicts > 0 && (
                         <span style={{
                           display: 'inline-flex', alignItems: 'center', gap: 3,
@@ -324,7 +235,7 @@ export function NewSlotModal({
           <div className="left">
             {urgent
               ? <><b style={{ color: 'var(--urgent-deep)' }}>Urgent flag on.</b> Push notification sent to everyone in the team.</>
-              : <>Assignees will get a push notification. They cannot decline (v1).</>}
+              : <>The assignee will get a push notification. They cannot decline (v1).</>}
           </div>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           {!urgent && (

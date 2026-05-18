@@ -95,14 +95,9 @@ function makeSlot(overrides: Partial<Slot> = {}): Slot {
     end_at: '2026-06-11T04:00:00.000Z',
     duration: '8h',
     location: 'Base North',
-    needed: 3,
     notes: null,
-    role: null,
-    skills: [],
-    assignee_ids: [],
-    filled: 0,
+    assignee_id: null,
   };
-  // overrides applied below to be explicit about overlay order
 }
 
 // Spread overrides correctly without losing TS narrowing — wrap the helper.
@@ -113,27 +108,27 @@ function slot(overrides: Partial<Slot> = {}): Slot {
 // Distinct slots across all four states for filter tests.
 const PUB_NIGHT = slot({
   id: 's1', title: 'Night patrol', state: 'published', urgent: false,
-  needed: 3, filled: 1, assignee_ids: ['m1'],
+  assignee_id: 'm1',
   start_at: '2026-06-10T20:00:00.000Z',
 });
 const PUB_URGENT = slot({
   id: 's2', title: 'Urgent recon', state: 'published', urgent: true,
-  needed: 2, filled: 0, assignee_ids: [],
+  assignee_id: null,
   start_at: '2026-06-11T06:00:00.000Z',
 });
 const DRAFT_DAY = slot({
   id: 's3', title: 'Day watch', state: 'draft', urgent: false,
-  needed: 1, filled: 0, assignee_ids: [],
+  assignee_id: null,
   start_at: '2026-06-12T08:00:00.000Z',
 });
 const COMPLETED_GATE = slot({
   id: 's4', title: 'Gate duty', state: 'completed', urgent: false,
-  needed: 1, filled: 1, assignee_ids: ['m1'],
+  assignee_id: 'm1',
   start_at: '2026-06-01T09:00:00.000Z',
 });
 const CANCELLED_SWEEP = slot({
   id: 's5', title: 'Cancelled sweep', state: 'cancelled', urgent: false,
-  needed: 2, filled: 0, assignee_ids: [],
+  assignee_id: null,
   start_at: '2026-06-02T10:00:00.000Z',
 });
 
@@ -213,11 +208,14 @@ describe('SlotsScreen', () => {
     expect(screen.getByText('Urgent')).toBeInTheDocument();
   });
 
-  it('renders the filled / needed count for each slot row', () => {
-    renderScreen({ slots: [PUB_NIGHT] });
-    // PUB_NIGHT: filled 1, needed 3 → "1 / 3 needed"
-    expect(screen.getByText(/1\s*\/\s*3/)).toBeInTheDocument();
-    expect(screen.getByText(/needed/i)).toBeInTheDocument();
+  it('shows "Unassigned" when slot has no assignee', () => {
+    renderScreen({ slots: [PUB_URGENT] }); // PUB_URGENT.assignee_id === null
+    expect(screen.getByText(/Unassigned/i)).toBeInTheDocument();
+  });
+
+  it('shows the assignee name when slot has an assignee', () => {
+    renderScreen({ slots: [PUB_NIGHT] }); // PUB_NIGHT.assignee_id === 'm1' → ALICE
+    expect(screen.getByText('Alice Cohen')).toBeInTheDocument();
   });
 
   it('renders state-chip counts that reflect ALL slots regardless of which chips are on', () => {
@@ -379,18 +377,18 @@ describe('SlotsScreen', () => {
     expect(onSlotClick).not.toHaveBeenCalled();
   });
 
-  it('renders an Assign button only on published under-filled rows; clicking calls onSlotClick', async () => {
+  it('renders an Assign button only on published unassigned rows; clicking calls onSlotClick', async () => {
     const user = userEvent.setup();
-    const { onSlotClick } = renderScreen({ slots: [PUB_NIGHT] });
-    // PUB_NIGHT is published, filled 1 / needed 3 → Assign button shows.
+    const { onSlotClick } = renderScreen({ slots: [PUB_URGENT] });
+    // PUB_URGENT is published with no assignee → Assign button shows.
     const assignBtn = screen.getByRole('button', { name: /^Assign$/i });
     await user.click(assignBtn);
-    expect(onSlotClick).toHaveBeenCalledWith(PUB_NIGHT);
+    expect(onSlotClick).toHaveBeenCalledWith(PUB_URGENT);
   });
 
-  it('does NOT render an Assign button on fully filled published rows', () => {
-    const filledSlot = slot({ id: 'sx', state: 'published', needed: 1, filled: 1, assignee_ids: ['m1'], title: 'Full' });
-    renderScreen({ slots: [filledSlot] });
+  it('does NOT render an Assign button on already-assigned published rows', () => {
+    const assignedSlot = slot({ id: 'sx', state: 'published', assignee_id: 'm1', title: 'Full' });
+    renderScreen({ slots: [assignedSlot] });
     expect(screen.queryByRole('button', { name: /^Assign$/i })).not.toBeInTheDocument();
   });
 

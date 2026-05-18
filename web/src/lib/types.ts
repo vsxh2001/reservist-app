@@ -38,7 +38,7 @@ export function findMemberConflicts(
   memberId: string,
   startAt: string,
   endAt: string | null,
-  allSlots: { id: string; start_at: string; end_at: string | null; state: SlotState; assignee_ids: string[]; title: string }[],
+  allSlots: { id: string; start_at: string; end_at: string | null; state: SlotState; assignee_id: string | null; title: string }[],
   excludeSlotId?: string,
 ): { id: string; title: string; start_at: string; end_at: string | null }[] {
   const aStart = Date.parse(startAt);
@@ -46,7 +46,7 @@ export function findMemberConflicts(
   return allSlots.filter((s) => {
     if (s.id === excludeSlotId) return false;
     if (s.state !== 'published') return false;
-    if (!s.assignee_ids.includes(memberId)) return false;
+    if (s.assignee_id !== memberId) return false;
     const bStart = Date.parse(s.start_at);
     const bEnd = s.end_at ? Date.parse(s.end_at) : bStart + 3600_000;
     return aStart < bEnd && bStart < aEnd;
@@ -118,8 +118,11 @@ export interface Filters {
 
 export type SlotState = 'draft' | 'published' | 'completed' | 'cancelled';
 
-export interface SlotSkill { name: string; min_level: SkillLevel }
-
+/**
+ * A slot represents one duty period for one person. Capacity is always 1 —
+ * multiple people on the same duty = multiple slots. The commander picks an
+ * assignee using their own judgment (member skills are advisory, not enforced).
+ */
 export interface Slot {
   id: string;
   team_id: string;
@@ -130,13 +133,9 @@ export interface Slot {
   end_at: string | null;
   duration: string | null;
   location: string | null;
-  needed: number;
   notes: string | null;
-  /** Deprecated — kept in schema, no UI. */
-  role: string | null;
-  skills: SlotSkill[];
-  assignee_ids: string[];
-  filled: number;
+  /** Null = unassigned. */
+  assignee_id: string | null;
 }
 
 export interface ActivityItem {

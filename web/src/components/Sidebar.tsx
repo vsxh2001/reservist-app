@@ -32,8 +32,8 @@ export function Sidebar({ team, teams, setTeamId, members, slots, pendingRequest
     return by;
   }, [members]);
 
-  const openSlots = slots.filter((s) => s.state === 'published' && s.filled < s.needed).length;
-  const hasUrgent = slots.some((s) => s.state === 'published' && s.urgent && s.filled < s.needed);
+  const openSlots = slots.filter((s) => s.state === 'published' && s.assignee_id === null).length;
+  const hasUrgent = slots.some((s) => s.state === 'published' && s.urgent && s.assignee_id === null);
 
   const nav: Item[] = [
     { id: 'roster',   label: 'Roster',     icon: 'roster',   count: team.member_count },

@@ -83,26 +83,22 @@ describe('Supabase schema contracts', () => {
     }
   });
 
-  it('slots_view returns slots with min_level on each required skill (commander JWT)', async () => {
+  it('slots_view returns single-assignee slots (commander JWT)', async () => {
     const rows = await rest<{
       title: string;
       urgent: boolean;
       state: string;
-      filled: number;
-      needed: number;
-      assignee_ids: string[];
-      skills: { name: string; min_level: string }[];
+      assignee_id: string | null;
     }[]>(
-      `/slots_view?team_id=eq.${teamId}&select=title,urgent,state,filled,needed,assignee_ids,skills`,
+      `/slots_view?team_id=eq.${teamId}&select=title,urgent,state,assignee_id`,
       { as: { asAuthUserId: COMMANDER_AUTH_USER_ID } },
     );
     const urgent = rows.find((r) => r.title.startsWith('Northern QRF'));
     expect(urgent).toBeDefined();
     expect(urgent!.urgent).toBe(true);
     expect(urgent!.state).toBe('published');
-    expect(urgent!.assignee_ids.length).toBe(urgent!.filled);
-    const nightOps = urgent!.skills.find((s) => s.name === 'Night Ops');
-    expect(nightOps?.min_level).toBe('senior');
+    // Seed assigns Yoni Avraham to the Northern QRF slot.
+    expect(urgent!.assignee_id).not.toBeNull();
   });
 
   it('skills list exists for the division (commander JWT)', async () => {

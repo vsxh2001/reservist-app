@@ -576,3 +576,19 @@ where name = 'Tomer Bachar';
 -- All other seeded members (24 Carmel + 5 Bravo-6 + 5 Alpha-7 = 34 total,
 -- minus 4 linked above = 30) remain unclaimed and are candidates for claim_rpc tests.
 
+-- ── Q. Backfill activity_log.actor_id
+-- All three insert blocks above omit actor_id, leaving seeded rows with NULL.
+-- useMyRecentActivity filters .eq('actor_id', memberId) so the "My recent
+-- activity" card on the reservist dashboard would render empty against seed data.
+-- Match actor_name → member name within the same division to fill the gap.
+-- The team_id → division_id join ensures we never touch rows from a different
+-- division even if two divisions share a member name. Rows where actor_id is
+-- already set (e.g. from application writes) are untouched.
+update activity_log al
+set actor_id = m.id
+from members m, teams t
+where al.actor_id is null
+  and al.actor_name = m.name
+  and al.team_id = t.id
+  and m.division_id = t.division_id;
+

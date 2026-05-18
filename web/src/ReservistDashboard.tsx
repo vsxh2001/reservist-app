@@ -1100,7 +1100,12 @@ function SlotRow({ s, memberById, myMemberId }: {
                 data-testid="assignees"
                 style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
               >
-                {s.assignee_ids.map((id) => {
+                {/* Render "You" first so the reservist's own row anchors the list. */}
+                {[...s.assignee_ids].sort((a, b) => {
+                  if (a === myMemberId) return -1;
+                  if (b === myMemberId) return 1;
+                  return 0;
+                }).map((id) => {
                   const isMe = id === myMemberId;
                   const m = memberById?.get(id);
                   const name = isMe ? 'You' : (m?.name ?? '—');

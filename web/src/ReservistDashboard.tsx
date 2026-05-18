@@ -282,6 +282,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
                   cursor: 'pointer', fontWeight: team?.id === t.id ? 600 : 400,
                 }}
               >
+                {t.crest && <span style={{ marginInlineEnd: 6 }}>{t.crest}</span>}
                 {t.name}
               </button>
             ))}
@@ -302,8 +303,12 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
             }}>
               {me.data.name.split(' ')[0]} <em style={{ color: 'var(--ink-soft)' }}>{me.data.name.split(' ').slice(1).join(' ')}</em>
             </div>
-            <div style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: 4 }}>
-              {team?.name}
+            <div
+              data-testid="profile-team"
+              style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              {team?.crest && <span aria-hidden="true">{team.crest}</span>}
+              <span>{team?.name}</span>
             </div>
             <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
               {me.data.skills.map((s) => <SkillChip key={s.name} name={s.name} level={s.level} />)}

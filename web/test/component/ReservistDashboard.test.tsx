@@ -279,6 +279,28 @@ describe('ReservistDashboard', () => {
     expect(avatar!.textContent).toContain('YC');
   });
 
+  it('Profile card shows the team crest alongside the team name', () => {
+    activeTeamState.team = makeTeam({ name: 'Alpha Company', crest: 'lion' });
+    myMemberState = { data: makeMember(), isLoading: false };
+    render(<ReservistDashboard />);
+    const slot = screen.getByTestId('profile-team');
+    expect(slot.textContent).toMatch(/lion/);
+    expect(slot.textContent).toMatch(/Alpha Company/);
+  });
+
+  it('Team picker chip renders the crest before the team name when multiple teams exist', () => {
+    activeTeamState.teams = [
+      makeTeam({ id: 'team1', name: 'Alpha Company', crest: 'lion' }),
+      makeTeam({ id: 'team2', name: 'Bravo Company', crest: 'eagle' }),
+    ];
+    myMemberState = { data: makeMember(), isLoading: false };
+    render(<ReservistDashboard />);
+    const alphaChip = screen.getByRole('button', { name: /Alpha Company/ });
+    expect(alphaChip.textContent).toMatch(/^lion\s*Alpha Company/);
+    const bravoChip = screen.getByRole('button', { name: /Bravo Company/ });
+    expect(bravoChip.textContent).toMatch(/^eagle\s*Bravo Company/);
+  });
+
   // -------- status edit -------------------------------------------------
 
   it('Change opens the edit form; Save calls useSelfUpdateStatus with the right payload', async () => {

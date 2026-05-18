@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fmtClock, fmtWhen, relativeAgo, untilHint, windowCountdown } from '../src/lib/calendarUtils';
+import { fmtClock, fmtRelCompact, fmtWhen, relativeAgo, untilHint, windowCountdown } from '../src/lib/calendarUtils';
 
 describe('fmtWhen', () => {
   const now = new Date(2026, 5, 10, 12, 0, 0); // 2026-06-10 12:00 local
@@ -177,5 +177,34 @@ describe('fmtClock', () => {
 
   it('zero-pads minutes ≥10 untouched', () => {
     expect(fmtClock(new Date(2026, 5, 10, 23, 59))).toBe('23:59');
+  });
+});
+
+describe('fmtRelCompact', () => {
+  const now = new Date(2026, 5, 10, 12, 0, 0);
+
+  it('returns "just now" within 60 seconds', () => {
+    const t = new Date(now.getTime() - 5_000).toISOString();
+    expect(fmtRelCompact(t, now)).toBe('just now');
+  });
+
+  it('returns "N min ago" within an hour', () => {
+    const t = new Date(now.getTime() - 7 * 60_000).toISOString();
+    expect(fmtRelCompact(t, now)).toBe('7 min ago');
+  });
+
+  it('returns "Nh ago" within 24 hours (compact, no space)', () => {
+    const t = new Date(now.getTime() - 3 * 3_600_000).toISOString();
+    expect(fmtRelCompact(t, now)).toBe('3h ago');
+  });
+
+  it('returns "yesterday" between 24h and 48h ago', () => {
+    const t = new Date(now.getTime() - 30 * 3_600_000).toISOString();
+    expect(fmtRelCompact(t, now)).toBe('yesterday');
+  });
+
+  it('returns "Nd ago" past 48 hours', () => {
+    const t = new Date(now.getTime() - 5 * 86_400_000).toISOString();
+    expect(fmtRelCompact(t, now)).toBe('5d ago');
   });
 });

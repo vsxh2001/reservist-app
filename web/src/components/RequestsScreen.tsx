@@ -5,15 +5,8 @@ import {
   useDivision,
 } from '../lib/queries';
 import { useAuth } from '../lib/auth';
+import { fmtRelCompact as fmtRel } from '../lib/calendarUtils';
 import type { Team } from '../lib/types';
-
-function fmtRel(iso: string): string {
-  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
-}
 
 interface Props {
   team: Team;

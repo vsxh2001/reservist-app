@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Icon } from './Icon';
 import { ActivityFiltersBar } from './ActivityFiltersBar';
+import { fmtRelCompact } from '../lib/calendarUtils';
 import type { ActivityItem } from '../lib/types';
 
 // ---------------------------------------------------------------------------
@@ -72,14 +73,7 @@ function parseLocalDate(ymd: string): number | null {
   return new Date(Number(y), Number(mo) - 1, Number(d)).getTime();
 }
 
-function fmtRel(iso: string): string {
-  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  if (diff < 86400 * 2) return 'yesterday';
-  return `${Math.floor(diff / 86400)}d ago`;
-}
+const fmtRel = fmtRelCompact;
 
 function dayLabel(iso: string): string {
   const d = new Date(iso);

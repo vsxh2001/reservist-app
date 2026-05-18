@@ -15,6 +15,28 @@ export function fmtClock(t: Date | string): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+/**
+ * Compact "ago" relative-time formatter used by activity / requests lists
+ * where vertical space matters. Distinct from `relativeAgo` which leans
+ * verbose ("3 hr ago", "over a year ago") for the reservist activity card.
+ *
+ *   <60s    → "just now"
+ *   <60min  → "N min ago"
+ *   <24h    → "Nh ago"
+ *   <48h    → "yesterday"
+ *   else    → "Nd ago"
+ *
+ * `now` is injectable for deterministic tests.
+ */
+export function fmtRelCompact(iso: string, now: Date = new Date()): string {
+  const diff = (now.getTime() - new Date(iso).getTime()) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 86400 * 2) return 'yesterday';
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
 export function monthsBetween(startISO: string, endISO: string): Date[] {
   const start = new Date(startISO);
   const end = new Date(endISO);

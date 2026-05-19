@@ -7,7 +7,7 @@ import {
 import { useAuth } from '../lib/auth';
 import { fmtRelCompact as fmtRel } from '../lib/calendarUtils';
 import { initialsFromName } from '../lib/text';
-import type { Team } from '../lib/types';
+import type { JoinRequest, Team } from '../lib/types';
 
 interface Props {
   team: Team;
@@ -21,7 +21,7 @@ export function RequestsScreen({ team, onToast }: Props) {
   const approve = useApproveJoinRequest();
   const reject = useRejectJoinRequest();
 
-  const doApprove = async (r: any) => {
+  const doApprove = async (r: JoinRequest) => {
     if (!user) return;
     await approve.mutateAsync({
       requestId: r.id,
@@ -36,7 +36,7 @@ export function RequestsScreen({ team, onToast }: Props) {
     onToast(`Approved ${r.name}`);
   };
 
-  const doReject = async (r: any) => {
+  const doReject = async (r: JoinRequest) => {
     if (!user) return;
     await reject.mutateAsync({
       requestId: r.id,

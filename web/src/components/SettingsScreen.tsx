@@ -98,8 +98,8 @@ export function SettingsScreen({ team, divisionId, skills, onToast, onRefresh }:
       await addSkill.mutateAsync({ divisionId, name: n });
       setNewSkill('');
       onToast(`Skill "${n}" added`);
-    } catch (e: any) {
-      onToast(e.message ?? 'Failed to add skill');
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : 'Failed to add skill');
     }
   };
 
@@ -107,8 +107,8 @@ export function SettingsScreen({ team, divisionId, skills, onToast, onRefresh }:
     try {
       await delSkill.mutateAsync({ divisionId, name });
       onToast(`Skill "${name}" removed`);
-    } catch (e: any) {
-      onToast(e.message ?? 'Failed to remove skill');
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : 'Failed to remove skill');
     }
   };
 
@@ -118,8 +118,8 @@ export function SettingsScreen({ team, divisionId, skills, onToast, onRefresh }:
       await setShowUnitSchedule.mutateAsync({ teamId: team.id, value });
       onRefresh();
       onToast(value ? 'Reservists now see all team slots' : 'Reservists now only see their own slots');
-    } catch (e: any) {
-      onToast(e.message ?? 'Failed to update visibility');
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : 'Failed to update visibility');
     }
   };
 

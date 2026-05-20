@@ -666,6 +666,7 @@ function SkillEditor({
           <button className="action-btn"
                   disabled={busy}
                   onClick={() => onRemove(s.name)}
+                  aria-label={`Remove ${s.name}`}
                   title="Remove">
             <Icon name="x" size={12}/>
           </button>

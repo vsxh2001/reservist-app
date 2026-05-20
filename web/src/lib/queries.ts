@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from './supabase';
+import { notifyUrgentCallUp, notifySlotAssigned } from './notify';
 import { initialsFromName } from './text';
 import type {
   ActivityItem, DeploymentPick, DeploymentWindow, Division, JoinRequest,
@@ -880,6 +881,21 @@ export function useCreateSlot() {
         what: vars.title,
         tone: vars.urgent ? 'urgent' : 'accent',
       });
+
+      // Fire-and-forget push notifications. Urgent → fan out to every team
+      // member; assigned slot → just the assignee. Failures are logged inside
+      // notify.ts, never bubble to the UI.
+      if (vars.urgent) {
+        const { data: rows } = await supabase
+          .from('team_members')
+          .select('member_id')
+          .eq('team_id', vars.teamId);
+        const memberIds = ((rows ?? []) as { member_id: string }[]).map((r) => r.member_id);
+        if (memberIds.length) void notifyUrgentCallUp(vars.teamId, memberIds, vars.title);
+      } else if (vars.assigneeId) {
+        void notifySlotAssigned(vars.teamId, vars.assigneeId, vars.title);
+      }
+
       return slotId;
     },
     onSuccess: () => {
@@ -909,6 +925,7 @@ export function useAssignToSlot() {
         what: `${vars.memberName} to ${vars.slotTitle}`,
         tone: 'accent',
       });
+      void notifySlotAssigned(vars.teamId, vars.memberId, vars.slotTitle);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['slots'] });

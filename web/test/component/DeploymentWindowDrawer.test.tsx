@@ -280,7 +280,9 @@ describe('DeploymentWindowDrawer', () => {
     expect(arg.actorId).toBe('u1');
     expect(arg.actorName).toBe('Commander Test');
     expect(arg.teamId).toBe('team1');
+    expect(arg.memberId).toBe('m1');
     expect(arg.memberName).toBe('Alice Cohen');
+    expect(arg.windowLabel).toBe('June drill');
     expect(arg.date).toBe('2026-06-03');
     expect(onToast).toHaveBeenCalledWith(expect.stringMatching(/Approved 2026-06-03/));
   });

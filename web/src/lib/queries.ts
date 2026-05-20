@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from './supabase';
-import { notifyUrgentCallUp, notifySlotAssigned } from './notify';
+import { notifyUrgentCallUp, notifySlotAssigned, notifyPickDecided } from './notify';
 import { initialsFromName } from './text';
 import type {
   ActivityItem, DeploymentPick, DeploymentWindow, Division, JoinRequest,
@@ -1369,7 +1369,10 @@ export function useResolvePick() {
     mutationFn: async (vars: {
       pickId: string; nextState: 'approved' | 'rejected';
       commanderNote: string | null;
-      actorId: string; actorName: string; teamId: string; memberName: string; date: string;
+      actorId: string; actorName: string; teamId: string;
+      memberId: string; memberName: string;
+      windowLabel: string;
+      date: string;
     }) => {
       const { error } = await supabase
         .from('deployment_picks')
@@ -1385,6 +1388,7 @@ export function useResolvePick() {
         what: `${vars.memberName} · ${vars.date}`,
         tone: vars.nextState === 'approved' ? 'accent' : null,
       });
+      void notifyPickDecided(vars.teamId, vars.memberId, vars.nextState, `${vars.windowLabel} · ${vars.date}`);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['deployment-picks'] });

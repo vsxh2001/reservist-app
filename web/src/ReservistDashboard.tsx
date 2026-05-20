@@ -1,35 +1,28 @@
 import { useMemo, useState } from 'react';
 import { useToast } from './lib/useToast';
-import { Avatar, Button, SkillChip, StatusPill } from './components/atoms';
+import { Avatar, Button, SkillChip } from './components/atoms';
 import { Icon } from './components/Icon';
 import { DeploymentPickScreen } from './components/DeploymentPickScreen';
 import { ReservistSlotRow } from './components/ReservistSlotRow';
 import { DeploymentWindowRow } from './components/DeploymentWindowRow';
 import { PushNotificationsCardBody } from './components/PushNotificationsCardBody';
+import { Card } from './components/Card';
+import { MyStatusCard } from './components/MyStatusCard';
+import { MyPhoneVisibilityCard } from './components/MyPhoneVisibilityCard';
+import { MySkillsCard } from './components/MySkillsCard';
 import { useAuth } from './lib/auth';
 import { useActiveTeam } from './lib/team-context';
 import {
   useMembers, useMyDeploymentWindows, useMyMember, useMyRecentActivity, useMySlots,
-  useRemoveMemberSkill, useSelfUpdateStatus, useSetMemberSkill,
-  useSetPhoneVisibility, useSkills,
 } from './lib/queries';
-import { isoDay, relativeAgo, untilHint, windowCountdown } from './lib/calendarUtils';
+import { isoDay, relativeAgo, windowCountdown } from './lib/calendarUtils';
 import { useRealtime } from './lib/realtime';
 import { usePushSubscription } from './lib/usePushSubscription';
 import { fmtPhoneIL } from './lib/phone';
 import { splitName } from './lib/text';
 import {
-  SKILL_LEVELS, SKILL_LEVEL_LABEL,
-  STATUS_LABEL,
-  type DeploymentWindow, type Member, type SkillLevel, type Status,
+  type DeploymentWindow, type Member,
 } from './lib/types';
-
-/** Today + offset days, formatted YYYY-MM-DD in local time (status_until is a DATE column). */
-function computeUntilDate(daysFromToday: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + daysFromToday);
-  return isoDay(d);
-}
 
 
 export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void }) {
@@ -58,81 +51,10 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
 
   useRealtime(team?.id);
 
-  const update = useSelfUpdateStatus();
-  const setPhoneVisibility = useSetPhoneVisibility();
-  const setMemberSkill = useSetMemberSkill();
-  const removeMemberSkill = useRemoveMemberSkill();
-  const allSkills = useSkills(me.data?.division_id);
-  const [editingSkills, setEditingSkills] = useState(false);
-  const [addSkillName, setAddSkillName] = useState('');
-  const [addSkillLevel, setAddSkillLevel] = useState<SkillLevel>('junior');
-  const [editing, setEditing] = useState(false);
-  const [pending, setPending] = useState<Status>('available');
-  const [note, setNote] = useState('');
-  const [until, setUntil] = useState('');
   const { toast, showToast } = useToast(2000);
 
   const { pushSub, pushBusy, handleEnablePush, handleDisablePush, handleTestPush } =
     usePushSubscription(user?.id, showToast);
-
-  const cycleSkillLevel = async (name: string, currentLevel: SkillLevel) => {
-    if (!me.data || !user || !team) return;
-    const next = SKILL_LEVELS[(SKILL_LEVELS.indexOf(currentLevel) + 1) % SKILL_LEVELS.length];
-    try {
-      await setMemberSkill.mutateAsync({
-        memberId: me.data.id,
-        divisionId: me.data.division_id,
-        skillName: name,
-        level: next,
-        actorId: me.data.id,
-        actorName: user.name,
-        memberName: me.data.name,
-        teamId: team.id,
-      });
-      showToast(`${name}: ${SKILL_LEVEL_LABEL[next]}`);
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to update skill');
-    }
-  };
-
-  const removeSkill = async (name: string) => {
-    if (!me.data || !user || !team) return;
-    try {
-      await removeMemberSkill.mutateAsync({
-        memberId: me.data.id,
-        divisionId: me.data.division_id,
-        skillName: name,
-        actorId: me.data.id,
-        actorName: user.name,
-        memberName: me.data.name,
-        teamId: team.id,
-      });
-      showToast(`Removed ${name}`);
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to remove skill');
-    }
-  };
-
-  const addSkill = async () => {
-    if (!me.data || !user || !team || !addSkillName) return;
-    try {
-      await setMemberSkill.mutateAsync({
-        memberId: me.data.id,
-        divisionId: me.data.division_id,
-        skillName: addSkillName,
-        level: addSkillLevel,
-        actorId: me.data.id,
-        actorName: user.name,
-        memberName: me.data.name,
-        teamId: team.id,
-      });
-      setAddSkillName('');
-      setAddSkillLevel('junior');
-      showToast(`Added ${addSkillName}: ${SKILL_LEVEL_LABEL[addSkillLevel]}`);
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to add skill');
-    }
-  };
 
   if (me.isLoading) {
     return <Splash text="Loading…" />;
@@ -156,38 +78,6 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
       />
     );
   }
-
-  const startEdit = () => {
-    setPending(me.data!.status);
-    setNote(me.data!.status_note ?? '');
-    setUntil(me.data!.status_until ?? '');
-    setEditing(true);
-  };
-
-  const save = async () => {
-    if (!me.data || !user) return;
-    // Some browsers let a user free-type into the date input, bypassing the
-    // `min` attribute. Guard the save path so an "until" in the past never
-    // reaches the DB. An empty string clears the override and is always OK.
-    if (until && until < computeUntilDate(0)) {
-      showToast('"Until" date must be today or later');
-      return;
-    }
-    try {
-      await update.mutateAsync({
-        memberId: me.data.id,
-        status: pending,
-        note: note.trim() ? note.trim() : null,
-        until: until || null,
-        teamId: team?.id ?? '',
-        actorName: user.name,
-      });
-      setEditing(false);
-      showToast(`Status set to ${STATUS_LABEL[pending]}`);
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to update status');
-    }
-  };
 
   // PRD §7.6 — when the team's `show_unit_schedule` flag is off, reservists
   // only see slots they are personally assigned to. Urgent slots are always
@@ -407,362 +297,27 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
         })()}
 
         {/* Status card */}
-        <Card title="My status" right={!editing && <button className="filter-clear" onClick={startEdit}>Change</button>}>
-          {!editing ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '10px 12px', background: 'var(--paper-deep)',
-                borderRadius: 8, border: '1px solid var(--line-soft)',
-              }}>
-                <StatusPill status={me.data.status} />
-                <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', flex: 1, minWidth: 0 }}>
-                  {me.data.status_note || <span style={{ fontStyle: 'italic' }}>No note</span>}
-                  {(() => {
-                    const ago = relativeAgo(me.data.status_set_at);
-                    return ago ? (
-                      <span
-                        data-testid="status-set-ago"
-                        style={{
-                          marginInlineStart: 6,
-                          fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--ink-mute)',
-                        }}
-                      >
-                        · set {ago}
-                      </span>
-                    ) : null;
-                  })()}
-                  {me.data.status_until && (
-                    <>
-                      {' '}·{' '}<b>until {me.data.status_until}</b>
-                      {(() => {
-                        const hint = untilHint(me.data.status_until);
-                        return hint ? (
-                          <span
-                            data-testid="status-until-hint"
-                            style={{
-                              marginInlineStart: 6,
-                              fontFamily: 'var(--mono)', fontSize: 10.5,
-                              color: hint === 'expired' ? 'var(--urgent-deep)' : 'var(--ink-mute)',
-                            }}
-                          >
-                            · {hint}
-                          </span>
-                        ) : null;
-                      })()}
-                    </>
-                  )}
-                </div>
-              </div>
-              {me.data.status !== 'available' && user && (
-                <button
-                  type="button"
-                  disabled={update.isPending}
-                  onClick={async () => {
-                    if (!me.data || !user) return;
-                    try {
-                      await update.mutateAsync({
-                        memberId: me.data.id,
-                        status: 'available',
-                        note: null,
-                        until: null,
-                        teamId: team?.id ?? '',
-                        actorName: user.name,
-                      });
-                      showToast('Status set to Available');
-                    } catch (err) {
-                      showToast(err instanceof Error ? err.message : 'Failed to update');
-                    }
-                  }}
-                  style={{
-                    appearance: 'none', font: 'inherit', fontSize: 12,
-                    padding: '6px 10px', borderRadius: 8, cursor: 'pointer',
-                    border: '1px solid var(--accent)',
-                    background: 'var(--accent-tint)',
-                    color: 'var(--accent-deep)',
-                    fontWeight: 500,
-                    textAlign: 'center',
-                  }}
-                >
-                  Set as available
-                </button>
-              )}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                {(['available', 'standby', 'released', 'unavailable'] as Status[]).map((s) => (
-                  <button key={s} onClick={() => setPending(s)} style={{
-                    appearance: 'none',
-                    border: '1px solid ' + (s === pending ? 'var(--accent)' : 'var(--line-strong)'),
-                    background: s === pending ? 'var(--accent-tint)' : 'var(--card)',
-                    padding: '12px 14px', borderRadius: 8, cursor: 'pointer',
-                    font: 'inherit', textAlign: 'left',
-                    display: 'flex', alignItems: 'center', gap: 8,
-                  }}>
-                    <StatusPill status={s} />
-                    {s === pending && <Icon name="check" size={12}/>}
-                  </button>
-                ))}
-              </div>
-              <div className="form-row">
-                <label>Note (optional)</label>
-                <input className="input" value={note}
-                       placeholder="e.g. exam period, abroad until..."
-                       onChange={(e) => setNote(e.target.value)} />
-              </div>
-              <div className="form-row">
-                <label>Until (optional)</label>
-                {pending !== 'available' && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
-                    {([
-                      { label: '3 days',  days: 3 },
-                      { label: '1 week',  days: 7 },
-                      { label: '2 weeks', days: 14 },
-                      { label: '1 month', days: 30 },
-                    ] as const).map((preset) => {
-                      const target = computeUntilDate(preset.days);
-                      const active = until === target;
-                      return (
-                        <button
-                          key={preset.label}
-                          type="button"
-                          onClick={() => setUntil(target)}
-                          style={{
-                            appearance: 'none', font: 'inherit', fontSize: 12,
-                            padding: '4px 10px', borderRadius: 14, cursor: 'pointer',
-                            border: '1px solid ' + (active ? 'var(--accent)' : 'var(--line-strong)'),
-                            background: active ? 'var(--accent-tint)' : 'var(--card)',
-                            color: active ? 'var(--accent-deep)' : 'var(--ink-2)',
-                            fontWeight: active ? 600 : 400,
-                          }}
-                        >
-                          {preset.label}
-                        </button>
-                      );
-                    })}
-                    {until && (
-                      <button
-                        type="button"
-                        onClick={() => setUntil('')}
-                        style={{
-                          appearance: 'none', font: 'inherit', fontSize: 12,
-                          padding: '4px 10px', borderRadius: 14, cursor: 'pointer',
-                          border: '1px dashed var(--line-strong)',
-                          background: 'transparent', color: 'var(--ink-soft)',
-                        }}
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                )}
-                <input className="input" type="date" value={until}
-                       min={computeUntilDate(0)}
-                       onChange={(e) => setUntil(e.target.value)} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
-                <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
-                <Button size="sm" variant="primary" icon="check"
-                        disabled={update.isPending} onClick={save}>
-                  Save
-                </Button>
-              </div>
-            </div>
-          )}
-        </Card>
+        {user && team && (
+          <MyStatusCard
+            member={me.data}
+            userName={user.name}
+            teamId={team.id}
+            onToast={showToast}
+          />
+        )}
 
         {/* Phone visibility opt-in (PRD §7.2) */}
-        <Card title="Phone visibility">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 0' }}>
-            <div style={{ flex: 1, fontSize: 13 }}>
-              Share my phone with division members
-              <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 2 }}>
-                When off, only commanders and division admins can see your phone.
-              </div>
-            </div>
-            <div className="filter-group">
-              <button
-                data-on={me.data.phone_visible_to_peers ? '1' : '0'}
-                disabled={setPhoneVisibility.isPending}
-                onClick={() => {
-                  if (!me.data || me.data.phone_visible_to_peers) return;
-                  setPhoneVisibility.mutate(
-                    { memberId: me.data.id, visible: true },
-                    { onSuccess: () => showToast('Phone shared with division') },
-                  );
-                }}
-              >On</button>
-              <button
-                data-on={!me.data.phone_visible_to_peers ? '1' : '0'}
-                disabled={setPhoneVisibility.isPending}
-                onClick={() => {
-                  if (!me.data || !me.data.phone_visible_to_peers) return;
-                  setPhoneVisibility.mutate(
-                    { memberId: me.data.id, visible: false },
-                    { onSuccess: () => showToast('Phone hidden from peers') },
-                  );
-                }}
-              >Off</button>
-            </div>
-          </div>
-          <div
-            data-testid="phone-visibility-preview"
-            style={{
-              marginTop: 10, padding: '8px 10px',
-              background: 'var(--paper-deep)', border: '1px solid var(--line-soft)',
-              borderRadius: 8, fontSize: 11.5, lineHeight: 1.45,
-              color: 'var(--ink-soft)',
-              display: 'flex', alignItems: 'center', gap: 8,
-            }}
-          >
-            <Icon name="phone" size={11} />
-            <span style={{ flex: 1 }}>
-              Peers in your division see:{' '}
-              {me.data.phone_visible_to_peers ? (
-                <b style={{ color: 'var(--ink-2)', fontFamily: 'var(--mono)' }}>
-                  {fmtPhoneIL(me.data.phone)}
-                </b>
-              ) : (
-                <em>hidden</em>
-              )}
-            </span>
-          </div>
-        </Card>
+        <MyPhoneVisibilityCard member={me.data} onToast={showToast} />
 
         {/* My skills self-edit (PRD §7.2) */}
-        <Card
-          title="My skills"
-          right={
-            <button
-              className="filter-clear"
-              onClick={() => setEditingSkills((v) => !v)}
-            >
-              {editingSkills ? 'Done' : 'Edit'}
-            </button>
-          }
-        >
-          {!editingSkills ? (
-            me.data.skills.length === 0 ? (
-              <div style={{ color: 'var(--ink-soft)', fontSize: 13 }}>
-                No skills yet. Tap <b>Edit</b> to add what you know.
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                {me.data.skills.map((s) => (
-                  <SkillChip key={s.name} name={s.name} level={s.level} />
-                ))}
-              </div>
-            )
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {me.data.skills.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {me.data.skills.map((s) => (
-                    <div
-                      key={s.name}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 4,
-                        padding: '4px 6px 4px 10px', borderRadius: 16,
-                        background: 'var(--paper-deep)',
-                        border: '1px solid var(--line-soft)',
-                        fontSize: 12,
-                      }}
-                    >
-                      <span style={{ fontWeight: 500 }}>{s.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => cycleSkillLevel(s.name, s.level)}
-                        disabled={setMemberSkill.isPending}
-                        style={{
-                          appearance: 'none', font: 'inherit', fontSize: 10.5,
-                          padding: '2px 6px', borderRadius: 10, cursor: 'pointer',
-                          border: '1px solid var(--accent)',
-                          background: 'var(--accent-tint)',
-                          color: 'var(--accent-deep)',
-                          textTransform: 'uppercase', letterSpacing: '.04em',
-                        }}
-                        title="Cycle level: junior → intermediate → senior"
-                      >
-                        {SKILL_LEVEL_LABEL[s.level]}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeSkill(s.name)}
-                        disabled={removeMemberSkill.isPending}
-                        aria-label={`Remove ${s.name}`}
-                        style={{
-                          appearance: 'none', font: 'inherit',
-                          padding: 0, width: 20, height: 20, borderRadius: 10,
-                          cursor: 'pointer',
-                          border: 'none', background: 'transparent',
-                          display: 'grid', placeItems: 'center',
-                          color: 'var(--ink-soft)',
-                        }}
-                      >
-                        <Icon name="x" size={11} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {(() => {
-                const known = new Set(me.data.skills.map((s) => s.name));
-                const available = (allSkills.data ?? []).filter((n) => !known.has(n));
-                if (available.length === 0) {
-                  return (
-                    <div style={{ fontSize: 12, color: 'var(--ink-soft)', fontStyle: 'italic' }}>
-                      You already have every skill in this division.
-                    </div>
-                  );
-                }
-                return (
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <select
-                      value={addSkillName}
-                      onChange={(e) => setAddSkillName(e.target.value)}
-                      style={{
-                        flex: 1, minWidth: 140,
-                        padding: '6px 8px',
-                        border: '1px solid var(--line-strong)',
-                        borderRadius: 6,
-                        font: 'inherit', background: 'var(--card)', color: 'inherit',
-                      }}
-                    >
-                      <option value="">Add a skill…</option>
-                      {available.map((n) => (
-                        <option key={n} value={n}>{n}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={addSkillLevel}
-                      onChange={(e) => setAddSkillLevel(e.target.value as SkillLevel)}
-                      style={{
-                        padding: '6px 8px',
-                        border: '1px solid var(--line-strong)',
-                        borderRadius: 6,
-                        font: 'inherit', background: 'var(--card)', color: 'inherit',
-                      }}
-                    >
-                      {SKILL_LEVELS.map((lvl) => (
-                        <option key={lvl} value={lvl}>{SKILL_LEVEL_LABEL[lvl]}</option>
-                      ))}
-                    </select>
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      icon="check"
-                      disabled={!addSkillName || setMemberSkill.isPending}
-                      onClick={addSkill}
-                    >
-                      Add
-                    </Button>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-        </Card>
+        {user && team && (
+          <MySkillsCard
+            member={me.data}
+            userName={user.name}
+            teamId={team.id}
+            onToast={showToast}
+          />
+        )}
 
         {/* Push notifications opt-in (PRD §7.8) */}
         <Card title="Notifications">
@@ -919,28 +474,6 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
         <Icon name="check" size={12}/> {toast}
       </div>
     </div>
-  );
-}
-
-function Card({ title, right, children }: { title: string; right?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <section style={{
-      background: 'var(--card)', border: '1px solid var(--line)',
-      borderRadius: 12, padding: 16, marginBottom: 14,
-    }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        marginBottom: 10,
-      }}>
-        <div style={{
-          fontFamily: 'var(--mono)', fontSize: 10.5, fontWeight: 500,
-          textTransform: 'uppercase', letterSpacing: '.08em',
-          color: 'var(--ink-mute)',
-        }}>{title}</div>
-        {right}
-      </div>
-      {children}
-    </section>
   );
 }
 

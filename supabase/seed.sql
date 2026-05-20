@@ -173,7 +173,8 @@ from teams t, (values
   ('Northern QRF — Sector 4',            true,  '2026-05-15T19:00:00Z', '2026-05-16T07:00:00Z', '12h', 'Tzomet Bilu staging'),
   ('Outpost Rotation — Givat HaShlosha', false, '2026-05-19T03:00:00Z', '2026-05-22T03:00:00Z', '72h', 'Givat HaShlosha'),
   ('Convoy escort — Route 90',           false, '2026-05-21T01:30:00Z', '2026-05-21T11:30:00Z', '10h', 'Beit She''an staging')
-) as s(title, urgent, start_at, end_at, duration, location);
+) as s(title, urgent, start_at, end_at, duration, location)
+on conflict (team_id, title, start_at) do nothing;
 
 -- ── 10. Slot assignees (one per slot — skill matching is no longer required, commander picks by judgment)
 update slots sl
@@ -381,7 +382,8 @@ from teams t, (values
   ('Bravo recon — Ridge 7',           false, 'published', '2026-05-23T05:00:00Z', '2026-05-23T17:00:00Z', '12h', 'Ridge 7 trailhead'),
   ('Bravo training — sim day',        false, 'draft',     '2026-06-02T07:00:00Z', '2026-06-02T17:00:00Z', '10h', 'Tze''elim sim range')
 ) as s(title, urgent, state, start_at, end_at, duration, location)
-where t.short_name = 'Bravo-6';
+where t.short_name = 'Bravo-6'
+on conflict (team_id, title, start_at) do nothing;
 
 -- ── J. Slots for Alpha-7 (2 published + 1 draft)
 insert into slots (team_id, title, urgent, state, start_at, end_at, duration, location)
@@ -392,7 +394,8 @@ from teams t, (values
   ('Alpha perimeter — Outpost Lev',   false, 'published', '2026-05-25T06:00:00Z', '2026-05-26T06:00:00Z', '24h', 'Outpost Lev'),
   ('Alpha staff prep — HQ briefing',  false, 'draft',     '2026-06-04T08:00:00Z', '2026-06-04T12:00:00Z', '4h',  'HQ briefing room')
 ) as s(title, urgent, state, start_at, end_at, duration, location)
-where t.short_name = 'Alpha-7';
+where t.short_name = 'Alpha-7'
+on conflict (team_id, title, start_at) do nothing;
 
 -- ── L. Activity log for Bravo-6
 insert into activity_log (team_id, actor_name, verb, what, tone, created_at)

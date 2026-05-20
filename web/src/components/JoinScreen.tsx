@@ -4,6 +4,7 @@ import { Icon } from './Icon';
 import { normalizePhoneToE164IL } from '../lib/phone';
 import { supabase } from '../lib/supabase';
 import { useInspectInvite, useSubmitJoinRequest } from '../lib/queries';
+import { humanizeError } from '../lib/errors';
 
 interface Props {
   code: string;
@@ -60,8 +61,7 @@ export function JoinScreen({ code, onCancel }: Props) {
       });
       setSent(true);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setSubmitError(`Couldn't send request: ${message}`);
+      setSubmitError(humanizeError(err, "Couldn't send request"));
     }
   };
 

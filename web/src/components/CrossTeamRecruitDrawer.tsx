@@ -10,6 +10,7 @@ import { useActiveTeam } from '../lib/team-context';
 import { useDivision } from '../lib/queries';
 import { useAuth } from '../lib/auth';
 import type { Member, Team } from '../lib/types';
+import { humanizeError } from '../lib/errors';
 
 interface Props {
   onClose: () => void;
@@ -179,8 +180,7 @@ export function CrossTeamRecruitDrawer({ onClose, onToast }: Props) {
       setSelected(new Set());
       onClose();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Recruit failed';
-      onToast(`Error: ${msg}`);
+      onToast(humanizeError(err, 'Recruit failed'));
     }
   };
 

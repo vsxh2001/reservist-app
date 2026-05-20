@@ -6,6 +6,7 @@ import { useAddSkill, useDeleteSkill, useSetTeamShowUnitSchedule } from '../lib/
 import { usePrefs } from '../lib/prefs';
 import { useAuth } from '../lib/auth';
 import { usePushSubscription } from '../lib/usePushSubscription';
+import { PushNotificationsCardBody } from './PushNotificationsCardBody';
 import type { Team } from '../lib/types';
 import { isInviteExpired } from '../lib/types';
 
@@ -218,35 +219,15 @@ export function SettingsScreen({ team, divisionId, skills, onToast, onRefresh }:
       </Section>
 
       <Section title="Notifications">
-        {pushSub === 'loading' ? (
-          <div style={{ fontSize: 12.5, color: 'var(--ink-soft)' }}>Checking notification status…</div>
-        ) : pushSub ? (
-          <>
-            <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', marginBottom: 10 }}>
-              Push notifications are <strong>enabled</strong> on this device. You will receive alerts
-              for urgent call-ups and deployment pick decisions.
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <Button size="sm" variant="ghost" disabled={pushBusy} onClick={handleDisablePush}>
-                Disable push
-              </Button>
-              <Button size="sm" variant="outline" disabled={pushBusy} onClick={handleTestPush}>
-                Send test push
-              </Button>
-            </div>
-          </>
-        ) : (
-          <>
-            <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', marginBottom: 10 }}>
-              Enable push notifications to get alerts for urgent call-ups and deployment pick
-              decisions — even when the app is closed.
-              {' '}On iOS, install the app to your Home Screen first (iOS 16.4+).
-            </div>
-            <Button size="sm" variant="primary" icon="bell" disabled={pushBusy || !user} onClick={handleEnablePush}>
-              Enable push
-            </Button>
-          </>
-        )}
+        <PushNotificationsCardBody
+          pushSub={pushSub}
+          pushBusy={pushBusy}
+          hasUser={!!user}
+          onEnable={handleEnablePush}
+          onDisable={handleDisablePush}
+          onTest={handleTestPush}
+          buttonGap={8}
+        />
       </Section>
 
       <Section title="Privacy">

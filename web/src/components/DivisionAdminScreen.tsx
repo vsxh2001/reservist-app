@@ -251,8 +251,8 @@ export function DivisionAdminScreen({ onOpenTeam, onToast }: Props) {
       setNewProjectName('');
       setAddingProject(false);
       onToast(`Project "${n}" created`);
-    } catch (e: any) {
-      onToast(e.message ?? 'Failed to create project');
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : 'Failed to create project');
     } finally {
       setBusy(false);
     }
@@ -290,8 +290,8 @@ export function DivisionAdminScreen({ onOpenTeam, onToast }: Props) {
       await addSkill.mutateAsync({ divisionId, name: n });
       setNewSkill('');
       onToast(`Skill "${n}" added`);
-    } catch (e: any) {
-      onToast(e.message ?? 'Failed to add skill');
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : 'Failed to add skill');
     }
   };
 
@@ -300,8 +300,8 @@ export function DivisionAdminScreen({ onOpenTeam, onToast }: Props) {
     try {
       await delSkill.mutateAsync({ divisionId, name });
       onToast(`Skill "${name}" removed`);
-    } catch (e: any) {
-      onToast(e.message ?? 'Failed to remove skill');
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : 'Failed to remove skill');
     }
   };
 
@@ -317,8 +317,8 @@ export function DivisionAdminScreen({ onOpenTeam, onToast }: Props) {
         actorId, actorName, memberName, unitId: firstTeamId,
       });
       onToast(currentlyAdmin ? `Revoked admin from ${memberName}` : `${memberName} is now a division admin`);
-    } catch (e: any) {
-      onToast(e.message ?? 'Failed to update admin status');
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : 'Failed to update admin status');
     }
   };
 

@@ -32,7 +32,7 @@ export function JoinScreen({ code, onCancel }: Props) {
     (async () => {
       const s = await supabase.from('skills').select('name').eq('division_id', divisionId).order('name');
       setMeta({
-        skills: (s.data ?? []).map((x: any) => x.name),
+        skills: ((s.data ?? []) as { name: string }[]).map((x) => x.name),
       });
     })();
   }, [invite.data]);

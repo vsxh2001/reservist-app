@@ -52,7 +52,7 @@ export function useTeamsForMember(memberId: string | undefined) {
         .select('team_id')
         .eq('member_id', memberId!);
       if (mErr) throw mErr;
-      const teamIds = (memberships ?? []).map((m: any) => m.team_id as string);
+      const teamIds = ((memberships ?? []) as { team_id: string }[]).map((m) => m.team_id);
       if (teamIds.length === 0) return [];
       const { data, error } = await supabase
         .from('teams_view')
@@ -114,7 +114,7 @@ export function useMembers(teamId: string | undefined) {
         .select('member_id')
         .eq('team_id', teamId!);
       if (mErr) throw mErr;
-      const memberIds = (memberships ?? []).map((m: any) => m.member_id as string);
+      const memberIds = ((memberships ?? []) as { member_id: string }[]).map((m) => m.member_id);
       if (memberIds.length === 0) return [];
       const { data, error } = await supabase
         .from('members_view')
@@ -174,7 +174,7 @@ export function useSkills(divisionId: string | undefined) {
         .eq('division_id', divisionId!)
         .order('name');
       if (error) throw error;
-      return (data ?? []).map((s: any) => s.name as string);
+      return ((data ?? []) as { name: string }[]).map((s) => s.name);
     },
   });
 }
@@ -388,14 +388,24 @@ export function useTeamDayAggregate(teamId: string | undefined, dateISO: string)
 
       const map = new Map<string, DayAggregateMember>();
 
+      type JoinedMember = { id: string; name: string; initials: string; tone: number; status: Status };
+      // PostgREST returns the joined `members` row as a single object when the
+      // FK is to-one, or as an array when ambiguous. Type both possibilities so
+      // we narrow at the access site without `as any`.
+      type Joined = JoinedMember | JoinedMember[] | null | undefined;
+      const pickOne = (m: Joined): JoinedMember | null =>
+        Array.isArray(m) ? (m[0] ?? null) : (m ?? null);
+      type PickRow = { deployment_windows?: { team_id?: string; members?: Joined } };
+      type SlotRow = { title: string; members?: Joined };
+
       // Process picks
-      for (const pick of (picks ?? []) as any[]) {
+      for (const pick of (picks ?? []) as unknown as PickRow[]) {
         const win = pick.deployment_windows;
         if (!win) continue;
         if (win.team_id !== teamId) continue;
-        const member = win.members;
+        const member = pickOne(win.members);
         if (!member) continue;
-        const memberId: string = member.id;
+        const memberId = member.id;
         if (!map.has(memberId)) {
           map.set(memberId, {
             memberId,
@@ -410,10 +420,10 @@ export function useTeamDayAggregate(teamId: string | undefined, dateISO: string)
       }
 
       // Process slot assignees (single assignee per slot)
-      for (const row of (assignees ?? []) as any[]) {
-        const member = row.members;
+      for (const row of (assignees ?? []) as unknown as SlotRow[]) {
+        const member = pickOne(row.members);
         if (!member) continue;
-        const memberId: string = member.id;
+        const memberId = member.id;
         if (!map.has(memberId)) {
           map.set(memberId, {
             memberId,
@@ -1118,7 +1128,7 @@ export function useApproveJoinRequest() {
           .eq('division_id', vars.divisionId).in('name', vars.skillNames);
         if (skillRows && skillRows.length) {
           await supabase.from('member_skills').insert(
-            skillRows.map((s: any) => ({ member_id: m.id, skill_id: s.id })),
+            (skillRows as { id: string; name: string }[]).map((s) => ({ member_id: m.id, skill_id: s.id })),
           );
         }
       }

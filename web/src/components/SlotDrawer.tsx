@@ -8,6 +8,7 @@ import {
 import { useAssignToSlot, useUnassignFromSlot, useUpdateSlot, useUpdateSlotState } from '../lib/queries';
 import { useAuth } from '../lib/auth';
 import { fmtClock, isoDay } from '../lib/calendarUtils';
+import { humanizeError } from '../lib/errors';
 
 interface Props {
   slot: Slot;
@@ -84,15 +85,20 @@ export function SlotDrawer({ slot, members, allSlots, approvedPicks, teamId, onC
     if (!user || !pickId) { setPicking(false); return; }
     const m = members.find((x) => x.id === pickId);
     if (!m) return;
-    await assign.mutateAsync({
-      slotId: slot.id,
-      memberId: pickId,
-      assignedBy: user.id,
-      teamId,
-      actorName: user.name,
-      slotTitle: slot.title,
-      memberName: m.name,
-    });
+    try {
+      await assign.mutateAsync({
+        slotId: slot.id,
+        memberId: pickId,
+        assignedBy: user.id,
+        teamId,
+        actorName: user.name,
+        slotTitle: slot.title,
+        memberName: m.name,
+      });
+    } catch (err) {
+      onToast(humanizeError(err, 'Failed to assign'));
+      return;
+    }
     setPickId(null);
     setPicking(false);
     onToast(`Assigned ${m.name}`);
@@ -100,20 +106,30 @@ export function SlotDrawer({ slot, members, allSlots, approvedPicks, teamId, onC
 
   const doUnassign = async (m: Member) => {
     if (!user) return;
-    await unassign.mutateAsync({
-      slotId: slot.id, memberId: m.id, actorId: user.id,
-      teamId, actorName: user.name,
-      slotTitle: slot.title, memberName: m.name,
-    });
+    try {
+      await unassign.mutateAsync({
+        slotId: slot.id, memberId: m.id, actorId: user.id,
+        teamId, actorName: user.name,
+        slotTitle: slot.title, memberName: m.name,
+      });
+    } catch (err) {
+      onToast(humanizeError(err, 'Failed to unassign'));
+      return;
+    }
     onToast(`Unassigned ${m.name}`);
   };
 
   const setState = async (state: 'completed' | 'cancelled' | 'published') => {
     if (!user) return;
-    await updateState.mutateAsync({
-      slotId: slot.id, state, actorId: user.id, teamId,
-      actorName: user.name, slotTitle: slot.title,
-    });
+    try {
+      await updateState.mutateAsync({
+        slotId: slot.id, state, actorId: user.id, teamId,
+        actorName: user.name, slotTitle: slot.title,
+      });
+    } catch (err) {
+      onToast(humanizeError(err, 'Failed to update slot state'));
+      return;
+    }
     if (state === 'published') {
       onToast(`Published "${slot.title}"`);
     } else {
@@ -129,20 +145,25 @@ export function SlotDrawer({ slot, members, allSlots, approvedPicks, teamId, onC
     if (endD <= startD) endD.setDate(endD.getDate() + 1);
     const hrs = Math.max(1, Math.round((endD.getTime() - startD.getTime()) / 3600000));
 
-    await updateSlot.mutateAsync({
-      slotId: slot.id,
-      teamId,
-      patch: {
-        title: eTitle.trim() || slot.title,
-        urgent: eUrgent,
-        startAt: startD.toISOString(),
-        endAt: endD.toISOString(),
-        duration: `${hrs}h`,
-        location: eLocation.trim() ? eLocation.trim() : null,
-      },
-      actorId: user.id,
-      actorName: user.name,
-    });
+    try {
+      await updateSlot.mutateAsync({
+        slotId: slot.id,
+        teamId,
+        patch: {
+          title: eTitle.trim() || slot.title,
+          urgent: eUrgent,
+          startAt: startD.toISOString(),
+          endAt: endD.toISOString(),
+          duration: `${hrs}h`,
+          location: eLocation.trim() ? eLocation.trim() : null,
+        },
+        actorId: user.id,
+        actorName: user.name,
+      });
+    } catch (err) {
+      onToast(humanizeError(err, 'Failed to save'));
+      return;
+    }
     setEditing(false);
     onToast('Slot updated');
   };

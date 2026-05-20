@@ -8,6 +8,7 @@ import {
 import { useCreateSlot } from '../lib/queries';
 import { useAuth } from '../lib/auth';
 import { fmtClock, isoDay } from '../lib/calendarUtils';
+import { humanizeError } from '../lib/errors';
 
 interface Props {
   open: boolean;
@@ -94,8 +95,7 @@ export function NewSlotModal({
         actorName: user.name,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      onToast(`Failed to create slot: ${message}`);
+      onToast(humanizeError(err, 'Failed to create slot'));
       return;
     }
     onClose();

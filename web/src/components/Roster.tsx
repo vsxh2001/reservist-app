@@ -10,6 +10,7 @@ import { useAssignToSlot } from '../lib/queries';
 import { useAuth } from '../lib/auth';
 import { fmtPhoneIL, normalizePhoneToE164IL } from '../lib/phone';
 import { CrossTeamRecruitDrawer } from './CrossTeamRecruitDrawer';
+import { humanizeError } from '../lib/errors';
 
 const fmtPhone = fmtPhoneIL;
 
@@ -189,10 +190,15 @@ export function Roster(props: Props) {
     if (!firstId) { setPopOpen(false); return; }
     const member = members.find((m) => m.id === firstId);
     if (!member) { setPopOpen(false); return; }
-    await assignToSlot.mutateAsync({
-      slotId: s.id, memberId: firstId, assignedBy: user.id,
-      teamId, actorName: user.name, slotTitle: s.title, memberName: member.name,
-    });
+    try {
+      await assignToSlot.mutateAsync({
+        slotId: s.id, memberId: firstId, assignedBy: user.id,
+        teamId, actorName: user.name, slotTitle: s.title, memberName: member.name,
+      });
+    } catch (err) {
+      onToast(humanizeError(err, 'Failed to assign'));
+      return;
+    }
     setSelected([]);
     setPopOpen(false);
     onToast(`Assigned ${member.name} to ${s.title}`);

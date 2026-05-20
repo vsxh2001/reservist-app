@@ -67,6 +67,28 @@ export function notifySlotAssigned(teamId: string, memberId: string, slotTitle: 
   });
 }
 
+/** Notify the slot's current assignee that the commander edited the slot. */
+export function notifySlotChanged(teamId: string, memberId: string, slotTitle: string): Promise<void> {
+  return invokeSendPush({
+    memberIds: [memberId],
+    teamId,
+    title: `Slot updated: ${slotTitle}`,
+    body: 'A commander changed details on a duty slot you are on.',
+    tag: `slot-changed:${memberId}`,
+  });
+}
+
+/** Notify the slot's current assignee that the slot was cancelled. */
+export function notifySlotCancelled(teamId: string, memberId: string, slotTitle: string): Promise<void> {
+  return invokeSendPush({
+    memberIds: [memberId],
+    teamId,
+    title: `Cancelled: ${slotTitle}`,
+    body: 'A commander cancelled a duty slot you were on.',
+    tag: `slot-cancelled:${memberId}`,
+  });
+}
+
 /** Notify a reservist that a deployment pick was approved or rejected. */
 export function notifyPickDecided(
   teamId: string,

@@ -11,6 +11,8 @@ import {
   notifyUrgentCallUp,
   notifySlotAssigned,
   notifyPickDecided,
+  notifySlotChanged,
+  notifySlotCancelled,
 } from '../src/lib/notify';
 
 const invoke = supabase.functions.invoke as unknown as ReturnType<typeof vi.fn>;
@@ -58,6 +60,30 @@ describe('notify helpers', () => {
     opts = invoke.mock.calls[0][1];
     expect(opts.body.title).toMatch(/Declined: June drill/);
     expect(opts.body.tag).toBe('pick:m-target:rejected');
+  });
+
+  it('notifySlotChanged targets the assignee with a slot-changed: tag', async () => {
+    await notifySlotChanged('team-1', 'm-target', 'Bravo gate watch');
+    expect(invoke).toHaveBeenCalledTimes(1);
+    const opts = invoke.mock.calls[0][1];
+    expect(opts.body).toMatchObject({
+      member_ids: ['m-target'],
+      team_id: 'team-1',
+      title: 'Slot updated: Bravo gate watch',
+      tag: 'slot-changed:m-target',
+    });
+  });
+
+  it('notifySlotCancelled targets the assignee with a slot-cancelled: tag', async () => {
+    await notifySlotCancelled('team-1', 'm-target', 'Bravo gate watch');
+    expect(invoke).toHaveBeenCalledTimes(1);
+    const opts = invoke.mock.calls[0][1];
+    expect(opts.body).toMatchObject({
+      member_ids: ['m-target'],
+      team_id: 'team-1',
+      title: 'Cancelled: Bravo gate watch',
+      tag: 'slot-cancelled:m-target',
+    });
   });
 
   it('swallows transport errors so callers never see a rejected promise', async () => {

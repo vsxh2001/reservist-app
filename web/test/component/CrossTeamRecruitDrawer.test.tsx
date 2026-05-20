@@ -318,7 +318,7 @@ describe('CrossTeamRecruitDrawer', () => {
     await user.click(screen.getByRole('button', { name: /Add\s+1\s+selected/ }));
 
     await waitFor(() => {
-      expect(onToast).toHaveBeenCalledWith(expect.stringMatching(/Error: boom/));
+      expect(onToast).toHaveBeenCalledWith(expect.stringMatching(/Recruit failed: boom/));
     });
     expect(onClose).not.toHaveBeenCalled();
   });

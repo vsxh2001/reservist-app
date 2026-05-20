@@ -11,6 +11,7 @@ import {
 } from '../lib/queries';
 import { isoDay, monthGridCells, monthsBetween } from '../lib/calendarUtils';
 import type { DeploymentPick, DeploymentWindow } from '../lib/types';
+import { humanizeError } from '../lib/errors';
 
 interface Props {
   window: DeploymentWindow;
@@ -223,7 +224,7 @@ function MyNotes({
       onToast(trimmed.length > 0 ? 'Note saved' : 'Note cleared');
       cancelEdit();
     } catch (err) {
-      onToast(err instanceof Error ? err.message : 'Save failed');
+      onToast(humanizeError(err, 'Save failed'));
     }
   };
 

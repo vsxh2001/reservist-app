@@ -190,7 +190,7 @@ where t.id = sl.team_id and tm.team_id = t.id and tm.member_id = m.id
 insert into activity_log (team_id, actor_name, verb, what, tone, created_at)
 select t.id, actor, verb, what, tone, now() - (mins || ' minutes')::interval
 from teams t, (values
-  ('You',           'posted an urgent call-up',  'Northern QRF, 6 needed',            'urgent', 12),
+  ('You',           'posted an urgent call-up',  'Northern QRF — Sector 4',           'urgent', 12),
   ('Tamar Levi',    'set status to',             'Standby (through Fri)',              'accent', 32),
   ('Eitan Cohen',   'updated phone number',      null,                                 null,     60),
   ('Daniel Katz',   'assigned',                  'Avi Mizrahi to Outpost Rotation',   'accent', 120),
@@ -410,7 +410,7 @@ where t.short_name = 'Bravo-6';
 insert into activity_log (team_id, actor_name, verb, what, tone, created_at)
 select t.id, actor, verb, what, tone, now() - (mins || ' minutes')::interval
 from teams t, (values
-  ('Tomer Bachar',   'posted an urgent call-up',  'Alpha drone sweep, 3 needed',     'urgent', 22),
+  ('Tomer Bachar',   'posted an urgent call-up',  'Alpha drone sweep — Sector 2',    'urgent', 22),
   ('Nimrod Saban',   'set status to',             'Standby',                          'accent', 75),
   ('Yael Hadar',     'joined the team',           null,                               'accent', 360),
   ('Eden Tzur',      'set status to',             'Released',                         null,     1200),

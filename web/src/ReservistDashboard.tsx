@@ -9,12 +9,11 @@ import { PushNotificationsCardBody } from './components/PushNotificationsCardBod
 import { Card } from './components/Card';
 import { MyStatusCard } from './components/MyStatusCard';
 import { MyPhoneVisibilityCard } from './components/MyPhoneVisibilityCard';
+import { MySkillsCard } from './components/MySkillsCard';
 import { useAuth } from './lib/auth';
 import { useActiveTeam } from './lib/team-context';
 import {
   useMembers, useMyDeploymentWindows, useMyMember, useMyRecentActivity, useMySlots,
-  useRemoveMemberSkill, useSetMemberSkill,
-  useSkills,
 } from './lib/queries';
 import { isoDay, relativeAgo, windowCountdown } from './lib/calendarUtils';
 import { useRealtime } from './lib/realtime';
@@ -22,8 +21,7 @@ import { usePushSubscription } from './lib/usePushSubscription';
 import { fmtPhoneIL } from './lib/phone';
 import { splitName } from './lib/text';
 import {
-  SKILL_LEVELS, SKILL_LEVEL_LABEL,
-  type DeploymentWindow, type Member, type SkillLevel,
+  type DeploymentWindow, type Member,
 } from './lib/types';
 
 
@@ -53,75 +51,10 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
 
   useRealtime(team?.id);
 
-  const setMemberSkill = useSetMemberSkill();
-  const removeMemberSkill = useRemoveMemberSkill();
-  const allSkills = useSkills(me.data?.division_id);
-  const [editingSkills, setEditingSkills] = useState(false);
-  const [addSkillName, setAddSkillName] = useState('');
-  const [addSkillLevel, setAddSkillLevel] = useState<SkillLevel>('junior');
   const { toast, showToast } = useToast(2000);
 
   const { pushSub, pushBusy, handleEnablePush, handleDisablePush, handleTestPush } =
     usePushSubscription(user?.id, showToast);
-
-  const cycleSkillLevel = async (name: string, currentLevel: SkillLevel) => {
-    if (!me.data || !user || !team) return;
-    const next = SKILL_LEVELS[(SKILL_LEVELS.indexOf(currentLevel) + 1) % SKILL_LEVELS.length];
-    try {
-      await setMemberSkill.mutateAsync({
-        memberId: me.data.id,
-        divisionId: me.data.division_id,
-        skillName: name,
-        level: next,
-        actorId: me.data.id,
-        actorName: user.name,
-        memberName: me.data.name,
-        teamId: team.id,
-      });
-      showToast(`${name}: ${SKILL_LEVEL_LABEL[next]}`);
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to update skill');
-    }
-  };
-
-  const removeSkill = async (name: string) => {
-    if (!me.data || !user || !team) return;
-    try {
-      await removeMemberSkill.mutateAsync({
-        memberId: me.data.id,
-        divisionId: me.data.division_id,
-        skillName: name,
-        actorId: me.data.id,
-        actorName: user.name,
-        memberName: me.data.name,
-        teamId: team.id,
-      });
-      showToast(`Removed ${name}`);
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to remove skill');
-    }
-  };
-
-  const addSkill = async () => {
-    if (!me.data || !user || !team || !addSkillName) return;
-    try {
-      await setMemberSkill.mutateAsync({
-        memberId: me.data.id,
-        divisionId: me.data.division_id,
-        skillName: addSkillName,
-        level: addSkillLevel,
-        actorId: me.data.id,
-        actorName: user.name,
-        memberName: me.data.name,
-        teamId: team.id,
-      });
-      setAddSkillName('');
-      setAddSkillLevel('junior');
-      showToast(`Added ${addSkillName}: ${SKILL_LEVEL_LABEL[addSkillLevel]}`);
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to add skill');
-    }
-  };
 
   if (me.isLoading) {
     return <Splash text="Loading…" />;
@@ -377,138 +310,14 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
         <MyPhoneVisibilityCard member={me.data} onToast={showToast} />
 
         {/* My skills self-edit (PRD §7.2) */}
-        <Card
-          title="My skills"
-          right={
-            <button
-              className="filter-clear"
-              onClick={() => setEditingSkills((v) => !v)}
-            >
-              {editingSkills ? 'Done' : 'Edit'}
-            </button>
-          }
-        >
-          {!editingSkills ? (
-            me.data.skills.length === 0 ? (
-              <div style={{ color: 'var(--ink-soft)', fontSize: 13 }}>
-                No skills yet. Tap <b>Edit</b> to add what you know.
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                {me.data.skills.map((s) => (
-                  <SkillChip key={s.name} name={s.name} level={s.level} />
-                ))}
-              </div>
-            )
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {me.data.skills.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {me.data.skills.map((s) => (
-                    <div
-                      key={s.name}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 4,
-                        padding: '4px 6px 4px 10px', borderRadius: 16,
-                        background: 'var(--paper-deep)',
-                        border: '1px solid var(--line-soft)',
-                        fontSize: 12,
-                      }}
-                    >
-                      <span style={{ fontWeight: 500 }}>{s.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => cycleSkillLevel(s.name, s.level)}
-                        disabled={setMemberSkill.isPending}
-                        style={{
-                          appearance: 'none', font: 'inherit', fontSize: 10.5,
-                          padding: '2px 6px', borderRadius: 10, cursor: 'pointer',
-                          border: '1px solid var(--accent)',
-                          background: 'var(--accent-tint)',
-                          color: 'var(--accent-deep)',
-                          textTransform: 'uppercase', letterSpacing: '.04em',
-                        }}
-                        title="Cycle level: junior → intermediate → senior"
-                      >
-                        {SKILL_LEVEL_LABEL[s.level]}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeSkill(s.name)}
-                        disabled={removeMemberSkill.isPending}
-                        aria-label={`Remove ${s.name}`}
-                        style={{
-                          appearance: 'none', font: 'inherit',
-                          padding: 0, width: 20, height: 20, borderRadius: 10,
-                          cursor: 'pointer',
-                          border: 'none', background: 'transparent',
-                          display: 'grid', placeItems: 'center',
-                          color: 'var(--ink-soft)',
-                        }}
-                      >
-                        <Icon name="x" size={11} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {(() => {
-                const known = new Set(me.data.skills.map((s) => s.name));
-                const available = (allSkills.data ?? []).filter((n) => !known.has(n));
-                if (available.length === 0) {
-                  return (
-                    <div style={{ fontSize: 12, color: 'var(--ink-soft)', fontStyle: 'italic' }}>
-                      You already have every skill in this division.
-                    </div>
-                  );
-                }
-                return (
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <select
-                      value={addSkillName}
-                      onChange={(e) => setAddSkillName(e.target.value)}
-                      style={{
-                        flex: 1, minWidth: 140,
-                        padding: '6px 8px',
-                        border: '1px solid var(--line-strong)',
-                        borderRadius: 6,
-                        font: 'inherit', background: 'var(--card)', color: 'inherit',
-                      }}
-                    >
-                      <option value="">Add a skill…</option>
-                      {available.map((n) => (
-                        <option key={n} value={n}>{n}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={addSkillLevel}
-                      onChange={(e) => setAddSkillLevel(e.target.value as SkillLevel)}
-                      style={{
-                        padding: '6px 8px',
-                        border: '1px solid var(--line-strong)',
-                        borderRadius: 6,
-                        font: 'inherit', background: 'var(--card)', color: 'inherit',
-                      }}
-                    >
-                      {SKILL_LEVELS.map((lvl) => (
-                        <option key={lvl} value={lvl}>{SKILL_LEVEL_LABEL[lvl]}</option>
-                      ))}
-                    </select>
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      icon="check"
-                      disabled={!addSkillName || setMemberSkill.isPending}
-                      onClick={addSkill}
-                    >
-                      Add
-                    </Button>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-        </Card>
+        {user && team && (
+          <MySkillsCard
+            member={me.data}
+            userName={user.name}
+            teamId={team.id}
+            onToast={showToast}
+          />
+        )}
 
         {/* Push notifications opt-in (PRD §7.8) */}
         <Card title="Notifications">

@@ -72,7 +72,8 @@ export function DeploymentWindowDrawer({ window: w, memberName, teamId, onClose,
       pickId: selected.id, nextState: 'approved',
       commanderNote: noteDraft.trim() ? noteDraft.trim() : null,
       actorId: user.id, actorName: user.name,
-      teamId, memberName, date: selected.date,
+      teamId, memberId: w.member_id, memberName,
+      windowLabel: w.label, date: selected.date,
     });
     onToast(`Approved ${selected.date}`);
     setSelected(null); setSelectedDate(null); setNoteDraft('');
@@ -83,7 +84,8 @@ export function DeploymentWindowDrawer({ window: w, memberName, teamId, onClose,
       pickId: selected.id, nextState: 'rejected',
       commanderNote: noteDraft.trim() ? noteDraft.trim() : null,
       actorId: user.id, actorName: user.name,
-      teamId, memberName, date: selected.date,
+      teamId, memberId: w.member_id, memberName,
+      windowLabel: w.label, date: selected.date,
     });
     onToast(`Rejected ${selected.date}`);
     setSelected(null); setSelectedDate(null); setNoteDraft('');

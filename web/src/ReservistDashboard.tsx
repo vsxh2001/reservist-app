@@ -8,12 +8,13 @@ import { DeploymentWindowRow } from './components/DeploymentWindowRow';
 import { PushNotificationsCardBody } from './components/PushNotificationsCardBody';
 import { Card } from './components/Card';
 import { MyStatusCard } from './components/MyStatusCard';
+import { MyPhoneVisibilityCard } from './components/MyPhoneVisibilityCard';
 import { useAuth } from './lib/auth';
 import { useActiveTeam } from './lib/team-context';
 import {
   useMembers, useMyDeploymentWindows, useMyMember, useMyRecentActivity, useMySlots,
   useRemoveMemberSkill, useSetMemberSkill,
-  useSetPhoneVisibility, useSkills,
+  useSkills,
 } from './lib/queries';
 import { isoDay, relativeAgo, windowCountdown } from './lib/calendarUtils';
 import { useRealtime } from './lib/realtime';
@@ -52,7 +53,6 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
 
   useRealtime(team?.id);
 
-  const setPhoneVisibility = useSetPhoneVisibility();
   const setMemberSkill = useSetMemberSkill();
   const removeMemberSkill = useRemoveMemberSkill();
   const allSkills = useSkills(me.data?.division_id);
@@ -374,62 +374,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
         )}
 
         {/* Phone visibility opt-in (PRD §7.2) */}
-        <Card title="Phone visibility">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 0' }}>
-            <div style={{ flex: 1, fontSize: 13 }}>
-              Share my phone with division members
-              <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 2 }}>
-                When off, only commanders and division admins can see your phone.
-              </div>
-            </div>
-            <div className="filter-group">
-              <button
-                data-on={me.data.phone_visible_to_peers ? '1' : '0'}
-                disabled={setPhoneVisibility.isPending}
-                onClick={() => {
-                  if (!me.data || me.data.phone_visible_to_peers) return;
-                  setPhoneVisibility.mutate(
-                    { memberId: me.data.id, visible: true },
-                    { onSuccess: () => showToast('Phone shared with division') },
-                  );
-                }}
-              >On</button>
-              <button
-                data-on={!me.data.phone_visible_to_peers ? '1' : '0'}
-                disabled={setPhoneVisibility.isPending}
-                onClick={() => {
-                  if (!me.data || !me.data.phone_visible_to_peers) return;
-                  setPhoneVisibility.mutate(
-                    { memberId: me.data.id, visible: false },
-                    { onSuccess: () => showToast('Phone hidden from peers') },
-                  );
-                }}
-              >Off</button>
-            </div>
-          </div>
-          <div
-            data-testid="phone-visibility-preview"
-            style={{
-              marginTop: 10, padding: '8px 10px',
-              background: 'var(--paper-deep)', border: '1px solid var(--line-soft)',
-              borderRadius: 8, fontSize: 11.5, lineHeight: 1.45,
-              color: 'var(--ink-soft)',
-              display: 'flex', alignItems: 'center', gap: 8,
-            }}
-          >
-            <Icon name="phone" size={11} />
-            <span style={{ flex: 1 }}>
-              Peers in your division see:{' '}
-              {me.data.phone_visible_to_peers ? (
-                <b style={{ color: 'var(--ink-2)', fontFamily: 'var(--mono)' }}>
-                  {fmtPhoneIL(me.data.phone)}
-                </b>
-              ) : (
-                <em>hidden</em>
-              )}
-            </span>
-          </div>
-        </Card>
+        <MyPhoneVisibilityCard member={me.data} onToast={showToast} />
 
         {/* My skills self-edit (PRD §7.2) */}
         <Card

@@ -60,14 +60,20 @@ function InlineEdit({
 
   if (!editing) {
     return (
-      <span
-        style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+      <button
+        type="button"
         onClick={() => { setDraft(value); setEditing(true); }}
+        aria-label={`Rename ${value}`}
         title="Click to rename"
+        style={{
+          appearance: 'none', font: 'inherit', color: 'inherit',
+          background: 'transparent', border: 0, padding: 0, cursor: 'pointer',
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+        }}
       >
         {value}
         <Icon name="edit" size={12} style={{ color: 'var(--ink-soft)', opacity: 0.6 }} />
-      </span>
+      </button>
     );
   }
 
@@ -180,6 +186,7 @@ function EditableTag({ label, onRemove }: { label: string; onRemove: () => void 
       {label}
       <button
         onClick={onRemove}
+        aria-label={`Remove ${label}`}
         title="Remove"
         style={{
           appearance: 'none', border: 0, background: 'transparent',

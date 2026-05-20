@@ -318,6 +318,7 @@ function EditableTag({ label, onRemove }: { label: string; onRemove: () => void 
       {label}
       <button
         onClick={onRemove}
+        aria-label={`Remove ${label}`}
         title="Remove"
         style={{
           appearance: 'none', border: 0, background: 'transparent',

@@ -1,16 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useToast } from './lib/useToast';
 import { Sidebar } from './components/Sidebar';
-import { Roster } from './components/Roster';
-import { SlotsScreen } from './components/SlotsScreen';
 import { CommanderTopbar } from './components/CommanderTopbar';
 import { DashboardOverlays } from './components/DashboardOverlays';
-import { ActivityScreen } from './components/ActivityScreen';
-import { SettingsScreen } from './components/SettingsScreen';
-import { RequestsScreen } from './components/RequestsScreen';
-import { CalendarScreen } from './components/CalendarScreen';
-import { CommanderDayView } from './components/CommanderDayView';
-import { DivisionAdminScreen } from './components/DivisionAdminScreen';
+import { DashboardScreenRouter } from './components/DashboardScreenRouter';
 import { Icon } from './components/Icon';
 import {
   useActivity, useApprovedPicksForTeam, useJoinRequests, useMembers, useMyMember, useSkills, useSlots,
@@ -134,68 +127,26 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
           onNewSlot={(urgent) => setModal({ open: true, urgent, preselected: urgent ? null : selected[0] ?? null })}
         />
 
-        <div className="scroll">
-          {active === 'roster' && (
-            members.isLoading || skills.isLoading
-              ? <div style={{ padding: 40, color: 'var(--ink-soft)' }}>Loading roster…</div>
-              : members.error
-                ? <div style={{ padding: 40, color: 'var(--st-unav)' }}>Failed: {(members.error as Error).message}</div>
-                : (
-                  <Roster
-                    members={members.data ?? []}
-                    skills={skills.data ?? []}
-                    slots={slots.data ?? []}
-                    teamId={team.id}
-                    filters={filters}
-                    onFilters={setFilters}
-                    selected={selected}
-                    setSelected={setSelected}
-                    onPerson={setPerson}
-                    onToast={showToast}
-                    onNewSlotWith={(memberId) => setModal({ open: true, urgent: false, preselected: memberId })}
-                  />
-                )
-          )}
-          {active === 'slots' && (
-            <SlotsScreen
-              slots={slots.data ?? []}
-              members={members.data ?? []}
-              onUrgent={() => setModal({ open: true, urgent: true, preselected: null })}
-              onNewSlot={() => setModal({ open: true, urgent: false, preselected: null })}
-              onSlotClick={setSlotDrawer}
-              onToast={showToast}
-            />
-          )}
-          {active === 'activity' && <ActivityScreen items={activity.data ?? []} />}
-          {active === 'settings' && (
-            <SettingsScreen
-              team={team}
-              divisionId={division.data?.id ?? ''}
-              skills={skills.data ?? []}
-              onToast={showToast}
-              onRefresh={() => qc.invalidateQueries({ queryKey: ['teams-for-member'] })}
-            />
-          )}
-          {active === 'requests' && (
-            <RequestsScreen team={team} onToast={showToast} />
-          )}
-          {active === 'calendar' && (
-            <CalendarScreen
-              slots={slots.data ?? []}
-              members={members.data ?? []}
-              onSlotClick={setSlotDrawer}
-            />
-          )}
-          {active === 'day' && (
-            <CommanderDayView teamId={team.id} />
-          )}
-          {active === 'admin' && (
-            <DivisionAdminScreen
-              onOpenTeam={(id) => { setTeamId(id); setActive('roster'); }}
-              onToast={showToast}
-            />
-          )}
-        </div>
+        <DashboardScreenRouter
+          active={active}
+          team={team}
+          members={members}
+          skills={skills}
+          slots={slots}
+          activity={activity}
+          division={division}
+          filters={filters}
+          onFilters={setFilters}
+          selected={selected}
+          setSelected={setSelected}
+          onPerson={setPerson}
+          onSlotDrawer={setSlotDrawer}
+          onModalOpen={({ urgent, preselected }) => setModal({ open: true, urgent, preselected })}
+          onSetActive={setActive}
+          setTeamId={setTeamId}
+          onSettingsRefresh={() => qc.invalidateQueries({ queryKey: ['teams-for-member'] })}
+          onToast={showToast}
+        />
 
         <DashboardOverlays
           team={team}

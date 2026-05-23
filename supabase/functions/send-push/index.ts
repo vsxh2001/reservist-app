@@ -186,38 +186,47 @@ Deno.serve(async (req) => {
   });
   const deadIds: string[] = [];
   let sent = 0;
-  await Promise.all(
-    ((subs ?? []) as {
-      id: string; member_id: string; endpoint: string; p256dh: string; auth: string;
-    }[]).map(async (s) => {
-      try {
-        await webpush.sendNotification(
-          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          notif,
-          { TTL: 60 * 60 * 24 },
-        );
-        sent += 1;
-      } catch (err) {
-        const statusCode = (err as { statusCode?: number }).statusCode;
-        if (statusCode === 404 || statusCode === 410) {
-          // Permanently dead endpoint — clean up so we stop retrying.
-          deadIds.push(s.id);
-        } else {
-          // Audit finding: don't log the raw push endpoint — it's a secret
-          // handle to the user's device that an attacker with log access
-          // could use to push to them directly. Log the DB row id + the HTTP
-          // status code instead; that's enough to triage from sentry.
-          const message = err instanceof Error ? err.message : String(err);
-          console.warn("send-push failed", {
-            sub_id: s.id,
-            member_id: s.member_id,
-            statusCode,
-            message,
-          });
-        }
+  type Sub = { id: string; member_id: string; endpoint: string; p256dh: string; auth: string };
+  const allSubs = (subs ?? []) as Sub[];
+
+  // Cap parallelism: with no batching, a 1000-member fan-out fires 1000
+  // simultaneous HTTPS connections to FCM / APNs / etc., spikes Edge
+  // Function memory, and risks rate-limiting from the push service. 50
+  // concurrent sends per batch keeps memory bounded and stays well under
+  // most provider per-source quotas.
+  const BATCH_SIZE = 50;
+  const sendOne = async (s: Sub) => {
+    try {
+      await webpush.sendNotification(
+        { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+        notif,
+        { TTL: 60 * 60 * 24 },
+      );
+      sent += 1;
+    } catch (err) {
+      const statusCode = (err as { statusCode?: number }).statusCode;
+      if (statusCode === 404 || statusCode === 410) {
+        // Permanently dead endpoint — clean up so we stop retrying.
+        deadIds.push(s.id);
+      } else {
+        // Audit finding: don't log the raw push endpoint — it's a secret
+        // handle to the user's device that an attacker with log access
+        // could use to push to them directly. Log the DB row id + the HTTP
+        // status code instead; that's enough to triage from sentry.
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn("send-push failed", {
+          sub_id: s.id,
+          member_id: s.member_id,
+          statusCode,
+          message,
+        });
       }
-    }),
-  );
+    }
+  };
+
+  for (let i = 0; i < allSubs.length; i += BATCH_SIZE) {
+    await Promise.all(allSubs.slice(i, i + BATCH_SIZE).map(sendOne));
+  }
 
   // 5. Reap dead subscriptions.
   if (deadIds.length) {

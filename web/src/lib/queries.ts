@@ -744,6 +744,16 @@ export function useUpdateStatus() {
       // doesn't lag a realtime tick behind.
       qc.invalidateQueries({ queryKey: ['my-member'] });
     },
+    onError: () => {
+      // useUpdateStatus does the members UPDATE and the activity_log insert
+      // as two separate Supabase calls. If the second fails the first has
+      // already committed; invalidate the caches so the UI refetches the
+      // true server state instead of leaving the user with the optimistic
+      // assumption that nothing happened.
+      qc.invalidateQueries({ queryKey: ['members'] });
+      qc.invalidateQueries({ queryKey: ['my-member'] });
+      qc.invalidateQueries({ queryKey: ['activity'] });
+    },
   });
 }
 
@@ -1050,6 +1060,15 @@ export function useUpdateSlot() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['slots'] });
+      qc.invalidateQueries({ queryKey: ['activity'] });
+    },
+    onError: () => {
+      // useUpdateSlot runs the slots UPDATE then the activity_log INSERT in
+      // sequence. If the second fails the slot is already mutated server-side;
+      // invalidate so the UI refetches ground truth instead of trusting stale
+      // local data.
+      qc.invalidateQueries({ queryKey: ['slots'] });
+      qc.invalidateQueries({ queryKey: ['my-slots'] });
       qc.invalidateQueries({ queryKey: ['activity'] });
     },
   });

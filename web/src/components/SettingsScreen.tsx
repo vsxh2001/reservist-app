@@ -9,6 +9,7 @@ import { usePushSubscription } from '../lib/usePushSubscription';
 import { PushNotificationsCardBody } from './PushNotificationsCardBody';
 import type { Team } from '../lib/types';
 import { isInviteExpired } from '../lib/types';
+import { humanizeError } from '../lib/errors';
 
 const INVITE_TTL_DAYS = 7;
 const INVITE_TTL_MS = INVITE_TTL_DAYS * 24 * 60 * 60 * 1000;
@@ -100,7 +101,7 @@ export function SettingsScreen({ team, divisionId, skills, onToast, onRefresh }:
       setNewSkill('');
       onToast(`Skill "${n}" added`);
     } catch (e) {
-      onToast(e instanceof Error ? e.message : 'Failed to add skill');
+      onToast(humanizeError(e, 'Failed to add skill'));
     }
   };
 
@@ -109,7 +110,7 @@ export function SettingsScreen({ team, divisionId, skills, onToast, onRefresh }:
       await delSkill.mutateAsync({ divisionId, name });
       onToast(`Skill "${name}" removed`);
     } catch (e) {
-      onToast(e instanceof Error ? e.message : 'Failed to remove skill');
+      onToast(humanizeError(e, 'Failed to remove skill'));
     }
   };
 
@@ -120,7 +121,7 @@ export function SettingsScreen({ team, divisionId, skills, onToast, onRefresh }:
       onRefresh();
       onToast(value ? 'Reservists now see all team slots' : 'Reservists now only see their own slots');
     } catch (e) {
-      onToast(e instanceof Error ? e.message : 'Failed to update visibility');
+      onToast(humanizeError(e, 'Failed to update visibility'));
     }
   };
 

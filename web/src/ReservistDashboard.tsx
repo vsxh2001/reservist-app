@@ -10,12 +10,13 @@ import { Card } from './components/Card';
 import { MyStatusCard } from './components/MyStatusCard';
 import { MyPhoneVisibilityCard } from './components/MyPhoneVisibilityCard';
 import { MySkillsCard } from './components/MySkillsCard';
+import { MyActivityCard } from './components/MyActivityCard';
 import { useAuth } from './lib/auth';
 import { useActiveTeam } from './lib/team-context';
 import {
   useMembers, useMyDeploymentWindows, useMyMember, useMyRecentActivity, useMySlots,
 } from './lib/queries';
-import { isoDay, relativeAgo, windowCountdown } from './lib/calendarUtils';
+import { isoDay, windowCountdown } from './lib/calendarUtils';
 import { useRealtime } from './lib/realtime';
 import { usePushSubscription } from './lib/usePushSubscription';
 import { fmtPhoneIL } from './lib/phone';
@@ -380,62 +381,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
           )}
         </Card>
 
-        {(myActivity.data ?? []).length > 0 && (
-          <Card title="My recent activity">
-            <div
-              data-testid="my-activity"
-              style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
-            >
-              {(myActivity.data ?? []).map((a) => (
-                <div
-                  key={a.id}
-                  data-testid={`my-activity-row-${a.id}`}
-                  style={{
-                    padding: '8px 10px',
-                    background: 'var(--paper-deep)',
-                    border: '1px solid var(--line-soft)',
-                    borderRadius: 8,
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    fontSize: 12.5,
-                  }}
-                >
-                  <div
-                    className="timeline-dot"
-                    data-tone={a.tone}
-                    aria-hidden="true"
-                    style={{ marginTop: 0, flexShrink: 0 }}
-                  />
-                  <span style={{ flex: 1, minWidth: 0, color: 'var(--ink-2)' }}>
-                    <b>{a.verb}</b>
-                    {a.what ? <> · {a.what}</> : null}
-                  </span>
-                  <time
-                    dateTime={a.created_at}
-                    title={new Date(a.created_at).toLocaleString()}
-                    style={{
-                      fontFamily: 'var(--mono)', fontSize: 10.5,
-                      color: 'var(--ink-mute)', flexShrink: 0,
-                    }}
-                  >
-                    {relativeAgo(a.created_at) ?? ''}
-                  </time>
-                </div>
-              ))}
-              {(myActivity.data ?? []).length >= 10 && (
-                <div
-                  data-testid="my-activity-cap-hint"
-                  style={{
-                    marginTop: 4, fontSize: 10.5,
-                    fontFamily: 'var(--mono)', color: 'var(--ink-mute)',
-                    textAlign: 'center',
-                  }}
-                >
-                  Showing latest 10
-                </div>
-              )}
-            </div>
-          </Card>
-        )}
+        <MyActivityCard activity={myActivity.data ?? []} />
 
         <Card title="My contact">
           <div

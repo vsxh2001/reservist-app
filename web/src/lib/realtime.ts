@@ -51,6 +51,16 @@ export function useRealtime(teamId: string | undefined) {
           qc.invalidateQueries({ queryKey: ['team-day'] });
           qc.invalidateQueries({ queryKey: ['approved-picks'] });
         })
+      // teams — rename, crest change, show_unit_schedule toggle, invite rotation
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' },
+        () => {
+          qc.invalidateQueries({ queryKey: ['team'] });
+          qc.invalidateQueries({ queryKey: ['teams-for-division'] });
+          qc.invalidateQueries({ queryKey: ['teams-for-member'] });
+        })
+      // projects — create / rename / reorder
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' },
+        () => qc.invalidateQueries({ queryKey: ['projects'] }))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [teamId, qc]);

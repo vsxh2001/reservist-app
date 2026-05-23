@@ -49,46 +49,72 @@ if (VAPID_PUBLIC && VAPID_PRIVATE) {
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
 }
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+// Origin allowlist. Set `CORS_ALLOWED_ORIGINS` to a comma-separated list
+// (e.g. "https://reservist.app,https://reservist.vercel.app") to narrow
+// CORS in production. When unset we fall back to "*" so local dev and
+// the existing deployment keep working unchanged. Audit recommends a
+// narrow list once the prod domain is known.
+const CORS_ALLOWED_ORIGINS = (Deno.env.get("CORS_ALLOWED_ORIGINS") ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 
-function jsonResponse(body: unknown, status = 200): Response {
+function corsHeadersFor(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin") ?? "";
+  let allow: string;
+  if (CORS_ALLOWED_ORIGINS.length === 0) {
+    // Backward-compatible default: same as the pre-narrow behavior.
+    allow = "*";
+  } else if (CORS_ALLOWED_ORIGINS.includes(origin)) {
+    allow = origin;
+  } else {
+    // Origin not in allowlist — echo the first allowed origin so the
+    // preflight still has a single concrete value; browsers will reject
+    // the actual request because the response Origin won't match.
+    allow = CORS_ALLOWED_ORIGINS[0];
+  }
+  return {
+    "Access-Control-Allow-Origin": allow,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    Vary: "Origin",
+  };
+}
+
+function jsonResponse(req: Request, body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...CORS_HEADERS, "content-type": "application/json" },
+    headers: { ...corsHeadersFor(req), "content-type": "application/json" },
   });
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
+    return new Response(null, { status: 204, headers: corsHeadersFor(req) });
   }
   if (req.method !== "POST") {
-    return jsonResponse({ error: "method_not_allowed" }, 405);
+    return jsonResponse(req, { error: "method_not_allowed" }, 405);
   }
 
   if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
-    return jsonResponse({ error: "vapid_keys_not_configured" }, 500);
+    return jsonResponse(req, { error: "vapid_keys_not_configured" }, 500);
   }
   if (!SB_URL || !SB_SERVICE_KEY) {
-    return jsonResponse({ error: "supabase_env_not_configured" }, 500);
+    return jsonResponse(req, { error: "supabase_env_not_configured" }, 500);
   }
 
   // 1. Caller JWT verification: the Authorization header is required so we
   //    know who is asking. We use the service-role client below for the
   //    actual reads to avoid RLS-related complexity in the function path.
   const authHeader = req.headers.get("authorization");
-  if (!authHeader) return jsonResponse({ error: "missing_auth" }, 401);
+  if (!authHeader) return jsonResponse(req, { error: "missing_auth" }, 401);
 
   const userClient = createClient(SB_URL, SB_SERVICE_KEY, {
     global: { headers: { Authorization: authHeader } },
   });
   const { data: userResp, error: userErr } = await userClient.auth.getUser();
   if (userErr || !userResp.user) {
-    return jsonResponse({ error: "invalid_auth" }, 401);
+    return jsonResponse(req, { error: "invalid_auth" }, 401);
   }
   const callerAuthUserId = userResp.user.id;
 
@@ -96,32 +122,32 @@ Deno.serve(async (req) => {
   try {
     payload = await req.json();
   } catch {
-    return jsonResponse({ error: "invalid_json" }, 400);
+    return jsonResponse(req, { error: "invalid_json" }, 400);
   }
   if (!Array.isArray(payload.member_ids) || payload.member_ids.length === 0) {
-    return jsonResponse({ error: "member_ids_required" }, 400);
+    return jsonResponse(req, { error: "member_ids_required" }, 400);
   }
   if (!payload.title || !payload.body) {
-    return jsonResponse({ error: "title_and_body_required" }, 400);
+    return jsonResponse(req, { error: "title_and_body_required" }, 400);
   }
   // Defensive caps. Every notify.ts helper in the web client builds short
   // strings (titles like "Urgent: …" stay well under 100 chars), so these
   // limits are inert for the happy path. They reject pathological payloads
   // before we waste service-role cycles fanning out to dozens of devices.
   if (payload.title.length > 200) {
-    return jsonResponse({ error: "title_too_long" }, 400);
+    return jsonResponse(req, { error: "title_too_long" }, 400);
   }
   if (payload.body.length > 4000) {
-    return jsonResponse({ error: "body_too_long" }, 400);
+    return jsonResponse(req, { error: "body_too_long" }, 400);
   }
   if (payload.url && payload.url.length > 2000) {
-    return jsonResponse({ error: "url_too_long" }, 400);
+    return jsonResponse(req, { error: "url_too_long" }, 400);
   }
   if (payload.tag && payload.tag.length > 256) {
-    return jsonResponse({ error: "tag_too_long" }, 400);
+    return jsonResponse(req, { error: "tag_too_long" }, 400);
   }
   if (payload.member_ids.length > 1000) {
-    return jsonResponse({ error: "too_many_recipients" }, 400);
+    return jsonResponse(req, { error: "too_many_recipients" }, 400);
   }
 
   // Service-role client for the rest of the work — RLS bypass is intentional;
@@ -135,7 +161,7 @@ Deno.serve(async (req) => {
     .eq("auth_user_id", callerAuthUserId)
     .maybeSingle();
   if (!callerMember) {
-    return jsonResponse({ error: "caller_not_linked_to_member" }, 403);
+    return jsonResponse(req, { error: "caller_not_linked_to_member" }, 403);
   }
   const callerMemberId = callerMember.id as string;
 
@@ -144,7 +170,7 @@ Deno.serve(async (req) => {
 
   if (!sendingToSelfOnly) {
     if (!payload.team_id) {
-      return jsonResponse({ error: "team_id_required_for_fanout" }, 400);
+      return jsonResponse(req, { error: "team_id_required_for_fanout" }, 400);
     }
     const { data: tm } = await admin
       .from("team_members")
@@ -153,7 +179,7 @@ Deno.serve(async (req) => {
       .eq("member_id", callerMemberId)
       .maybeSingle();
     if (!tm || tm.role !== "commander") {
-      return jsonResponse({ error: "not_a_commander_of_team" }, 403);
+      return jsonResponse(req, { error: "not_a_commander_of_team" }, 403);
     }
     // Constrain recipients to actual members of the same team — no
     // cross-team blast even if the caller passes foreign ids.
@@ -166,7 +192,7 @@ Deno.serve(async (req) => {
     );
     payload.member_ids = payload.member_ids.filter((id) => allowed.has(id));
     if (payload.member_ids.length === 0) {
-      return jsonResponse({ sent: 0, removed: 0 });
+      return jsonResponse(req, { sent: 0, removed: 0 });
     }
   }
 
@@ -175,7 +201,7 @@ Deno.serve(async (req) => {
     .from("push_subscriptions")
     .select("id, member_id, endpoint, p256dh, auth")
     .in("member_id", payload.member_ids);
-  if (subsErr) return jsonResponse({ error: subsErr.message }, 500);
+  if (subsErr) return jsonResponse(req, { error: subsErr.message }, 500);
 
   // 4. Send VAPID-signed pushes in parallel.
   const notif = JSON.stringify({
@@ -233,5 +259,5 @@ Deno.serve(async (req) => {
     await admin.from("push_subscriptions").delete().in("id", deadIds);
   }
 
-  return jsonResponse({ sent, removed: deadIds.length });
+  return jsonResponse(req, { sent, removed: deadIds.length });
 });

@@ -203,7 +203,17 @@ Deno.serve(async (req) => {
           // Permanently dead endpoint — clean up so we stop retrying.
           deadIds.push(s.id);
         } else {
-          console.warn("send-push failed", s.endpoint, err);
+          // Audit finding: don't log the raw push endpoint — it's a secret
+          // handle to the user's device that an attacker with log access
+          // could use to push to them directly. Log the DB row id + the HTTP
+          // status code instead; that's enough to triage from sentry.
+          const message = err instanceof Error ? err.message : String(err);
+          console.warn("send-push failed", {
+            sub_id: s.id,
+            member_id: s.member_id,
+            statusCode,
+            message,
+          });
         }
       }
     }),

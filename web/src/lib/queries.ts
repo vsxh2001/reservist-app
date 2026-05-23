@@ -927,11 +927,20 @@ export function useAssignToSlot() {
       slotId: string; memberId: string; assignedBy: string;
       teamId: string; actorName: string; slotTitle: string; memberName: string;
     }) => {
-      const { error } = await supabase
+      // Refuse to clobber an existing assignee. Two commanders racing on the
+      // same slot would otherwise each succeed and produce two activity_log
+      // rows + two push notifications. Constrain the UPDATE to the
+      // unassigned state and check the affected row count.
+      const { data: rows, error } = await supabase
         .from('slots')
         .update({ assignee_id: vars.memberId })
-        .eq('id', vars.slotId);
+        .eq('id', vars.slotId)
+        .is('assignee_id', null)
+        .select('id');
       if (error) throw error;
+      if (!rows || rows.length === 0) {
+        throw new Error('This slot already has an assignee. Refresh to see the current assignment.');
+      }
       await supabase.from('activity_log').insert({
         team_id: vars.teamId,
         actor_id: vars.assignedBy,
@@ -957,12 +966,20 @@ export function useUnassignFromSlot() {
       slotId: string; memberId: string; actorId: string;
       teamId: string; actorName: string; slotTitle: string; memberName: string;
     }) => {
-      const { error } = await supabase
+      // Already guarded against clobbering: `.eq('assignee_id', vars.memberId)`
+      // means the UPDATE matches zero rows when someone else has reassigned
+      // the slot. Pull the row count so we can skip the phantom activity_log
+      // entry + push that would otherwise fire on a 0-row update.
+      const { data: rows, error } = await supabase
         .from('slots')
         .update({ assignee_id: null })
         .eq('id', vars.slotId)
-        .eq('assignee_id', vars.memberId);
+        .eq('assignee_id', vars.memberId)
+        .select('id');
       if (error) throw error;
+      if (!rows || rows.length === 0) {
+        throw new Error('That member is no longer assigned to this slot. Refresh to see the current state.');
+      }
       await supabase.from('activity_log').insert({
         team_id: vars.teamId,
         actor_id: vars.actorId,

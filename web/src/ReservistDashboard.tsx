@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useToast } from './lib/useToast';
-import { Avatar, Button, SkillChip } from './components/atoms';
+import { Button } from './components/atoms';
 import { Icon } from './components/Icon';
 import { DeploymentPickScreen } from './components/DeploymentPickScreen';
 import { ReservistSlotRow } from './components/ReservistSlotRow';
@@ -12,6 +12,7 @@ import { MyPhoneVisibilityCard } from './components/MyPhoneVisibilityCard';
 import { MySkillsCard } from './components/MySkillsCard';
 import { MyActivityCard } from './components/MyActivityCard';
 import { NextDeploymentBanner } from './components/NextDeploymentBanner';
+import { MyProfileSection } from './components/MyProfileSection';
 import { useAuth } from './lib/auth';
 import { useActiveTeam } from './lib/team-context';
 import {
@@ -22,7 +23,6 @@ import { MS_PER_DAY } from './lib/constants';
 import { useRealtime } from './lib/realtime';
 import { usePushSubscription } from './lib/usePushSubscription';
 import { fmtPhoneIL } from './lib/phone';
-import { splitName } from './lib/text';
 import {
   type DeploymentWindow, type Member,
 } from './lib/types';
@@ -129,58 +129,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
       </header>
 
       <div className="scroll" style={{ padding: '20px 18px 60px' }}>
-        {/* Team picker — shown when member is on multiple teams */}
-        {teams.length > 1 && (
-          <div style={{
-            display: 'flex', gap: 6, flexWrap: 'wrap',
-            marginBottom: 16,
-          }}>
-            {teams.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTeamId(t.id)}
-                style={{
-                  appearance: 'none', font: 'inherit',
-                  fontSize: 12, padding: '5px 12px', borderRadius: 20,
-                  border: '1px solid ' + (team?.id === t.id ? 'var(--accent)' : 'var(--line-strong)'),
-                  background: team?.id === t.id ? 'var(--accent-tint)' : 'var(--card)',
-                  color: team?.id === t.id ? 'var(--accent-deep)' : 'var(--ink-2)',
-                  cursor: 'pointer', fontWeight: team?.id === t.id ? 600 : 400,
-                }}
-              >
-                {t.crest && <span style={{ marginInlineEnd: 6 }}>{t.crest}</span>}
-                {t.name}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Profile card */}
-        <section style={{
-          display: 'flex', gap: 14, alignItems: 'center',
-          padding: 18, marginBottom: 18,
-          background: 'var(--card)', border: '1px solid var(--line)',
-          borderRadius: 14,
-        }}>
-          <Avatar initials={me.data.initials} tone={me.data.tone} status={me.data.status} size="xl" />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 400, lineHeight: 1.1,
-            }}>
-              {(() => { const n = splitName(me.data.name); return <>{n.first} <em style={{ color: 'var(--ink-soft)' }}>{n.rest}</em></>; })()}
-            </div>
-            <div
-              data-testid="profile-team"
-              style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}
-            >
-              {team?.crest && <span aria-hidden="true">{team.crest}</span>}
-              <span>{team?.name}</span>
-            </div>
-            <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-              {me.data.skills.map((s) => <SkillChip key={s.name} name={s.name} level={s.level} />)}
-            </div>
-          </div>
-        </section>
+        <MyProfileSection me={me.data} team={team ?? null} teams={teams} onSelectTeam={setTeamId} />
 
         <NextDeploymentBanner window={nextWindow} onOpen={() => setActiveWindow(nextWindow!)} />
 

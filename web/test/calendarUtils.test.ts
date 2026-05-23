@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fmtClock, fmtRelCompact, fmtWhen, relativeAgo, untilHint, windowCountdown } from '../src/lib/calendarUtils';
+import { fmtClock, fmtRelCompact, fmtWhen, isoDay, monthGridCells, relativeAgo, untilHint, windowCountdown } from '../src/lib/calendarUtils';
 
 describe('fmtWhen', () => {
   const now = new Date(2026, 5, 10, 12, 0, 0); // 2026-06-10 12:00 local
@@ -206,5 +206,77 @@ describe('fmtRelCompact', () => {
   it('returns "Nd ago" past 48 hours', () => {
     const t = new Date(now.getTime() - 5 * 86_400_000).toISOString();
     expect(fmtRelCompact(t, now)).toBe('5d ago');
+  });
+});
+
+describe('isoDay', () => {
+  it('returns YYYY-MM-DD for the local calendar date, ignoring time-of-day', () => {
+    expect(isoDay(new Date(2026, 5, 10, 14, 30, 45))).toBe('2026-06-10');
+    expect(isoDay(new Date(2026, 5, 10, 0, 0, 0))).toBe('2026-06-10');
+    expect(isoDay(new Date(2026, 5, 10, 23, 59, 59))).toBe('2026-06-10');
+  });
+
+  it('zero-pads single-digit month and day', () => {
+    expect(isoDay(new Date(2026, 0, 5))).toBe('2026-01-05');
+    expect(isoDay(new Date(2026, 8, 1))).toBe('2026-09-01');
+  });
+
+  it('handles leap-year Feb 29 without rollover', () => {
+    expect(isoDay(new Date(2024, 1, 29))).toBe('2024-02-29');
+  });
+
+  it('handles year boundaries', () => {
+    expect(isoDay(new Date(2025, 11, 31))).toBe('2025-12-31');
+    expect(isoDay(new Date(2026, 0, 1))).toBe('2026-01-01');
+  });
+});
+
+describe('monthGridCells', () => {
+  // Helper: window that covers everything so inWindow always true (we test
+  // the window flag separately below).
+  const wideWin = ['1970-01-01', '2099-12-31'] as const;
+
+  it('pads pre-month so the grid starts on Monday', () => {
+    // June 2026 starts on Monday — offset 0, no pre-pad.
+    const cells = monthGridCells(new Date(2026, 5, 1), ...wideWin);
+    expect(cells[0].date.getDate()).toBe(1);
+    expect(cells[0].date.getMonth()).toBe(5);
+    expect(cells[0].inMonth).toBe(true);
+
+    // March 2026 starts on Sunday → offset 6, six pre-pad cells from Feb.
+    const cellsMar = monthGridCells(new Date(2026, 2, 1), ...wideWin);
+    expect(cellsMar[0].inMonth).toBe(false);
+    expect(cellsMar[5].inMonth).toBe(false);
+    expect(cellsMar[6].inMonth).toBe(true);
+    expect(cellsMar[6].date.getDate()).toBe(1);
+  });
+
+  it('fills the month days with inMonth=true and uses the correct day count', () => {
+    // June 2026 has 30 days.
+    const cells = monthGridCells(new Date(2026, 5, 1), ...wideWin);
+    const inMonth = cells.filter((c) => c.inMonth);
+    expect(inMonth).toHaveLength(30);
+    expect(inMonth[0].date.getDate()).toBe(1);
+    expect(inMonth[29].date.getDate()).toBe(30);
+  });
+
+  it('pads post-month so the total cell count is a multiple of 7', () => {
+    const cells = monthGridCells(new Date(2026, 5, 1), ...wideWin);
+    expect(cells.length % 7).toBe(0);
+    // June 2026: 30 days, starts Mon (offset 0). 30 cells fits in 5 weeks
+    // (35) — trailing pad fills the final week to Sun.
+    expect(cells).toHaveLength(35);
+  });
+
+  it('marks inWindow for dates inside [startISO, endISO] and excludes those clearly outside', () => {
+    // Use times that clear the local/UTC midnight ambiguity on boundary days,
+    // so the assertion holds regardless of CI vs. local TZ.
+    const cells = monthGridCells(new Date(2026, 5, 1), '2026-06-09T00:00:00Z', '2026-06-21T23:59:59Z');
+    expect(cells.find((c) => c.date.getDate() === 15 && c.inMonth)?.inWindow).toBe(true);
+    expect(cells.find((c) => c.date.getDate() === 10 && c.inMonth)?.inWindow).toBe(true);
+    expect(cells.find((c) => c.date.getDate() === 20 && c.inMonth)?.inWindow).toBe(true);
+    // Dates well outside the window stay false.
+    expect(cells.find((c) => c.date.getDate() === 1 && c.inMonth)?.inWindow).toBe(false);
+    expect(cells.find((c) => c.date.getDate() === 30 && c.inMonth)?.inWindow).toBe(false);
   });
 });

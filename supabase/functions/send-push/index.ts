@@ -88,6 +88,32 @@ function jsonResponse(req: Request, body: unknown, status = 200): Response {
   });
 }
 
+// In-memory per-caller rate limit. Edge Functions are not pinned to a
+// single instance, so this is best-effort throttling at the per-instance
+// level — a determined attacker spread across many instance starts can
+// still exceed the cap. The intent is to brake an accidental loop or a
+// compromised commander session, not to be a hard quota. A real quota
+// would persist counters in Postgres or Deno KV; tracked separately.
+//
+// Cap is generous vs. legit usage: commanders rarely fire more than ~5
+// pushes/minute (urgent call-up + a few slot edits).
+const RATE_WINDOW_MS = 60_000;
+const RATE_MAX = Number(Deno.env.get("SEND_PUSH_RATE_MAX") ?? "30");
+const callerHistory = new Map<string, number[]>();
+
+function isRateLimited(callerMemberId: string): boolean {
+  const now = Date.now();
+  const cutoff = now - RATE_WINDOW_MS;
+  const prior = (callerHistory.get(callerMemberId) ?? []).filter((t) => t > cutoff);
+  if (prior.length >= RATE_MAX) {
+    callerHistory.set(callerMemberId, prior);
+    return true;
+  }
+  prior.push(now);
+  callerHistory.set(callerMemberId, prior);
+  return false;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeadersFor(req) });
@@ -164,6 +190,10 @@ Deno.serve(async (req) => {
     return jsonResponse(req, { error: "caller_not_linked_to_member" }, 403);
   }
   const callerMemberId = callerMember.id as string;
+
+  if (isRateLimited(callerMemberId)) {
+    return jsonResponse(req, { error: "rate_limited" }, 429);
+  }
 
   const sendingToSelfOnly =
     payload.member_ids.length === 1 && payload.member_ids[0] === callerMemberId;

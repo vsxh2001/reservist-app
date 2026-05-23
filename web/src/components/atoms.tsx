@@ -150,14 +150,21 @@ export function Role({ role, glyph = true }: { role: string | null; glyph?: bool
   );
 }
 
-export function Check({ on, onClick }: { on: boolean; onClick?: (e: React.MouseEvent) => void }) {
+export function Check({ on, onClick }: { on: boolean; onClick?: (e: React.SyntheticEvent) => void }) {
   return (
     <span
       className="check"
       data-on={on ? '1' : '0'}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          onClick(e);
+        }
+      }}
       role="checkbox"
       aria-checked={on}
+      tabIndex={onClick ? 0 : -1}
     >
       {on && <Icon name="check" size={12} stroke={2.2} />}
     </span>

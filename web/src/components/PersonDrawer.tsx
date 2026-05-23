@@ -13,6 +13,7 @@ import {
 } from '../lib/queries';
 import { useAuth } from '../lib/auth';
 import { fmtPhoneIL, normalizePhoneToE164IL } from '../lib/phone';
+import { activate } from '../lib/a11y';
 import { splitName } from '../lib/text';
 
 interface Props {
@@ -229,7 +230,7 @@ export function PersonDrawer({ person, team, allSkills, divisionId, onClose, onT
             <>
               <div className="drawer-section">
                 <h4>Current status
-                  <span className="edit" onClick={() => setEditingStatus((v) => !v)}>
+                  <span className="edit" {...activate(() => setEditingStatus((v) => !v))}>
                     {editingStatus ? 'Cancel' : 'Override'}
                   </span>
                 </h4>
@@ -304,7 +305,7 @@ export function PersonDrawer({ person, team, allSkills, divisionId, onClose, onT
 
               <div className="drawer-section">
                 <h4>Skills
-                  <span className="edit" onClick={() => setEditingSkills((v) => !v)}>
+                  <span className="edit" {...activate(() => setEditingSkills((v) => !v))}>
                     {editingSkills ? 'Done' : 'Edit'}
                   </span>
                 </h4>
@@ -344,7 +345,7 @@ export function PersonDrawer({ person, team, allSkills, divisionId, onClose, onT
 
               <div className="drawer-section">
                 <h4>Team memberships
-                  <span className="edit" onClick={() => setShowAddTeam((v) => !v)}>
+                  <span className="edit" {...activate(() => setShowAddTeam((v) => !v))}>
                     {showAddTeam ? 'Cancel' : '+ Add to a team'}
                   </span>
                 </h4>
@@ -459,7 +460,7 @@ export function PersonDrawer({ person, team, allSkills, divisionId, onClose, onT
 
               <div className="drawer-section">
                 <h4>Deployment windows
-                  <span className="edit" onClick={() => setNewWinOpen((v) => !v)}>
+                  <span className="edit" {...activate(() => setNewWinOpen((v) => !v))}>
                     {newWinOpen ? 'Cancel' : '+ New window'}
                   </span>
                 </h4>

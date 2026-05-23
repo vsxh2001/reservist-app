@@ -3,6 +3,7 @@ import { Icon } from './Icon';
 import { Avatar, Button, SkillChip } from './atoms';
 import { fmtClock, isoDay } from '../lib/calendarUtils';
 import type { Member, Slot } from '../lib/types';
+import { activate } from '../lib/a11y';
 
 interface Props {
   slots: Slot[];
@@ -159,7 +160,9 @@ export function CalendarScreen({ slots, members, onSlotClick }: Props) {
             {selectedSlots.map((s) => {
               const assignee = s.assignee_id ? members.find((m) => m.id === s.assignee_id) ?? null : null;
               return (
-                <div key={s.id} onClick={() => onSlotClick?.(s)} style={{
+                <div key={s.id}
+                  {...(onSlotClick ? activate(() => onSlotClick(s)) : {})}
+                  style={{
                   border: '1px solid ' + (s.urgent ? 'var(--urgent)' : 'var(--line-soft)'),
                   borderRadius: 10, padding: 12,
                   background: s.urgent ? 'var(--urgent-bg)' : 'var(--paper-deep)',

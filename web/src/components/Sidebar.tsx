@@ -4,6 +4,7 @@ import { Avatar } from './atoms';
 import type { Member, Screen, Slot, Status, Team } from '../lib/types';
 import { useAuth } from '../lib/auth';
 import { initialsFromName } from '../lib/text';
+import { activate } from '../lib/a11y';
 
 interface Props {
   team: Team;
@@ -72,7 +73,9 @@ export function Sidebar({ team, teams, setTeamId, members, slots, pendingRequest
       key={n.id}
       className="sb-link"
       data-active={active === n.id ? '1' : '0'}
-      onClick={() => !n.disabled && onNav(n.id)}
+      aria-disabled={n.disabled || undefined}
+      aria-current={active === n.id ? 'page' : undefined}
+      {...activate(() => { if (!n.disabled) onNav(n.id); })}
       style={n.disabled ? { opacity: 0.55, cursor: 'not-allowed' } : {}}
     >
       <Icon name={n.icon} size={15} />
@@ -180,7 +183,7 @@ export function Sidebar({ team, teams, setTeamId, members, slots, pendingRequest
         {nav2.map(renderLink)}
       </div>
 
-      <div className="sb-me" onClick={() => { void signOut(); }} title="Sign out">
+      <div className="sb-me" {...activate(() => { void signOut(); })} title="Sign out" aria-label="Sign out">
         <Avatar initials={initialsFromName(user?.name)} tone={0} status="available" />
         <div className="sb-me-meta">
           <div className="sb-me-name">{user?.name ?? 'Unknown'}</div>

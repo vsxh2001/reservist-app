@@ -19,6 +19,7 @@ import { useActiveTeam } from '../lib/team-context';
 import { useMyMember } from '../lib/queries';
 import { useAuth } from '../lib/auth';
 import type { Team } from '../lib/types';
+import { humanizeError } from '../lib/errors';
 
 interface Props {
   onOpenTeam: (teamId: string) => void;
@@ -259,7 +260,7 @@ export function DivisionAdminScreen({ onOpenTeam, onToast }: Props) {
       setAddingProject(false);
       onToast(`Project "${n}" created`);
     } catch (e) {
-      onToast(e instanceof Error ? e.message : 'Failed to create project');
+      onToast(humanizeError(e, 'Failed to create project'));
     } finally {
       setBusy(false);
     }
@@ -298,7 +299,7 @@ export function DivisionAdminScreen({ onOpenTeam, onToast }: Props) {
       setNewSkill('');
       onToast(`Skill "${n}" added`);
     } catch (e) {
-      onToast(e instanceof Error ? e.message : 'Failed to add skill');
+      onToast(humanizeError(e, 'Failed to add skill'));
     }
   };
 
@@ -308,7 +309,7 @@ export function DivisionAdminScreen({ onOpenTeam, onToast }: Props) {
       await delSkill.mutateAsync({ divisionId, name });
       onToast(`Skill "${name}" removed`);
     } catch (e) {
-      onToast(e instanceof Error ? e.message : 'Failed to remove skill');
+      onToast(humanizeError(e, 'Failed to remove skill'));
     }
   };
 
@@ -325,7 +326,7 @@ export function DivisionAdminScreen({ onOpenTeam, onToast }: Props) {
       });
       onToast(currentlyAdmin ? `Revoked admin from ${memberName}` : `${memberName} is now a division admin`);
     } catch (e) {
-      onToast(e instanceof Error ? e.message : 'Failed to update admin status');
+      onToast(humanizeError(e, 'Failed to update admin status'));
     }
   };
 

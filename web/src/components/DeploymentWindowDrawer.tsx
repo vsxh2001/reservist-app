@@ -9,6 +9,7 @@ import {
 } from '../lib/queries';
 import { isoDay, monthGridCells, monthsBetween } from '../lib/calendarUtils';
 import { useAuth } from '../lib/auth';
+import { activate } from '../lib/a11y';
 import type { DeploymentPick, DeploymentWindow } from '../lib/types';
 
 interface Props {
@@ -150,7 +151,7 @@ export function DeploymentWindowDrawer({ window: w, memberName, teamId, onClose,
                     background: w.state === 'open' ? 'var(--accent-tint)' : 'var(--card-soft)',
                     color: w.state === 'open' ? 'var(--accent-deep)' : 'var(--ink-soft)',
                   }}>{w.state}</span>
-                  <span className="edit" onClick={() => setEditingMeta(true)}>Edit</span>
+                  <span className="edit" {...activate(() => setEditingMeta(true))}>Edit</span>
                 </div>
                 {w.notes && (
                   <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--ink-soft)' }}>{w.notes}</div>

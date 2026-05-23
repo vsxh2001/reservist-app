@@ -9,6 +9,7 @@ import { useAssignToSlot, useUnassignFromSlot, useUpdateSlot, useUpdateSlotState
 import { useAuth } from '../lib/auth';
 import { fmtClock, isoDay } from '../lib/calendarUtils';
 import { humanizeError } from '../lib/errors';
+import { activate } from '../lib/a11y';
 
 interface Props {
   slot: Slot;
@@ -287,12 +288,12 @@ export function SlotDrawer({ slot, members, allSlots, approvedPicks, teamId, onC
                 <h4>
                   Assigned
                   {slot.state === 'published' && !assignee && (
-                    <span className="edit" onClick={() => setPicking((v) => !v)}>
+                    <span className="edit" {...activate(() => setPicking((v) => !v))}>
                       {picking ? 'Cancel' : '+ Assign'}
                     </span>
                   )}
                   {slot.state === 'published' && assignee && (
-                    <span className="edit" onClick={() => doUnassign(assignee)}>
+                    <span className="edit" {...activate(() => doUnassign(assignee))}>
                       Unassign
                     </span>
                   )}

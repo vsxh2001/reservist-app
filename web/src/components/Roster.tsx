@@ -443,7 +443,7 @@ export function Roster(props: Props) {
               </div>
             )}
           </div>
-          <button onClick={() => setSelected([])}><Icon name="x" size={12}/></button>
+          <button onClick={() => setSelected([])} aria-label="Clear selection"><Icon name="x" size={12}/></button>
         </div>
       )}
 

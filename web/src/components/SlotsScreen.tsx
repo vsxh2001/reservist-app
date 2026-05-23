@@ -6,6 +6,7 @@ import { useMyMember, useUpdateSlotState } from '../lib/queries';
 import { useAuth } from '../lib/auth';
 import { fmtWhen } from '../lib/calendarUtils';
 import type { Member, Slot, SlotState } from '../lib/types';
+import { activate } from '../lib/a11y';
 
 interface Props {
   slots: Slot[];
@@ -135,7 +136,7 @@ export function SlotsScreen({ slots, members, onUrgent, onNewSlot, onSlotClick, 
             const isReadOnly = s.state === 'completed' || s.state === 'cancelled';
             const accent = isDraft || isReadOnly ? 'var(--line)' : (s.urgent ? 'var(--urgent)' : 'var(--line)');
             return (
-              <div key={s.id} onClick={() => onSlotClick(s)} style={{
+              <div key={s.id} {...activate(() => onSlotClick(s))} aria-label={`Open slot ${s.title}`} style={{
                 border: '1px solid ' + accent,
                 borderRadius: 'var(--radius-lg)',
                 background: 'var(--card)',

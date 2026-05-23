@@ -2,9 +2,12 @@ import { describe, it, expect, vi } from 'vitest';
 import type { KeyboardEvent, SyntheticEvent } from 'react';
 import { activate } from '../src/lib/a11y';
 
-function makeKeyEvent(key: string): KeyboardEvent {
+function makeKeyEvent(key: string, sameTarget = true): KeyboardEvent {
+  const node = {};
   return {
     key,
+    target: sameTarget ? node : {},
+    currentTarget: node,
     preventDefault: vi.fn(),
   } as unknown as KeyboardEvent;
 }
@@ -50,6 +53,15 @@ describe('activate()', () => {
       props.onKeyDown(evt);
       expect(evt.preventDefault).not.toHaveBeenCalled();
     }
+    expect(onActivate).not.toHaveBeenCalled();
+  });
+
+  it('ignores key events that bubbled from a focusable child (target !== currentTarget)', () => {
+    const onActivate = vi.fn();
+    const props = activate(onActivate);
+    const evt = makeKeyEvent('Enter', false);
+    props.onKeyDown(evt);
+    expect(evt.preventDefault).not.toHaveBeenCalled();
     expect(onActivate).not.toHaveBeenCalled();
   });
 });

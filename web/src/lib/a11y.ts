@@ -23,6 +23,12 @@ export function activate(onActivate: (e: SyntheticEvent) => void) {
     tabIndex: 0,
     onClick: onActivate,
     onKeyDown: (e: KeyboardEvent) => {
+      // Only fire when the host element itself is focused. Without this,
+      // pressing Enter on a focusable child (an inner <button>, an <input>,
+      // a nested role=button) would bubble up and trigger the host handler
+      // a second time. Mouse clicks aren't filtered — children typically
+      // call e.stopPropagation() themselves where needed.
+      if (e.target !== e.currentTarget) return;
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         onActivate(e);

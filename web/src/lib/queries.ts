@@ -1405,14 +1405,24 @@ export function useResolvePick() {
       windowLabel: string;
       date: string;
     }) => {
-      const { error } = await supabase
+      // Two commanders can hit Approve/Reject on the same pick at the same
+      // moment. The `.eq('state', 'pending')` guard makes the UPDATE a no-op
+      // when the pick has already been resolved; the returned row count is
+      // then 0 and we surface a clean error instead of logging the resolve
+      // twice + firing duplicate push notifications. See PRD §7.4.
+      const { data: rows, error } = await supabase
         .from('deployment_picks')
         .update({
           state: vars.nextState, commander_note: vars.commanderNote,
           resolved_at: new Date().toISOString(), resolved_by: vars.actorId,
         })
-        .eq('id', vars.pickId);
+        .eq('id', vars.pickId)
+        .eq('state', 'pending')
+        .select('id');
       if (error) throw error;
+      if (!rows || rows.length === 0) {
+        throw new Error('This deployment pick was already resolved by another commander.');
+      }
       await supabase.from('activity_log').insert({
         team_id: vars.teamId, actor_id: vars.actorId, actor_name: vars.actorName,
         verb: vars.nextState === 'approved' ? 'approved deployment day' : 'rejected deployment day',

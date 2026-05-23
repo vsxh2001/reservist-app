@@ -11,12 +11,13 @@ import { MyStatusCard } from './components/MyStatusCard';
 import { MyPhoneVisibilityCard } from './components/MyPhoneVisibilityCard';
 import { MySkillsCard } from './components/MySkillsCard';
 import { MyActivityCard } from './components/MyActivityCard';
+import { NextDeploymentBanner } from './components/NextDeploymentBanner';
 import { useAuth } from './lib/auth';
 import { useActiveTeam } from './lib/team-context';
 import {
   useMembers, useMyDeploymentWindows, useMyMember, useMyRecentActivity, useMySlots,
 } from './lib/queries';
-import { isoDay, windowCountdown } from './lib/calendarUtils';
+import { isoDay } from './lib/calendarUtils';
 import { useRealtime } from './lib/realtime';
 import { usePushSubscription } from './lib/usePushSubscription';
 import { fmtPhoneIL } from './lib/phone';
@@ -180,60 +181,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
           </div>
         </section>
 
-        {nextWindow && (
-          <section role="button" tabIndex={0}
-            aria-label={`Open ${nextWindow.label} deployment window`}
-            onClick={() => setActiveWindow(nextWindow)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                setActiveWindow(nextWindow);
-              }
-            }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 14,
-              padding: 16, marginBottom: 14,
-              background: 'var(--card)', border: '1px solid var(--accent)', borderRadius: 12,
-              cursor: 'pointer',
-            }}>
-            <div style={{
-              width: 44, height: 44, borderRadius: 10,
-              background: 'var(--accent)', color: 'var(--card)',
-              display: 'grid', placeItems: 'center', flexShrink: 0,
-            }}>
-              <Icon name="calendar" size={20}/>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{
-                fontFamily: 'var(--mono)', fontSize: 10.5, textTransform: 'uppercase',
-                letterSpacing: '.08em', color: 'var(--ink-mute)',
-              }}>My next deployment</div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 400, marginTop: 2 }}>
-                  {nextWindow.label}
-                </span>
-                {(() => {
-                  const c = windowCountdown(nextWindow.start_date, nextWindow.end_date);
-                  return c ? (
-                    <span
-                      data-testid="banner-countdown"
-                      style={{
-                        fontFamily: 'var(--mono)', fontSize: 11,
-                        color: c === 'in progress' ? 'var(--accent-deep)' : 'var(--ink-soft)',
-                      }}
-                    >
-                      · {c}
-                    </span>
-                  ) : null;
-                })()}
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 2, fontFamily: 'var(--mono)' }}>
-                {nextWindow.start_date} → {nextWindow.end_date} · {nextWindow.approved_count} approved · {nextWindow.proposed_count} proposed
-              </div>
-            </div>
-            <Icon name="chevRight" size={16} />
-          </section>
-        )}
+        <NextDeploymentBanner window={nextWindow} onOpen={() => setActiveWindow(nextWindow!)} />
 
         {/* All other deployment windows (open + recent) */}
         {(() => {

@@ -89,6 +89,17 @@ export function notifySlotCancelled(teamId: string, memberId: string, slotTitle:
   });
 }
 
+/** Notify a member that a commander unassigned them from a duty slot. */
+export function notifySlotUnassigned(teamId: string, memberId: string, slotTitle: string): Promise<void> {
+  return invokeSendPush({
+    memberIds: [memberId],
+    teamId,
+    title: `Unassigned: ${slotTitle}`,
+    body: 'A commander removed you from this duty slot.',
+    tag: `slot-unassigned:${memberId}`,
+  });
+}
+
 /** Notify a reservist that a deployment pick was approved or rejected. */
 export function notifyPickDecided(
   teamId: string,

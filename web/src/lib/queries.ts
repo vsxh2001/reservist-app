@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from './supabase';
 import {
   notifyUrgentCallUp, notifySlotAssigned, notifyPickDecided,
-  notifySlotChanged, notifySlotCancelled,
+  notifySlotChanged, notifySlotCancelled, notifySlotUnassigned,
 } from './notify';
 import { initialsFromName } from './text';
 import type {
@@ -959,6 +959,7 @@ export function useUnassignFromSlot() {
         what: `${vars.memberName} from ${vars.slotTitle}`,
         tone: null,
       });
+      void notifySlotUnassigned(vars.teamId, vars.memberId, vars.slotTitle);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['slots'] });

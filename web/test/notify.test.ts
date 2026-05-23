@@ -13,6 +13,7 @@ import {
   notifyPickDecided,
   notifySlotChanged,
   notifySlotCancelled,
+  notifySlotUnassigned,
 } from '../src/lib/notify';
 
 const invoke = supabase.functions.invoke as unknown as ReturnType<typeof vi.fn>;
@@ -83,6 +84,18 @@ describe('notify helpers', () => {
       team_id: 'team-1',
       title: 'Cancelled: Bravo gate watch',
       tag: 'slot-cancelled:m-target',
+    });
+  });
+
+  it('notifySlotUnassigned targets the removed member with a slot-unassigned: tag', async () => {
+    await notifySlotUnassigned('team-1', 'm-target', 'Bravo gate watch');
+    expect(invoke).toHaveBeenCalledTimes(1);
+    const opts = invoke.mock.calls[0][1];
+    expect(opts.body).toMatchObject({
+      member_ids: ['m-target'],
+      team_id: 'team-1',
+      title: 'Unassigned: Bravo gate watch',
+      tag: 'slot-unassigned:m-target',
     });
   });
 

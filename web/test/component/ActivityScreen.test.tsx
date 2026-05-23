@@ -8,11 +8,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {
-  ActivityScreen,
-  buildActivityCSV,
-  csvEscape,
-} from '../../src/components/ActivityScreen';
+import { ActivityScreen } from '../../src/components/ActivityScreen';
+import { buildActivityCSV, csvEscape } from '../../src/lib/csv';
 import type { ActivityItem } from '../../src/lib/types';
 
 // ---------------------------------------------------------------------------

@@ -24,6 +24,7 @@
  */
 
 import { supabase } from './supabase';
+import { humanizeError } from './errors';
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
 
@@ -80,8 +81,7 @@ export async function subscribeToPush(
   try {
     registration = await getPushSWRegistration();
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return { ok: false, reason: `SW registration failed: ${msg}` };
+    return { ok: false, reason: humanizeError(err, 'SW registration failed') };
   }
 
   let subscription: PushSubscription;
@@ -91,8 +91,7 @@ export async function subscribeToPush(
       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return { ok: false, reason: `Push subscribe failed: ${msg}` };
+    return { ok: false, reason: humanizeError(err, 'Push subscribe failed') };
   }
 
   const { endpoint, keys } = subscription.toJSON() as {

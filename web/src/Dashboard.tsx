@@ -5,6 +5,7 @@ import { Roster } from './components/Roster';
 import { PersonDrawer } from './components/PersonDrawer';
 import { SlotsScreen } from './components/SlotsScreen';
 import { SlotDrawer } from './components/SlotDrawer';
+import { CommanderTopbar } from './components/CommanderTopbar';
 import { ActivityScreen } from './components/ActivityScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 import { RequestsScreen } from './components/RequestsScreen';
@@ -12,7 +13,6 @@ import { CalendarScreen } from './components/CalendarScreen';
 import { CommanderDayView } from './components/CommanderDayView';
 import { DivisionAdminScreen } from './components/DivisionAdminScreen';
 import { NewSlotModal } from './components/NewSlotModal';
-import { Button } from './components/atoms';
 import { Icon } from './components/Icon';
 import {
   useActivity, useApprovedPicksForTeam, useJoinRequests, useMembers, useMyMember, useSkills, useSlots,
@@ -124,68 +124,17 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
       />
 
       <div className="main">
-        <header className="topbar">
-          <Button variant="ghost" size="icon" className="mobile-menu-btn" data-tip="Menu"
-                  onClick={() => setMobileNavOpen(true)}
-                  style={{ marginRight: 2 }}>
-            <Icon name="filter" size={16} />
-          </Button>
-          <h1 className="topbar-title">{t.title} <em>{t.em}</em></h1>
-          <div className="topbar-actions">
-            <Button variant="ghost" size="icon"
-                    onClick={() => setBellOpen((v) => !v)}
-                    data-tip="Activity"
-                    style={{ position: 'relative' }}>
-              <Icon name="bell" size={15}/>
-              {hasUrgentOpen && <span style={{
-                position: 'absolute', top: 6, right: 6,
-                width: 7, height: 7, borderRadius: 99,
-                background: 'var(--urgent)',
-                boxShadow: '0 0 0 2px var(--paper)',
-              }}/>}
-            </Button>
-            <Button variant="ghost" size="icon" data-tip="Invite member"
-                    onClick={() => { setActive('settings'); showToast('Open settings → Invite link'); }}>
-              <Icon name="link" size={15}/>
-            </Button>
-            {onSwitchToReservist && (
-              <Button variant="ghost" size="sm" onClick={onSwitchToReservist} data-tip="See reservist view">
-                <Icon name="user" size={13} /> Reservist view
-              </Button>
-            )}
-            <span style={{ width: 1, height: 22, background: 'var(--line)' }}/>
-            <Button variant="outline" icon="plus"
-                    onClick={() => setModal({ open: true, urgent: false, preselected: selected[0] ?? null })}>
-              New slot
-            </Button>
-            <Button variant="urgent" icon="urgent"
-                    onClick={() => setModal({ open: true, urgent: true, preselected: null })}>
-              Urgent call-up
-            </Button>
-          </div>
-        </header>
-
-        <div className="bell-pop" data-open={bellOpen ? '1' : '0'} onClick={(e) => e.stopPropagation()}>
-          <div className="bell-pop-head">
-            <Icon name="activity" size={11}/> Activity · last 24h
-          </div>
-          <div className="bell-pop-body">
-            {(activity.data ?? []).slice(0, 6).map((a) => (
-              <div key={a.id} className="bell-item">
-                <div className="icon-dot" data-tone={a.tone}>
-                  <Icon name={a.tone === 'urgent' ? 'urgent' : a.tone === 'accent' ? 'check' : 'user'} size={12}/>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <b>{a.actor_name}</b> {a.verb}{a.what && <> <b>{a.what}</b></>}.
-                  <span className="when">{new Date(a.created_at).toLocaleString()}</span>
-                </div>
-              </div>
-            ))}
-            {(activity.data ?? []).length === 0 && (
-              <div style={{ padding: 14, color: 'var(--ink-soft)', fontSize: 12.5 }}>No activity yet.</div>
-            )}
-          </div>
-        </div>
+        <CommanderTopbar
+          title={t}
+          hasUrgentOpen={hasUrgentOpen}
+          bellOpen={bellOpen}
+          onToggleBell={() => setBellOpen((v) => !v)}
+          activity={activity.data ?? []}
+          onSwitchToReservist={onSwitchToReservist}
+          onOpenMobileMenu={() => setMobileNavOpen(true)}
+          onOpenInviteSettings={() => { setActive('settings'); showToast('Open settings → Invite link'); }}
+          onNewSlot={(urgent) => setModal({ open: true, urgent, preselected: urgent ? null : selected[0] ?? null })}
+        />
 
         <div className="scroll">
           {active === 'roster' && (

@@ -29,6 +29,10 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Reservist ships small updates often (auto-update worker). Without
+        // explicit cleanup Workbox leaves stale precache buckets behind on
+        // each deploy, eventually pushing iOS Safari over its quota.
+        cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         runtimeCaching: [
           {

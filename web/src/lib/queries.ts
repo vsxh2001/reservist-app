@@ -737,6 +737,12 @@ export function useUpdateStatus() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['members'] });
       qc.invalidateQueries({ queryKey: ['activity'] });
+      // The commander may be editing their own status from a desktop drawer
+      // while their phone shows the reservist dashboard's MyStatusCard. The
+      // members invalidation refreshes the roster but not the personal
+      // ['my-member'] cache — invalidate it explicitly so the acting session
+      // doesn't lag a realtime tick behind.
+      qc.invalidateQueries({ queryKey: ['my-member'] });
     },
   });
 }
@@ -904,6 +910,12 @@ export function useCreateSlot() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['slots'] });
       qc.invalidateQueries({ queryKey: ['activity'] });
+      // Creating an already-assigned slot needs the reservist's personal
+      // ['my-slots'] cache to refresh, and the team day view caches the
+      // assignment too. Realtime fans these out for other devices; this
+      // covers the acting commander's own view without the round-trip lag.
+      qc.invalidateQueries({ queryKey: ['my-slots'] });
+      qc.invalidateQueries({ queryKey: ['team-day'] });
     },
   });
 }

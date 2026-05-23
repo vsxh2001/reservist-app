@@ -2,17 +2,15 @@ import { useEffect, useState } from 'react';
 import { useToast } from './lib/useToast';
 import { Sidebar } from './components/Sidebar';
 import { Roster } from './components/Roster';
-import { PersonDrawer } from './components/PersonDrawer';
 import { SlotsScreen } from './components/SlotsScreen';
-import { SlotDrawer } from './components/SlotDrawer';
 import { CommanderTopbar } from './components/CommanderTopbar';
+import { DashboardOverlays } from './components/DashboardOverlays';
 import { ActivityScreen } from './components/ActivityScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 import { RequestsScreen } from './components/RequestsScreen';
 import { CalendarScreen } from './components/CalendarScreen';
 import { CommanderDayView } from './components/CommanderDayView';
 import { DivisionAdminScreen } from './components/DivisionAdminScreen';
-import { NewSlotModal } from './components/NewSlotModal';
 import { Icon } from './components/Icon';
 import {
   useActivity, useApprovedPicksForTeam, useJoinRequests, useMembers, useMyMember, useSkills, useSlots,
@@ -199,43 +197,23 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
           )}
         </div>
 
-        {person && (
-          <PersonDrawer
-            person={person}
-            team={team}
-            allSkills={skills.data ?? []}
-            divisionId={division.data?.id ?? ''}
-            onClose={() => setPerson(null)}
-            onToast={showToast}
-          />
-        )}
-
-        {slotDrawer && (
-          <SlotDrawer
-            slot={slotDrawer}
-            members={members.data ?? []}
-            allSlots={slots.data ?? []}
-            approvedPicks={approvedPicks.data ?? []}
-            teamId={team.id}
-            onClose={() => setSlotDrawer(null)}
-            onClone={(s) => {
-              setSlotDrawer(null);
-              setModal({ open: true, urgent: s.urgent, preselected: null, cloneFrom: s });
-            }}
-            onToast={showToast}
-          />
-        )}
-
-        <NewSlotModal
-          open={modal.open}
-          urgent={modal.urgent}
+        <DashboardOverlays
+          team={team}
+          divisionId={division.data?.id ?? ''}
           members={members.data ?? []}
           slots={slots.data ?? []}
+          skills={skills.data ?? []}
           approvedPicks={approvedPicks.data ?? []}
-          teamId={team.id}
-          preselected={modal.preselected}
-          cloneFrom={modal.cloneFrom ?? null}
-          onClose={() => setModal({ open: false, urgent: false, preselected: null })}
+          person={person}
+          onClosePerson={() => setPerson(null)}
+          slotDrawer={slotDrawer}
+          onCloseSlot={() => setSlotDrawer(null)}
+          onCloneSlot={(s) => {
+            setSlotDrawer(null);
+            setModal({ open: true, urgent: s.urgent, preselected: null, cloneFrom: s });
+          }}
+          modal={modal}
+          onCloseModal={() => setModal({ open: false, urgent: false, preselected: null })}
           onToast={showToast}
         />
 

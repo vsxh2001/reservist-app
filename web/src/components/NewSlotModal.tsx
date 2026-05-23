@@ -9,6 +9,8 @@ import { useCreateSlot } from '../lib/queries';
 import { useAuth } from '../lib/auth';
 import { fmtClock, isoDay } from '../lib/calendarUtils';
 import { humanizeError } from '../lib/errors';
+import { MS_PER_HOUR } from '../lib/constants';
+import { getActiveMembers } from '../lib/members';
 
 interface Props {
   open: boolean;
@@ -45,7 +47,7 @@ export function NewSlotModal({
       setTitle(cloneFrom.title);
       setLocation(cloneFrom.location ?? '');
       const startD = new Date(cloneFrom.start_at);
-      const endD = cloneFrom.end_at ? new Date(cloneFrom.end_at) : new Date(startD.getTime() + 3600_000);
+      const endD = cloneFrom.end_at ? new Date(cloneFrom.end_at) : new Date(startD.getTime() + MS_PER_HOUR);
       const today = new Date();
       // Keep time-of-day, shift date to today so the clone is forward-dated by default.
       setDate(isoDay(today));
@@ -64,12 +66,7 @@ export function NewSlotModal({
 
   // Show every active member, sorted by status then name. Skills are shown for
   // the commander's reference; selection is not constrained.
-  const candidates = members
-    .filter((m) => (m.status === 'available' || m.status === 'standby'))
-    .sort((a, b) => {
-      if (a.status !== b.status) return a.status === 'available' ? -1 : 1;
-      return a.name.localeCompare(b.name);
-    });
+  const candidates = getActiveMembers(members);
 
   const submit = async (state: 'draft' | 'published') => {
     if (!user) return;
@@ -78,7 +75,7 @@ export function NewSlotModal({
     const endD = new Date(`${date}T${end}:00`);
     if (endD <= startD) endD.setDate(endD.getDate() + 1);
     const endAt = endD.toISOString();
-    const hrs = Math.round((endD.getTime() - startD.getTime()) / 3600000);
+    const hrs = Math.round((endD.getTime() - startD.getTime()) / MS_PER_HOUR);
 
     try {
       await createSlot.mutateAsync({

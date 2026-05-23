@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Icon } from './Icon';
 import { ActivityFiltersBar } from './ActivityFiltersBar';
 import { fmtRelCompact } from '../lib/calendarUtils';
+import { MS_PER_DAY } from '../lib/constants';
 import type { ActivityItem } from '../lib/types';
 
 // ---------------------------------------------------------------------------
@@ -80,7 +81,7 @@ function dayLabel(iso: string): string {
   d.setHours(0, 0, 0, 0);
   const today = startOfToday();
   if (d.getTime() === today) return 'Today';
-  if (d.getTime() === today - 86400_000) return 'Yesterday';
+  if (d.getTime() === today - MS_PER_DAY) return 'Yesterday';
   return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
@@ -112,7 +113,7 @@ export function ActivityScreen({ items, teamName }: ActivityScreenProps) {
     const fromMs = parseLocalDate(dateFrom);
     // "To" is inclusive of the chosen day, so add one day's worth of ms.
     const toRaw = parseLocalDate(dateTo);
-    const toMs = toRaw == null ? null : toRaw + 86_400_000;
+    const toMs = toRaw == null ? null : toRaw + MS_PER_DAY;
 
     return items.filter((a) => {
       if (q && !a.actor_name.toLowerCase().includes(q)) return false;

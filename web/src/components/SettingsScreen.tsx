@@ -10,10 +10,10 @@ import { PushNotificationsCardBody } from './PushNotificationsCardBody';
 import type { Team } from '../lib/types';
 import { isInviteExpired } from '../lib/types';
 import { humanizeError } from '../lib/errors';
+import { MS_PER_HOUR, MS_PER_DAY } from '../lib/constants';
 
 const INVITE_TTL_DAYS = 7;
-const INVITE_TTL_MS = INVITE_TTL_DAYS * 24 * 60 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
+const INVITE_TTL_MS = INVITE_TTL_DAYS * MS_PER_DAY;
 
 function nextExpiryIso(): string {
   return new Date(Date.now() + INVITE_TTL_MS).toISOString();
@@ -254,8 +254,8 @@ function InviteExpiryBadge({ expiresAt }: { expiresAt: string | null }) {
   }
   const expired = isInviteExpired({ invite_expires_at: expiresAt });
   const remaining = msToExpiry(expiresAt) ?? 0;
-  const daysLeft = Math.ceil(remaining / DAY_MS);
-  const hoursLeft = Math.ceil(remaining / (60 * 60 * 1000));
+  const daysLeft = Math.ceil(remaining / MS_PER_DAY);
+  const hoursLeft = Math.ceil(remaining / MS_PER_HOUR);
 
   // ── Colour bands ────────────────────────────────────────────────────────
   //   expired    → urgent (red-ish accent already in theme)
@@ -270,11 +270,11 @@ function InviteExpiryBadge({ expiresAt }: { expiresAt: string | null }) {
     fg = 'var(--urgent, #c33)';
     border = 'color-mix(in srgb, var(--urgent, #c33) 35%, transparent)';
     label = 'Expired — regenerate to issue a new link';
-  } else if (remaining < 2 * DAY_MS) {
+  } else if (remaining < 2 * MS_PER_DAY) {
     bg = 'var(--accent-tint)';
     fg = 'var(--accent-ink)';
     border = 'color-mix(in srgb, var(--accent) 35%, transparent)';
-    label = remaining < DAY_MS
+    label = remaining < MS_PER_DAY
       ? `Expires in ${Math.max(hoursLeft, 0)}h · ${formatExpiry(expiresAt)}`
       : `Expires in ${daysLeft} days · ${formatExpiry(expiresAt)}`;
   } else {

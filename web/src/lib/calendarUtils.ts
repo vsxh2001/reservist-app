@@ -2,6 +2,8 @@
 // CalendarScreen.tsx has its own copy with slightly different padding rules
 // (always 42 cells); kept separate to avoid touching that screen.
 
+import { MS_PER_DAY } from './constants';
+
 export function isoDay(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -101,7 +103,7 @@ export function fmtWhen(iso: string, now: Date = new Date()): string {
   const dayDiff = Math.round(
     (new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() -
       new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) /
-      86_400_000,
+      MS_PER_DAY,
   );
 
   if (dayDiff === 0) {
@@ -174,7 +176,7 @@ export function untilHint(dateISO: string, now: Date = new Date()): string | nul
   const [y, m, d] = dateISO.split('-').map(Number);
   if (!y || !m || !d) return null;
   const target = new Date(y, m - 1, d);
-  const days = Math.round((target.getTime() - today.getTime()) / 86_400_000);
+  const days = Math.round((target.getTime() - today.getTime()) / MS_PER_DAY);
   if (days < 0) return 'expired';
   if (days === 0) return 'expires today';
   if (days === 1) return 'expires tomorrow';
@@ -201,12 +203,11 @@ export function windowCountdown(startISO: string, endISO: string, now: Date = ne
   const [ey, em, ed] = endISO.split('-').map(Number);
   const start = new Date(sy, sm - 1, sd);
   const end = new Date(ey, em - 1, ed);
-  const dayMs = 86_400_000;
 
   if (today > end) return null;
   if (today >= start) return 'in progress';
 
-  const days = Math.round((start.getTime() - today.getTime()) / dayMs);
+  const days = Math.round((start.getTime() - today.getTime()) / MS_PER_DAY);
   if (days === 1) return 'starts tomorrow';
   if (days <= 60) return `starts in ${days} days`;
   return null;

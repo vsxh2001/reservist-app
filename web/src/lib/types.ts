@@ -1,3 +1,5 @@
+import { MS_PER_HOUR } from './constants';
+
 export type Status = 'available' | 'standby' | 'released' | 'unavailable';
 
 export const STATUS_LABEL: Record<Status, string> = {
@@ -42,13 +44,13 @@ export function findMemberConflicts(
   excludeSlotId?: string,
 ): { id: string; title: string; start_at: string; end_at: string | null }[] {
   const aStart = Date.parse(startAt);
-  const aEnd = endAt ? Date.parse(endAt) : aStart + 3600_000; // assume 1h if open-ended
+  const aEnd = endAt ? Date.parse(endAt) : aStart + MS_PER_HOUR; // assume 1h if open-ended
   return allSlots.filter((s) => {
     if (s.id === excludeSlotId) return false;
     if (s.state !== 'published') return false;
     if (s.assignee_id !== memberId) return false;
     const bStart = Date.parse(s.start_at);
-    const bEnd = s.end_at ? Date.parse(s.end_at) : bStart + 3600_000;
+    const bEnd = s.end_at ? Date.parse(s.end_at) : bStart + MS_PER_HOUR;
     return aStart < bEnd && bStart < aEnd;
   }).map(({ id, title, start_at, end_at }) => ({ id, title, start_at, end_at }));
 }
@@ -229,7 +231,7 @@ export function findDeploymentConflicts(
   picks: { member_id: string; date: string }[],
 ): { date: string }[] {
   const aStart = Date.parse(startAt);
-  const aEnd = endAt ? Date.parse(endAt) : aStart + 3_600_000; // treat null as +1 h
+  const aEnd = endAt ? Date.parse(endAt) : aStart + MS_PER_HOUR; // treat null as +1 h
 
   return picks
     .filter((p) => {

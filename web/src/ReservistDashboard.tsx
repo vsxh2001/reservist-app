@@ -18,6 +18,7 @@ import {
   useMembers, useMyDeploymentWindows, useMyMember, useMyRecentActivity, useMySlots,
 } from './lib/queries';
 import { isoDay } from './lib/calendarUtils';
+import { MS_PER_DAY } from './lib/constants';
 import { useRealtime } from './lib/realtime';
 import { usePushSubscription } from './lib/usePushSubscription';
 import { fmtPhoneIL } from './lib/phone';
@@ -92,7 +93,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
     }
     return true;
   });
-  const upcoming = visibleSlots.filter((s) => s.state === 'published' && new Date(s.start_at) >= new Date(Date.now() - 86400000));
+  const upcoming = visibleSlots.filter((s) => s.state === 'published' && new Date(s.start_at) >= new Date(Date.now() - MS_PER_DAY));
   const urgent = upcoming.filter((s) => s.urgent);
   const regular = upcoming.filter((s) => !s.urgent);
   // Cancelled slots the reservist was assigned to, within a recent/near window
@@ -104,7 +105,7 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
     if (s.assignee_id !== myMemberId) return false;
     const t = new Date(s.start_at).getTime();
     const now = Date.now();
-    return t >= now - 7 * 86_400_000 && t <= now + 30 * 86_400_000;
+    return t >= now - 7 * MS_PER_DAY && t <= now + 30 * MS_PER_DAY;
   });
 
   return (

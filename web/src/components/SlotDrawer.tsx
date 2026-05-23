@@ -10,6 +10,8 @@ import { useAuth } from '../lib/auth';
 import { fmtClock, isoDay } from '../lib/calendarUtils';
 import { humanizeError } from '../lib/errors';
 import { activate } from '../lib/a11y';
+import { MS_PER_HOUR } from '../lib/constants';
+import { getActiveMembers } from '../lib/members';
 
 interface Props {
   slot: Slot;
@@ -73,13 +75,7 @@ export function SlotDrawer({ slot, members, allSlots, approvedPicks, teamId, onC
     [slot.assignee_id, members],
   );
   const candidates = useMemo(() => {
-    return members
-      .filter((m) => m.id !== slot.assignee_id)
-      .filter((m) => m.status === 'available' || m.status === 'standby')
-      .sort((a, b) => {
-        if (a.status !== b.status) return a.status === 'available' ? -1 : 1;
-        return a.name.localeCompare(b.name);
-      });
+    return getActiveMembers(members).filter((m) => m.id !== slot.assignee_id);
   }, [members, slot.assignee_id]);
 
   const commitAssign = async () => {
@@ -145,7 +141,7 @@ export function SlotDrawer({ slot, members, allSlots, approvedPicks, teamId, onC
     const startD = new Date(`${eDate}T${eStart}:00`);
     const endD = new Date(`${eDate}T${eEnd}:00`);
     if (endD <= startD) endD.setDate(endD.getDate() + 1);
-    const hrs = Math.max(1, Math.round((endD.getTime() - startD.getTime()) / 3600000));
+    const hrs = Math.max(1, Math.round((endD.getTime() - startD.getTime()) / MS_PER_HOUR));
 
     try {
       await updateSlot.mutateAsync({

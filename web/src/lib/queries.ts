@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from './supabase';
-import { notifyUrgentCallUp, notifySlotAssigned, notifyPickDecided } from './notify';
+import {
+  notifyUrgentCallUp, notifySlotAssigned, notifyPickDecided,
+  notifySlotChanged, notifySlotCancelled,
+} from './notify';
 import { initialsFromName } from './text';
 import type {
   ActivityItem, DeploymentPick, DeploymentWindow, Division, JoinRequest,
@@ -982,6 +985,10 @@ export function useUpdateSlot() {
       };
       actorId: string;
       actorName: string;
+      /** Optional — when set, the slot's current assignee receives a push (PRD §7.8). */
+      assigneeId?: string | null;
+      /** Optional — used to compose the push title; falls back to patch.title. */
+      slotTitle?: string;
     }) => {
       const row: Record<string, unknown> = {};
       if (vars.patch.title !== undefined)    row.title     = vars.patch.title;
@@ -1005,6 +1012,11 @@ export function useUpdateSlot() {
         what: vars.patch.title ?? null,
         tone: 'accent',
       });
+
+      if (vars.assigneeId) {
+        const pushTitle = vars.patch.title ?? vars.slotTitle ?? 'duty slot';
+        void notifySlotChanged(vars.teamId, vars.assigneeId, pushTitle);
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['slots'] });
@@ -1019,6 +1031,8 @@ export function useUpdateSlotState() {
     mutationFn: async (vars: {
       slotId: string; state: 'draft' | 'published' | 'completed' | 'cancelled';
       actorId: string; teamId: string; actorName: string; slotTitle: string;
+      /** Optional — when set + state==='cancelled', the assignee receives a push (PRD §7.8). */
+      assigneeId?: string | null;
     }) => {
       const { error } = await supabase
         .from('slots')
@@ -1033,6 +1047,10 @@ export function useUpdateSlotState() {
         what: vars.slotTitle,
         tone: vars.state === 'cancelled' ? 'urgent' : 'accent',
       });
+
+      if (vars.state === 'cancelled' && vars.assigneeId) {
+        void notifySlotCancelled(vars.teamId, vars.assigneeId, vars.slotTitle);
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['slots'] });

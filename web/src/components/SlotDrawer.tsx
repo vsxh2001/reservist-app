@@ -125,6 +125,7 @@ export function SlotDrawer({ slot, members, allSlots, approvedPicks, teamId, onC
       await updateState.mutateAsync({
         slotId: slot.id, state, actorId: user.id, teamId,
         actorName: user.name, slotTitle: slot.title,
+        assigneeId: slot.assignee_id,
       });
     } catch (err) {
       onToast(humanizeError(err, 'Failed to update slot state'));
@@ -159,6 +160,8 @@ export function SlotDrawer({ slot, members, allSlots, approvedPicks, teamId, onC
         },
         actorId: user.id,
         actorName: user.name,
+        assigneeId: slot.assignee_id,
+        slotTitle: slot.title,
       });
     } catch (err) {
       onToast(humanizeError(err, 'Failed to save'));

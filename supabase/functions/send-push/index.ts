@@ -104,6 +104,25 @@ Deno.serve(async (req) => {
   if (!payload.title || !payload.body) {
     return jsonResponse({ error: "title_and_body_required" }, 400);
   }
+  // Defensive caps. Every notify.ts helper in the web client builds short
+  // strings (titles like "Urgent: …" stay well under 100 chars), so these
+  // limits are inert for the happy path. They reject pathological payloads
+  // before we waste service-role cycles fanning out to dozens of devices.
+  if (payload.title.length > 200) {
+    return jsonResponse({ error: "title_too_long" }, 400);
+  }
+  if (payload.body.length > 4000) {
+    return jsonResponse({ error: "body_too_long" }, 400);
+  }
+  if (payload.url && payload.url.length > 2000) {
+    return jsonResponse({ error: "url_too_long" }, 400);
+  }
+  if (payload.tag && payload.tag.length > 256) {
+    return jsonResponse({ error: "tag_too_long" }, 400);
+  }
+  if (payload.member_ids.length > 1000) {
+    return jsonResponse({ error: "too_many_recipients" }, 400);
+  }
 
   // Service-role client for the rest of the work — RLS bypass is intentional;
   // we enforce authorization explicitly below.

@@ -2,11 +2,11 @@ import type { SVGProps } from 'react';
 
 export type IconName =
   | 'available' | 'search' | 'x' | 'check' | 'chevDown' | 'chevRight'
-  | 'filter' | 'sort' | 'plus' | 'minus' | 'bell' | 'phone' | 'whatsapp'
+  | 'filter' | 'sort' | 'plus' | 'bell' | 'phone' | 'whatsapp'
   | 'copy' | 'roster' | 'calendar' | 'slots' | 'activity' | 'reviews'
   | 'settings' | 'urgent' | 'clock' | 'pin' | 'skill' | 'user' | 'users'
-  | 'star' | 'starOpen' | 'moreHoriz' | 'shield' | 'eyeOff' | 'edit'
-  | 'link' | 'dollar' | 'radio';
+  | 'moreHoriz' | 'shield' | 'eyeOff' | 'edit'
+  | 'link' | 'radio';
 
 const paths: Record<IconName, JSX.Element> = {
   available: <circle cx="8" cy="8" r="3.2" />,
@@ -18,7 +18,6 @@ const paths: Record<IconName, JSX.Element> = {
   filter: <path d="M2.5 4h11M4.5 8h7M6.5 12h3" />,
   sort: <path d="M4 5l2-2 2 2M6 3v10M12 11l-2 2-2-2M10 13V3" />,
   plus: <path d="M8 3v10M3 8h10" />,
-  minus: <path d="M3 8h10" />,
   bell: <path d="M4 11h8l-1-2V7a3 3 0 0 0-6 0v2l-1 2zM6.5 13a1.5 1.5 0 0 0 3 0" />,
   phone: <path d="M5 3.5h2l1 2.5-1.4 1A6 6 0 0 0 9 9.4l1-1.4 2.5 1V11a1.5 1.5 0 0 1-1.5 1.5A8.5 8.5 0 0 1 3.5 4 1.5 1.5 0 0 1 5 2.5" />,
   whatsapp: <path d="M3 13l.9-2.7A5 5 0 1 1 6 13.2zM6.2 7.6c.4 1 1.2 1.8 2.2 2.2.3.1.6.1.8-.1l.4-.4c.1-.1.3-.2.5-.1l1 .4c.2.1.3.3.3.5v.5c0 .3-.2.5-.5.5a4 4 0 0 1-3.9-3.9c0-.3.2-.5.5-.5h.5c.2 0 .4.1.5.3l.4 1c.1.2 0 .4-.1.5l-.4.4c-.2.2-.2.5-.1.8z" />,
@@ -35,14 +34,11 @@ const paths: Record<IconName, JSX.Element> = {
   skill: <><path d="M3 11l3-3 2.5 2.5L13 5" /><path d="M10 5h3v3" /></>,
   user: <><circle cx="8" cy="6" r="2.5" /><path d="M3 13c.7-2.4 2.5-3.5 5-3.5s4.3 1.1 5 3.5" /></>,
   users: <><circle cx="6" cy="6" r="2" /><path d="M2 13c.5-2 1.8-3 4-3s3.5 1 4 3M11 8a2 2 0 1 0 0-4M14 13c-.4-1.7-1.4-2.5-3-2.7" /></>,
-  star: <path d="M8 2.5l1.7 3.4 3.8.5-2.7 2.6.7 3.8L8 11l-3.5 1.8.7-3.8L2.5 6.4l3.8-.5z" fill="currentColor" />,
-  starOpen: <path d="M8 2.5l1.7 3.4 3.8.5-2.7 2.6.7 3.8L8 11l-3.5 1.8.7-3.8L2.5 6.4l3.8-.5z" />,
   moreHoriz: <><circle cx="3.5" cy="8" r=".9" fill="currentColor" /><circle cx="8" cy="8" r=".9" fill="currentColor" /><circle cx="12.5" cy="8" r=".9" fill="currentColor" /></>,
   shield: <path d="M8 2L3 4v4.5C3 11.5 5.5 13 8 14c2.5-1 5-2.5 5-5.5V4z" />,
   eyeOff: <path d="M2 2l12 12M6 5.5A6 6 0 0 0 2 8c1.5 2.5 3.5 4 6 4 1 0 1.9-.2 2.7-.6M11.8 11.8C13.1 11 14.2 9.7 15 8a8 8 0 0 0-7-4M6.5 8a1.5 1.5 0 0 0 1.5 1.5" />,
   edit: <path d="M10.5 3.5l2 2M3 13l1-3 6.5-6.5 2 2L6 12z" />,
   link: <path d="M9 5h2.5a2.5 2.5 0 1 1 0 5H9M7 11H4.5a2.5 2.5 0 1 1 0-5H7M5.5 8h5" />,
-  dollar: <path d="M10 5H7a1.5 1.5 0 0 0 0 3h2a1.5 1.5 0 0 1 0 3H5.5M8 3v2M8 11v2" />,
   radio: <><circle cx="8" cy="8" r="1.5" /><path d="M5.5 5.5a3.5 3.5 0 0 0 0 5M10.5 5.5a3.5 3.5 0 0 1 0 5M3 3.5a7 7 0 0 0 0 9M13 3.5a7 7 0 0 1 0 9" /></>,
 };
 

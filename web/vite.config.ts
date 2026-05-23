@@ -58,4 +58,18 @@ export default defineConfig({
       '/functions':  { target: 'http://127.0.0.1:54321', changeOrigin: true, secure: false },
     },
   },
+  build: {
+    // Without manualChunks, vite bundles everything into one 607 KB file.
+    // Splitting vendor groups lets the browser cache them independently
+    // across deploys (only the app chunk invalidates when our code ships).
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom'],
+          supabase: ['@supabase/supabase-js'],
+          query: ['@tanstack/react-query'],
+        },
+      },
+    },
+  },
 });

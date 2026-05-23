@@ -1,0 +1,77 @@
+# Dormant deploy workflow for Supabase migrations + Edge Functions.
+#
+# Pairs with deploy-vercel.yml. Both are no-ops until secrets are wired.
+#
+# Setup (one-time):
+#
+#   1. Install Supabase CLI locally and run `supabase login` to mint a
+#      personal access token. Add it as a repo secret:
+#        - SUPABASE_ACCESS_TOKEN
+#   2. Find your hosted project ref (Supabase dashboard, project
+#      settings, general) and add as a secret:
+#        - SUPABASE_PROJECT_REF
+#   3. For the send-push Edge Function to deliver pushes, set the
+#      VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT in the hosted
+#      project's Edge Function secrets (Supabase dashboard, Edge
+#      Functions, Secrets). NOT here.
+#   4. Push to main, or run this workflow manually from the Actions tab.
+#
+# What this runs (when enabled):
+#   - supabase link --project-ref ...
+#   - supabase db push           (apply pending migrations)
+#   - supabase functions deploy  (push Edge Functions)
+#
+# Both steps are idempotent. Only secrets.* values are interpolated;
+# no untrusted user input is read into run blocks.
+
+name: Deploy (Supabase)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/functions/**'
+      - '.github/workflows/deploy-supabase.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-supabase
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Push migrations + Edge Functions
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+
+    steps:
+      - name: Skip if SUPABASE_ACCESS_TOKEN is missing
+        if: env.SUPABASE_ACCESS_TOKEN == ''
+        run: |
+          echo "SUPABASE_ACCESS_TOKEN not set - skipping deploy. See deploy-supabase.yml header for setup."
+          exit 0
+
+      - name: Checkout
+        if: env.SUPABASE_ACCESS_TOKEN != ''
+        uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        if: env.SUPABASE_ACCESS_TOKEN != ''
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link project
+        if: env.SUPABASE_ACCESS_TOKEN != ''
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      - name: Push migrations
+        if: env.SUPABASE_ACCESS_TOKEN != ''
+        run: supabase db push
+
+      - name: Deploy Edge Functions
+        if: env.SUPABASE_ACCESS_TOKEN != ''
+        run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"

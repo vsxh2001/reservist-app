@@ -11,6 +11,7 @@ import { useAuth } from '../lib/auth';
 import { fmtPhoneIL, normalizePhoneToE164IL } from '../lib/phone';
 import { CrossTeamRecruitDrawer } from './CrossTeamRecruitDrawer';
 import { humanizeError } from '../lib/errors';
+import { activate } from '../lib/a11y';
 
 const fmtPhone = fmtPhoneIL;
 
@@ -251,28 +252,31 @@ export function Roster(props: Props) {
   return (
     <>
       <div className="stats">
-        <div className="stat" data-active={filters.status.length === 0 ? '1' : '0'} onClick={() => onFilters({ ...filters, status: [] })}>
+        <div className="stat" data-active={filters.status.length === 0 ? '1' : '0'} {...activate(() => onFilters({ ...filters, status: [] }))} aria-label="Show all members">
           <div className="stat-label">Total roster</div>
           <div className="stat-num">{counts.total}<em>members</em></div>
           <div className="stat-delta">+2 this quarter</div>
         </div>
         <div className="stat"
              data-active={filters.status.length === 1 && filters.status[0] === 'available' ? '1' : '0'}
-             onClick={() => onFilters({ ...filters, status: ['available'] })}>
+             {...activate(() => onFilters({ ...filters, status: ['available'] }))}
+             aria-label="Filter by available status">
           <div className="stat-label"><span className="dot" style={{ background: 'var(--st-avail)' }}/>Available now</div>
           <div className="stat-num">{counts.available}<em>can be called</em></div>
           <div className="stat-delta">{counts.total === 0 ? '—' : `${Math.round(counts.available / counts.total * 100)}% of unit`}</div>
         </div>
         <div className="stat"
              data-active={filters.status.length === 1 && filters.status[0] === 'standby' ? '1' : '0'}
-             onClick={() => onFilters({ ...filters, status: ['standby'] })}>
+             {...activate(() => onFilters({ ...filters, status: ['standby'] }))}
+             aria-label="Filter by standby status">
           <div className="stat-label"><span className="dot" style={{ background: 'var(--st-stand)' }}/>On standby</div>
           <div className="stat-num">{counts.standby}<em>ready to go</em></div>
           <div className="stat-delta">avg 14h response</div>
         </div>
         <div className="stat"
              data-active={filters.status.length === 1 && filters.status[0] === 'unavailable' ? '1' : '0'}
-             onClick={() => onFilters({ ...filters, status: ['unavailable'] })}>
+             {...activate(() => onFilters({ ...filters, status: ['unavailable'] }))}
+             aria-label="Filter by unavailable status">
           <div className="stat-label"><span className="dot" style={{ background: 'var(--st-unav)' }}/>Unavailable</div>
           <div className="stat-num">{counts.unavailable}<em>blocked</em></div>
           <div className="stat-delta">{counts.unavailable === 0 ? '—' : 'next free Jun 28'}</div>
@@ -315,10 +319,10 @@ export function Roster(props: Props) {
       <div className="roster" data-cols="6">
         <div className="roster-head">
           <span />
-          <span className="sortable" data-on={sort.key === 'name' ? '1' : '0'} onClick={() => toggleSort('name')}>
+          <span className="sortable" data-on={sort.key === 'name' ? '1' : '0'} {...activate(() => toggleSort('name'))} aria-label={`Sort by name${sort.key === 'name' ? ` (${sort.dir})` : ''}`}>
             Name <Icon name="sort" size={11} />
           </span>
-          <span className="sortable" data-on={sort.key === 'status' ? '1' : '0'} onClick={() => toggleSort('status')}>Status</span>
+          <span className="sortable" data-on={sort.key === 'status' ? '1' : '0'} {...activate(() => toggleSort('status'))} aria-label={`Sort by status${sort.key === 'status' ? ` (${sort.dir})` : ''}`}>Status</span>
           <span>Skills</span>
           <span>Contact</span>
           <span style={{ textAlign: 'end' }}>Actions</span>
@@ -470,7 +474,7 @@ function RosterRow({
   const shown = m.skills.slice(0, 3);
   const isCommander = m.teams.find((t) => t.team_id === teamId)?.role === 'commander';
   return (
-    <div className="roster-row" data-selected={selected ? '1' : '0'} onClick={() => onPerson(m)}>
+    <div className="roster-row" data-selected={selected ? '1' : '0'} {...activate(() => onPerson(m))} aria-label={`Open profile for ${m.name}`}>
       <Check on={selected} onClick={(e) => { e.stopPropagation(); onToggle(); }} />
       <div className="cell-name">
         <Avatar initials={m.initials} tone={m.tone} status={m.status} />

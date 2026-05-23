@@ -1,0 +1,74 @@
+# Dormant deploy workflow for the web/PWA build.
+#
+# This file does nothing until you wire up Vercel:
+#
+#   1. Sign up at vercel.com, import this repo.
+#   2. In repo Settings > Secrets and variables > Actions, add:
+#        - VERCEL_TOKEN       (vercel.com/account/tokens)
+#        - VERCEL_ORG_ID      (from vercel link or project settings)
+#        - VERCEL_PROJECT_ID  (from project settings > general)
+#   3. In Vercel's project settings > Environment Variables, set the
+#      web/.env.production.example vars there (not in this workflow).
+#   4. Push to main, or run this workflow manually from the Actions tab.
+#
+# The job no-ops cleanly when VERCEL_TOKEN is unset (any fork, or
+# before secrets are wired). Only repository secrets are interpolated;
+# no untrusted user input is read into run blocks.
+
+name: Deploy (Vercel)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy web to Vercel
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - name: Skip if VERCEL_TOKEN is missing
+        if: env.VERCEL_TOKEN == ''
+        run: |
+          echo "VERCEL_TOKEN not set - skipping deploy. See deploy-vercel.yml header for setup."
+          exit 0
+
+      - name: Checkout
+        if: env.VERCEL_TOKEN != ''
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        if: env.VERCEL_TOKEN != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install Vercel CLI
+        if: env.VERCEL_TOKEN != ''
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel environment (production)
+        if: env.VERCEL_TOKEN != ''
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Build (Vercel)
+        if: env.VERCEL_TOKEN != ''
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+
+      - name: Deploy prebuilt artifacts
+        if: env.VERCEL_TOKEN != ''
+        run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"

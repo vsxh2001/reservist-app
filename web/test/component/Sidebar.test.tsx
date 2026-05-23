@@ -261,4 +261,63 @@ describe('Sidebar', () => {
     await userEvent.click(screen.getByText('Commander Test'));
     expect(signOutMock).toHaveBeenCalledTimes(1);
   });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Keyboard activation contract added in PR #96 via lib/a11y `activate()`.
+  // ─────────────────────────────────────────────────────────────────────
+
+  it('marks the active nav link with aria-current="page" for AT users', () => {
+    renderSidebar({ active: 'calendar' });
+    const calendar = screen.getByText('Calendar').closest('.sb-link');
+    expect(calendar).not.toBeNull();
+    expect(calendar).toHaveAttribute('aria-current', 'page');
+    const roster = screen.getByText('Roster').closest('.sb-link');
+    expect(roster).not.toHaveAttribute('aria-current');
+  });
+
+  it('nav links join the tab order with role="button" and tabIndex=0', () => {
+    renderSidebar();
+    const calendar = screen.getByText('Calendar').closest('.sb-link') as HTMLElement;
+    expect(calendar).toHaveAttribute('role', 'button');
+    expect(calendar).toHaveAttribute('tabindex', '0');
+  });
+
+  it('Enter on a focused nav link fires onNav', async () => {
+    const { onNav } = renderSidebar();
+    const calendar = screen.getByText('Calendar').closest('.sb-link') as HTMLElement;
+    calendar.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(onNav).toHaveBeenCalledWith('calendar');
+  });
+
+  it('Space on a focused nav link fires onNav', async () => {
+    const { onNav } = renderSidebar();
+    const settings = screen.getByText('Settings').closest('.sb-link') as HTMLElement;
+    settings.focus();
+    await userEvent.keyboard(' ');
+    expect(onNav).toHaveBeenCalledWith('settings');
+  });
+
+  it('disabled Reviews link advertises aria-disabled and stays in the tab order without firing onNav', async () => {
+    const { onNav } = renderSidebar();
+    const reviews = screen.getByText('Reviews').closest('.sb-link') as HTMLElement;
+    expect(reviews).toHaveAttribute('aria-disabled', 'true');
+    reviews.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(onNav).not.toHaveBeenCalledWith('reviews');
+  });
+
+  it('Enter on the sign-out footer triggers signOut', async () => {
+    renderSidebar();
+    const footer = screen.getByText('Commander Test').closest('.sb-me') as HTMLElement;
+    footer.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(signOutMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('sign-out footer carries an aria-label so screen readers announce the action', () => {
+    renderSidebar();
+    const footer = screen.getByLabelText('Sign out');
+    expect(footer).toBeInTheDocument();
+  });
 });

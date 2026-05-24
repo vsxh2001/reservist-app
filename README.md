@@ -259,15 +259,29 @@ Both jobs must pass before merge.
 ```
 reservist_app/
   Reservist_App_PRD_v1.md       Product spec
+  DEPLOY.md                     Hosted-Supabase + Vercel runbook
   supabase/
+    .env.example                Edge Function + auth secrets template
     config.toml                 CLI + service ports + auth providers
     migrations/                 Ordered SQL — applied by supabase db reset
     seed.sql                    Mahlaka 6 / Carmel demo data
+    functions/send-push/        VAPID-signed push fan-out Edge Function
   web/
+    .env.production.example     Prod client env template
+    vercel.json                 Security headers + SPA rewrite
     src/                        React app (Dashboard, ReservistDashboard, lib/)
     test/                       Vitest unit + integration suites
     scripts/push-sidecar.mjs    Web-push fanout
     vite.config.ts              Dev server, PWA, basic-ssl, Supabase proxy
     vitest.config.ts            Test runner config
-  .github/workflows/ci.yml      web + integration CI jobs
+  .github/workflows/
+    ci.yml                      web + integration CI jobs
+    deploy-vercel.yml           Dormant until VERCEL_* secrets set
+    deploy-supabase.yml         Dormant until SUPABASE_* secrets set
 ```
+
+## Deploying
+
+See [`DEPLOY.md`](./DEPLOY.md) for the end-to-end runbook covering
+Supabase Cloud + Vercel setup, GitHub secrets, Google OAuth, and the
+first-deploy smoke test.

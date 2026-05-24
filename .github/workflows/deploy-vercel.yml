@@ -41,6 +41,9 @@ jobs:
     steps:
       - name: Skip if VERCEL_TOKEN is missing
         if: env.VERCEL_TOKEN == ''
+        # Runs before checkout, so the `web` working-directory default does
+        # not exist yet. Override to the runner root or bash fails to start.
+        working-directory: ${{ github.workspace }}
         run: |
           echo "VERCEL_TOKEN not set - skipping deploy. See deploy-vercel.yml header for setup."
           exit 0

@@ -47,7 +47,7 @@ jobs:
 
       - name: Checkout
         if: env.VERCEL_TOKEN != ''
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node 22
         if: env.VERCEL_TOKEN != ''

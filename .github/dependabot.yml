@@ -1,0 +1,37 @@
+# Dependabot configuration.
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# Conservative defaults so PR noise stays manageable:
+#   - Weekly cadence (not daily).
+#   - At most 5 open PRs per ecosystem.
+#   - Groups patch + minor updates into one PR so Dependabot doesn't
+#     fragment a single React-Query bump into 8 micro-PRs.
+#   - Major updates stay as one-off PRs so they get a real review.
+
+version: 2
+
+updates:
+  # npm — the web bundle
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    groups:
+      patch-and-minor:
+        update-types:
+          - "patch"
+          - "minor"
+
+  # GitHub Actions — pinned action versions in workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "ci"

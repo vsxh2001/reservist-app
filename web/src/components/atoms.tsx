@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, JSX, ReactNode } from 'react';
 import { Icon, type IconName } from './Icon';
 import { SKILL_LEVEL_LABEL, STATUS_LABEL, type SkillLevel, type Status } from '../lib/types';
 

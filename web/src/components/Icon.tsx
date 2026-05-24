@@ -1,4 +1,4 @@
-import type { SVGProps } from 'react';
+import type { JSX, SVGProps } from 'react';
 
 export type IconName =
   | 'available' | 'search' | 'x' | 'check' | 'chevDown' | 'chevRight'

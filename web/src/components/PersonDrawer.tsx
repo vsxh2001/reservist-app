@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { JSX } from 'react';
 import { Icon } from './Icon';
 import { Avatar, Button, IconButton, SkillChip, StatusPill } from './atoms';
 import { DeploymentWindowDrawer } from './DeploymentWindowDrawer';

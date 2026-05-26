@@ -40,11 +40,15 @@ export function fmtRelCompact(iso: string, now: Date = new Date()): string {
 }
 
 export function monthsBetween(startISO: string, endISO: string): Date[] {
-  const start = new Date(startISO);
-  const end = new Date(endISO);
+  // Inputs are date-only `YYYY-MM-DD` (Postgres `date`). Parse the year/month
+  // in local time the same way `windowCountdown`/`untilHint` do — `new Date(str)`
+  // reads a date-only string as UTC midnight, which in a negative-offset
+  // timezone lands on the previous calendar month and renders a stray month.
+  const [sy, sm] = startISO.split('-').map(Number);
+  const [ey, em] = endISO.split('-').map(Number);
   const months: Date[] = [];
-  const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
-  const last = new Date(end.getFullYear(), end.getMonth(), 1);
+  const cursor = new Date(sy, sm - 1, 1);
+  const last = new Date(ey, em - 1, 1);
   while (cursor <= last) {
     months.push(new Date(cursor));
     cursor.setMonth(cursor.getMonth() + 1);
@@ -66,8 +70,14 @@ export function monthGridCells(monthFirst: Date, startISO: string, endISO: strin
   const offset = (firstDay.getDay() + 6) % 7; // week starts Mon
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const cells: MonthGridCell[] = [];
-  const winStart = new Date(startISO);
-  const winEnd = new Date(endISO);
+  // Parse the date-only window bounds in local time so they compare cleanly
+  // against the local-midnight `d` below. `new Date(str)` would read them as
+  // UTC midnight, shifting the boundary day across local midnight and
+  // mis-flagging the window's first/last day in any non-UTC timezone.
+  const [wsy, wsm, wsd] = startISO.split('-').map(Number);
+  const [wey, wem, wed] = endISO.split('-').map(Number);
+  const winStart = new Date(wsy, wsm - 1, wsd);
+  const winEnd = new Date(wey, wem - 1, wed);
   for (let i = 0; i < offset; i++) {
     const d = new Date(year, month, 1 - (offset - i));
     cells.push({ date: d, inMonth: false, inWindow: false });

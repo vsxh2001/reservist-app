@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fmtClock, fmtRelCompact, fmtWhen, isoDay, monthGridCells, relativeAgo, untilHint, windowCountdown } from '../src/lib/calendarUtils';
+import { fmtClock, fmtRelCompact, fmtWhen, isoDay, monthGridCells, monthsBetween, relativeAgo, untilHint, windowCountdown } from '../src/lib/calendarUtils';
 
 describe('fmtWhen', () => {
   const now = new Date(2026, 5, 10, 12, 0, 0); // 2026-06-10 12:00 local
@@ -269,14 +269,65 @@ describe('monthGridCells', () => {
   });
 
   it('marks inWindow for dates inside [startISO, endISO] and excludes those clearly outside', () => {
-    // Use times that clear the local/UTC midnight ambiguity on boundary days,
-    // so the assertion holds regardless of CI vs. local TZ.
-    const cells = monthGridCells(new Date(2026, 5, 1), '2026-06-09T00:00:00Z', '2026-06-21T23:59:59Z');
+    // Date-only `YYYY-MM-DD` is exactly what the callers pass (Postgres `date`).
+    const cells = monthGridCells(new Date(2026, 5, 1), '2026-06-09', '2026-06-21');
     expect(cells.find((c) => c.date.getDate() === 15 && c.inMonth)?.inWindow).toBe(true);
     expect(cells.find((c) => c.date.getDate() === 10 && c.inMonth)?.inWindow).toBe(true);
     expect(cells.find((c) => c.date.getDate() === 20 && c.inMonth)?.inWindow).toBe(true);
     // Dates well outside the window stay false.
     expect(cells.find((c) => c.date.getDate() === 1 && c.inMonth)?.inWindow).toBe(false);
     expect(cells.find((c) => c.date.getDate() === 30 && c.inMonth)?.inWindow).toBe(false);
+  });
+
+  it('includes the window boundary days (first and last) in local time', () => {
+    // Date-only bounds parsed as UTC midnight used to shift across local
+    // midnight in a non-UTC timezone, mis-flagging the window's first/last
+    // day. The boundary days must be inWindow in any runner TZ.
+    const cells = monthGridCells(new Date(2026, 5, 1), '2026-06-09', '2026-06-21');
+    expect(cells.find((c) => c.date.getDate() === 9 && c.inMonth)?.inWindow).toBe(true);
+    expect(cells.find((c) => c.date.getDate() === 21 && c.inMonth)?.inWindow).toBe(true);
+    // The days just outside each boundary stay excluded.
+    expect(cells.find((c) => c.date.getDate() === 8 && c.inMonth)?.inWindow).toBe(false);
+    expect(cells.find((c) => c.date.getDate() === 22 && c.inMonth)?.inWindow).toBe(false);
+  });
+});
+
+describe('monthsBetween', () => {
+  // Every returned Date is the local-time 1st of its month — that's the
+  // contract `monthGridCells` relies on (it reads getFullYear/getMonth).
+  const ym = (d: Date): [number, number] => [d.getFullYear(), d.getMonth()];
+
+  it('returns a single month when start and end fall in the same month', () => {
+    const months = monthsBetween('2026-06-03', '2026-06-28');
+    expect(months).toHaveLength(1);
+    expect(ym(months[0])).toEqual([2026, 5]); // June
+    expect(months[0].getDate()).toBe(1);
+  });
+
+  it('returns both months for a two-month span', () => {
+    const months = monthsBetween('2026-06-20', '2026-07-04');
+    expect(months.map(ym)).toEqual([
+      [2026, 5], // June
+      [2026, 6], // July
+    ]);
+  });
+
+  it('walks across a year boundary inclusively', () => {
+    const months = monthsBetween('2026-12-15', '2027-02-02');
+    expect(months.map(ym)).toEqual([
+      [2026, 11], // December
+      [2027, 0], // January
+      [2027, 1], // February
+    ]);
+  });
+
+  it('parses date-only strings in local time (no UTC off-by-one-month drift)', () => {
+    // `new Date("2026-06-01")` is UTC midnight, which in a negative-offset
+    // timezone reads as May 31 local — the bug this guards. The local-time
+    // parse must always yield June as the first month, in any runner TZ.
+    const months = monthsBetween('2026-06-01', '2026-06-01');
+    expect(months).toHaveLength(1);
+    expect(months[0].getMonth()).toBe(5); // June, not May
+    expect(months[0].getDate()).toBe(1);
   });
 });

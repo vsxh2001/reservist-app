@@ -86,3 +86,11 @@ this header gets renamed to a dated version.
   hallucinated column was caught by CI before merge.
 - 4 unused icons removed from `Icon.tsx` (`minus`, `star`, `starOpen`,
   `dollar`) (#107).
+
+### Security
+
+- Activity-log CSV export now neutralizes spreadsheet formula injection:
+  user-controlled `actor_name` / `what` cells starting with `= + - @` or
+  whitespace are prefixed with `'` so a name like `=HYPERLINK(...)` can't
+  execute on open in Excel / Sheets / LibreOffice (OWASP "CSV Injection").
+  `csv.ts` gains a 23-case unit test (#152).

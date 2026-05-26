@@ -89,6 +89,22 @@ export function notifySlotCancelled(teamId: string, memberId: string, slotTitle:
   });
 }
 
+/**
+ * Notify every affected assignee that a commander bulk-cancelled a range of
+ * duty slots (PRD §7.8). Single grouped fan-out — one push per member — so a
+ * wide range cancellation costs one Edge Function invocation, not one per
+ * slot, and stays clear of the per-caller rate limit.
+ */
+export function notifyBulkCancelled(teamId: string, memberIds: string[]): Promise<void> {
+  return invokeSendPush({
+    memberIds,
+    teamId,
+    title: 'Slots cancelled',
+    body: 'A commander cancelled duty slots you were assigned to.',
+    tag: `bulk-cancelled:${teamId}`,
+  });
+}
+
 /** Notify a member that a commander unassigned them from a duty slot. */
 export function notifySlotUnassigned(teamId: string, memberId: string, slotTitle: string): Promise<void> {
   return invokeSendPush({

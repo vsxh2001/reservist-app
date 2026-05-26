@@ -14,6 +14,7 @@ import {
   notifySlotChanged,
   notifySlotCancelled,
   notifySlotUnassigned,
+  notifyBulkCancelled,
 } from '../src/lib/notify';
 
 const invoke = supabase.functions.invoke as unknown as ReturnType<typeof vi.fn>;
@@ -97,6 +98,20 @@ describe('notify helpers', () => {
       title: 'Unassigned: Bravo gate watch',
       tag: 'slot-unassigned:m-target',
     });
+  });
+
+  it('notifyBulkCancelled fans out to every affected assignee in one call with a team-scoped tag', async () => {
+    await notifyBulkCancelled('team-1', ['m1', 'm2', 'm3']);
+    expect(invoke).toHaveBeenCalledTimes(1);
+    const [name, opts] = invoke.mock.calls[0];
+    expect(name).toBe('send-push');
+    expect(opts.body).toMatchObject({
+      member_ids: ['m1', 'm2', 'm3'],
+      team_id: 'team-1',
+      title: 'Slots cancelled',
+      tag: 'bulk-cancelled:team-1',
+    });
+    expect(typeof opts.body.body).toBe('string');
   });
 
   it('swallows transport errors so callers never see a rejected promise', async () => {

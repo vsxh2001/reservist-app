@@ -27,6 +27,10 @@ this header gets renamed to a dated version.
   - `notifySlotChanged` on slot edit (PRD §7.8)
   - `notifySlotCancelled` on slot cancellation (PRD §7.8)
   - `notifySlotUnassigned` on commander removing a member from a slot
+  - `notifyBulkCancelled` on `useBulkCancelSlots`: a range bulk-cancel now
+    pushes each affected assignee once via a single grouped fan-out, closing
+    the §7.8 gap where single-slot cancel notified but bulk cancel was silent
+    (#154)
 - Realtime listeners for `teams` and `projects` so cross-device sessions
   pick up renames, `show_unit_schedule` toggles, and invite rotations (#105)
 - Accessibility:

@@ -86,6 +86,15 @@ this header gets renamed to a dated version.
   hallucinated column was caught by CI before merge.
 - 4 unused icons removed from `Icon.tsx` (`minus`, `star`, `starOpen`,
   `dollar`) (#107).
+- Deployment-calendar timezone drift in `calendarUtils.ts`: `monthsBetween`
+  and `monthGridCells` parsed date-only `start_date` / `end_date` via
+  `new Date(str)` (UTC midnight) instead of local time. In a non-UTC
+  timezone this shifted the bounds across local midnight — a window starting
+  `2026-06-01` rendered a stray month, and the window's first/last day were
+  mis-flagged in the grid highlight (visible to the app's UTC+2/+3 users:
+  the first day of every window went un-highlighted). Both now parse in
+  local time, matching `windowCountdown` / `untilHint`. Adds `monthsBetween`
+  unit tests + a `monthGridCells` boundary-day test, both TZ-robust (#153).
 
 ### Security
 

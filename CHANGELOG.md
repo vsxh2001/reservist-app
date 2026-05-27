@@ -51,6 +51,10 @@ this header gets renamed to a dated version.
 - Tests (suite 692 → 823, +131):
   - Unit: `isoDay`, `monthGridCells`, `getActiveMembers`, `activate()`,
     notify helpers (#103, #96, #94, #88)
+  - Unit: `urlBase64ToUint8Array` — the VAPID applicationServerKey decoder
+    in `push.ts`, the previously-untested hinge of every push subscription;
+    covers url-safe substitution, padding restoration, and a 65-byte P-256
+    key round-trip (#157)
   - Component: every extracted card + filter + screen-router gets a
     focused test (#106, #108, #110, #111, #112, #114, #115, #118, #123, #124)
 - Deploy infrastructure:

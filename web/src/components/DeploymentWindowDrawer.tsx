@@ -97,6 +97,7 @@ export function DeploymentWindowDrawer({ window: w, memberName, teamId, onClose,
       windowId: w.id, date: selectedDate,
       actorId: user.id, actorName: user.name,
       teamId, memberName,
+      memberId: w.member_id, windowLabel: `${w.label} · ${selectedDate}`,
     });
     onToast(`Added ${selectedDate}`);
     setSelectedDate(null);

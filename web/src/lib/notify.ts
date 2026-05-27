@@ -116,6 +116,21 @@ export function notifySlotUnassigned(teamId: string, memberId: string, slotTitle
   });
 }
 
+/**
+ * Notify a member that a commander recorded them for a deployment day
+ * directly (no reservist pick to resolve) — the commander-initiated
+ * counterpart to `notifyPickDecided`.
+ */
+export function notifyDayAdded(teamId: string, memberId: string, windowLabel: string): Promise<void> {
+  return invokeSendPush({
+    memberIds: [memberId],
+    teamId,
+    title: `Deployment day added: ${windowLabel}`,
+    body: 'A commander recorded you for a deployment day.',
+    tag: `day-added:${memberId}`,
+  });
+}
+
 /** Notify a reservist that a deployment pick was approved or rejected. */
 export function notifyPickDecided(
   teamId: string,

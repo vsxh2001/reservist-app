@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 import {
   notifyUrgentCallUp, notifySlotAssigned, notifyPickDecided,
   notifySlotChanged, notifySlotCancelled, notifySlotUnassigned,
-  notifyBulkCancelled,
+  notifyBulkCancelled, notifyDayAdded,
 } from './notify';
 import { initialsFromName } from './text';
 import type {
@@ -1483,6 +1483,10 @@ export function useDirectAddPick() {
     mutationFn: async (vars: {
       windowId: string; date: string;
       actorId: string; actorName: string; teamId: string; memberName: string;
+      /** The window's member — receives a push that they were recorded for the day. */
+      memberId: string;
+      /** Used to compose the push title (label · date). */
+      windowLabel: string;
     }) => {
       const { error } = await supabase
         .from('deployment_picks')
@@ -1498,6 +1502,7 @@ export function useDirectAddPick() {
         what: `${vars.memberName} · ${vars.date}`,
         tone: 'accent',
       });
+      void notifyDayAdded(vars.teamId, vars.memberId, vars.windowLabel);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['deployment-picks'] });

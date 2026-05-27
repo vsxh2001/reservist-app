@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 import {
   notifyUrgentCallUp, notifySlotAssigned, notifyPickDecided,
   notifySlotChanged, notifySlotCancelled, notifySlotUnassigned,
-  notifyBulkCancelled, notifyDayAdded,
+  notifyBulkCancelled, notifyDayAdded, notifyStatusChanged,
 } from './notify';
 import { initialsFromName } from './text';
 import type {
@@ -713,6 +713,8 @@ export function useUpdateStatus() {
       actorName: string;
       memberName: string;
       teamId: string;
+      /** Human-readable status label for the push title (e.g. "Unavailable"). */
+      statusLabel: string;
     }) => {
       const { error } = await supabase
         .from('members')
@@ -734,6 +736,13 @@ export function useUpdateStatus() {
         what: vars.status + (vars.until ? ` (until ${vars.until})` : ''),
         tone: 'accent',
       });
+
+      // Push the affected member — but not when a commander is editing their
+      // own status (setBy === memberId), where "a commander changed your
+      // status" would be misleading and self-redundant.
+      if (vars.setBy !== vars.memberId) {
+        void notifyStatusChanged(vars.teamId, vars.memberId, vars.statusLabel);
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['members'] });

@@ -16,6 +16,7 @@ import {
   notifySlotUnassigned,
   notifyBulkCancelled,
   notifyDayAdded,
+  notifyStatusChanged,
 } from '../src/lib/notify';
 
 const invoke = supabase.functions.invoke as unknown as ReturnType<typeof vi.fn>;
@@ -124,6 +125,19 @@ describe('notify helpers', () => {
       team_id: 'team-1',
       title: 'Deployment day added: June drill · 2026-06-10',
       tag: 'day-added:m-target',
+    });
+    expect(typeof opts.body.body).toBe('string');
+  });
+
+  it('notifyStatusChanged targets the member with a human label and status-changed: tag', async () => {
+    await notifyStatusChanged('team-1', 'm-target', 'Unavailable');
+    expect(invoke).toHaveBeenCalledTimes(1);
+    const opts = invoke.mock.calls[0][1];
+    expect(opts.body).toMatchObject({
+      member_ids: ['m-target'],
+      team_id: 'team-1',
+      title: 'Status updated: Unavailable',
+      tag: 'status-changed:m-target',
     });
     expect(typeof opts.body.body).toBe('string');
   });

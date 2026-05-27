@@ -80,6 +80,7 @@ export function PersonDrawer({ person, team, allSkills, divisionId, onClose, onT
       actorName: user.name,
       memberName: person.name,
       teamId: team.id,
+      statusLabel: STATUS_LABEL[pendingStatus],
     });
     setEditingStatus(false);
     onToast(`Status set to ${STATUS_LABEL[pendingStatus]}`);

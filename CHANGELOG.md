@@ -31,6 +31,10 @@ this header gets renamed to a dated version.
     pushes each affected assignee once via a single grouped fan-out, closing
     the §7.8 gap where single-slot cancel notified but bulk cancel was silent
     (#154)
+  - `notifyDayAdded` on `useDirectAddPick`: when a commander unilaterally
+    records an approved deployment day for a member, that member now gets a
+    push — previously only the proposed-pick approve/reject path
+    (`notifyPickDecided`) notified, so direct-adds were silent (#155)
 - Realtime listeners for `teams` and `projects` so cross-device sessions
   pick up renames, `show_unit_schedule` toggles, and invite rotations (#105)
 - Accessibility:

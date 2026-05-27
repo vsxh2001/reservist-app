@@ -15,6 +15,7 @@ import {
   notifySlotCancelled,
   notifySlotUnassigned,
   notifyBulkCancelled,
+  notifyDayAdded,
 } from '../src/lib/notify';
 
 const invoke = supabase.functions.invoke as unknown as ReturnType<typeof vi.fn>;
@@ -110,6 +111,19 @@ describe('notify helpers', () => {
       team_id: 'team-1',
       title: 'Slots cancelled',
       tag: 'bulk-cancelled:team-1',
+    });
+    expect(typeof opts.body.body).toBe('string');
+  });
+
+  it('notifyDayAdded targets the window member with a day-added: tag', async () => {
+    await notifyDayAdded('team-1', 'm-target', 'June drill · 2026-06-10');
+    expect(invoke).toHaveBeenCalledTimes(1);
+    const opts = invoke.mock.calls[0][1];
+    expect(opts.body).toMatchObject({
+      member_ids: ['m-target'],
+      team_id: 'team-1',
+      title: 'Deployment day added: June drill · 2026-06-10',
+      tag: 'day-added:m-target',
     });
     expect(typeof opts.body.body).toBe('string');
   });

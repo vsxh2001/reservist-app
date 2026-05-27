@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 import {
   notifyUrgentCallUp, notifySlotAssigned, notifyPickDecided,
   notifySlotChanged, notifySlotCancelled, notifySlotUnassigned,
+  notifyBulkCancelled,
 } from './notify';
 import { initialsFromName } from './text';
 import type {
@@ -1759,9 +1760,10 @@ export function useBulkCancelSlots() {
         .in('state', ['draft', 'published'])
         .gte('start_at', vars.fromISO)
         .lte('start_at', vars.toISO)
-        .select('id');
+        .select('id, assignee_id');
       if (error) throw error;
-      const count = (data ?? []).length;
+      const rows = (data ?? []) as { id: string; assignee_id: string | null }[];
+      const count = rows.length;
       if (count > 0) {
         await supabase.from('activity_log').insert({
           team_id: vars.teamId,
@@ -1771,6 +1773,14 @@ export function useBulkCancelSlots() {
           what: `${count} slot${count === 1 ? '' : 's'} in range`,
           tone: 'urgent',
         });
+
+        // One grouped fan-out (not one invoke per slot) keeps bulk cancel
+        // under the send-push per-caller rate limit, while still giving every
+        // assignee the parity notification the single-cancel path sends (§7.8).
+        const assigneeIds = [
+          ...new Set(rows.map((r) => r.assignee_id).filter((id): id is string => !!id)),
+        ];
+        if (assigneeIds.length) void notifyBulkCancelled(vars.teamId, assigneeIds);
       }
       return count;
     },

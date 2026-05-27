@@ -105,6 +105,23 @@ export function notifyBulkCancelled(teamId: string, memberIds: string[]): Promis
   });
 }
 
+/**
+ * Notify a member that a commander overrode their availability status
+ * (PRD §7.3). The reservist's "My status" card surfaces *when* it was last
+ * changed, but only once they open the app — this gives them a live signal.
+ * `statusLabel` is the human-readable label (e.g. "Unavailable"), composed
+ * by the caller so the lib layer stays free of the UI label map.
+ */
+export function notifyStatusChanged(teamId: string, memberId: string, statusLabel: string): Promise<void> {
+  return invokeSendPush({
+    memberIds: [memberId],
+    teamId,
+    title: `Status updated: ${statusLabel}`,
+    body: 'A commander changed your availability status.',
+    tag: `status-changed:${memberId}`,
+  });
+}
+
 /** Notify a member that a commander unassigned them from a duty slot. */
 export function notifySlotUnassigned(teamId: string, memberId: string, slotTitle: string): Promise<void> {
   return invokeSendPush({

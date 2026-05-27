@@ -35,6 +35,10 @@ this header gets renamed to a dated version.
     records an approved deployment day for a member, that member now gets a
     push — previously only the proposed-pick approve/reject path
     (`notifyPickDecided`) notified, so direct-adds were silent (#155)
+  - `notifyStatusChanged` on `useUpdateStatus`: when a commander overrides a
+    reservist's availability status (PRD §7.3) the reservist now gets a push
+    instead of only discovering the change on next app open; suppressed when
+    a commander edits their own status (setBy === memberId) (#156)
 - Realtime listeners for `teams` and `projects` so cross-device sessions
   pick up renames, `show_unit_schedule` toggles, and invite rotations (#105)
 - Accessibility:

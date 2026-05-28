@@ -107,7 +107,7 @@ describe('TeamProvider', () => {
     teamsState.data = teams;
     const { result } = renderHook(() => useActiveTeam(), { wrapper });
     await waitFor(() => expect(result.current.team?.id).toBe('t-a'));
-    act(() => { result.current.setTeamId('t-b'); });
+    await act(async () => { result.current.setTeamId('t-b'); });
     expect(result.current.team?.id).toBe('t-b');
     expect(localStorage.getItem(KEY)).toBe('t-b');
   });

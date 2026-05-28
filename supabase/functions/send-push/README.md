@@ -20,7 +20,7 @@ Invoked from the React client via `supabase.functions.invoke('send-push', { body
   team_id?: string;       // required when fanning out beyond self
   title: string;          // required
   body: string;           // required
-  url?: string;           // SW navigates here on click (default '/')
+  url?: string;           // root-relative path the SW navigates to on click (default '/')
   tag?: string;           // collapses repeated notifications on device
 }
 ```

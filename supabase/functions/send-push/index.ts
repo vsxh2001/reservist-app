@@ -169,6 +169,21 @@ Deno.serve(async (req) => {
   if (payload.url && payload.url.length > 2000) {
     return jsonResponse(req, { error: "url_too_long" }, 400);
   }
+  // Same-origin invariant: the notification click target is opened by the
+  // service worker via clients.openWindow(). Restrict to root-relative paths
+  // so a malicious payload can't smuggle in a phishing https:// (or worse, a
+  // javascript:) URL behind a trusted-looking title like "Slot updated". The
+  // double-slash rejection is what closes the protocol-relative `//evil.com`
+  // loophole, which a naive `startsWith("/")` would otherwise pass through.
+  // No `notify.ts` helper currently sets `url`, so this check is inert for
+  // existing callers; a future helper that wants to deep-link must pass a
+  // root-relative path (e.g. `/dashboard/slots/<id>`).
+  if (
+    payload.url &&
+    (!payload.url.startsWith("/") || payload.url.startsWith("//"))
+  ) {
+    return jsonResponse(req, { error: "url_must_be_relative" }, 400);
+  }
   if (payload.tag && payload.tag.length > 256) {
     return jsonResponse(req, { error: "tag_too_long" }, 400);
   }

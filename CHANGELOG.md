@@ -119,3 +119,12 @@ this header gets renamed to a dated version.
   whitespace are prefixed with `'` so a name like `=HYPERLINK(...)` can't
   execute on open in Excel / Sheets / LibreOffice (OWASP "CSV Injection").
   `csv.ts` gains a 23-case unit test (#152).
+- `send-push` Edge Function now rejects a `url` that is not root-relative
+  (`/...`). The notification-click target is fed to `clients.openWindow()` in
+  the push service worker, so an absolute `https://attacker.example/...`
+  would have rendered as a trusted notification ("Slot updated…") that
+  navigates the reservist off-domain on click. Protocol-relative
+  `//attacker.example/...` is also rejected (the case a naive
+  `startsWith("/")` would have admitted). No `notify.ts` helper currently
+  sets `url`, so this guard is inert for current callers — defense-in-depth
+  only, in the same lane as the recent 5-finding `send-push` audit.

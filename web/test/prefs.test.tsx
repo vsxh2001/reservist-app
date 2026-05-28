@@ -1,19 +1,29 @@
-import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { PrefsProvider, usePrefs } from '../src/lib/prefs';
 
+// Must match prefs.tsx KEY const — duplicated on purpose so a rename in
+// the production module breaks this test loudly instead of silently
+// passing against a fresh localStorage.
 const KEY = 'reservist.prefs';
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return <PrefsProvider>{children}</PrefsProvider>;
 }
 
+// happy-dom's document is shared across the file (and across files in the
+// same worker), so every test must leave <html dir>/<html lang> in a
+// known state — otherwise a prior test's RTL/he selection bleeds into
+// the next file's assertions.
+function resetGlobals() {
+  localStorage.clear();
+  document.documentElement.removeAttribute('dir');
+  document.documentElement.removeAttribute('lang');
+}
+
 describe('PrefsProvider', () => {
-  beforeEach(() => {
-    localStorage.clear();
-    document.documentElement.removeAttribute('dir');
-    document.documentElement.removeAttribute('lang');
-  });
+  beforeEach(resetGlobals);
+  afterEach(resetGlobals);
 
   it('exposes the LTR/en defaults when storage is empty', () => {
     const { result } = renderHook(() => usePrefs(), { wrapper });
@@ -72,12 +82,24 @@ describe('PrefsProvider', () => {
     const { result } = renderHook(() => usePrefs(), { wrapper });
     expect(result.current.dir).toBe('ltr');
     expect(result.current.lang).toBe('en');
+    // The useEffect must also mirror the default values onto <html> —
+    // catches a hypothetical regression where a partial parse leaks
+    // garbage attributes onto the document.
+    expect(document.documentElement.getAttribute('dir')).toBe('ltr');
+    expect(document.documentElement.getAttribute('lang')).toBe('en');
   });
 
-  it('throws a clear error when usePrefs is called outside the provider', () => {
-    // Silence the expected React error console.error from the thrown hook.
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    expect(() => renderHook(() => usePrefs())).toThrow(/usePrefs outside PrefsProvider/);
-    spy.mockRestore();
+  describe('outside the provider', () => {
+    let consoleError: ReturnType<typeof vi.spyOn>;
+    beforeEach(() => {
+      consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+    afterEach(() => {
+      consoleError.mockRestore();
+    });
+
+    it('throws a clear error when usePrefs is called outside the provider', () => {
+      expect(() => renderHook(() => usePrefs())).toThrow(/usePrefs outside PrefsProvider/);
+    });
   });
 });

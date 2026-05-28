@@ -55,6 +55,12 @@ this header gets renamed to a dated version.
     in `push.ts`, the previously-untested hinge of every push subscription;
     covers url-safe substitution, padding restoration, and a 65-byte P-256
     key round-trip (#157)
+  - Unit: `PrefsProvider` — the previously-untested i18n hinge that mirrors
+    `dir` / `lang` onto `<html>` and persists to `localStorage`. Pins the
+    LTR/en default, the dir + lang merge contract on partial setters, the
+    rehydrate-from-storage path, the corrupt-JSON fallback, and the
+    `usePrefs outside PrefsProvider` guard before the deferred RTL/i18n
+    library migration lands (#159)
   - Component: every extracted card + filter + screen-router gets a
     focused test (#106, #108, #110, #111, #112, #114, #115, #118, #123, #124)
 - Deploy infrastructure:

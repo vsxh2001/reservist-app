@@ -48,7 +48,7 @@ this header gets renamed to a dated version.
   - Roster stat-filter / sortable-header / row keyboard activation (#98)
   - Checkbox `Check` atom keyboard activation (#96)
   - `Roster` bulk-clear button `aria-label` (#98)
-- Tests (suite 692 → 823, +131):
+- Tests (suite 692 → 837, +145):
   - Unit: `isoDay`, `monthGridCells`, `getActiveMembers`, `activate()`,
     notify helpers (#103, #96, #94, #88)
   - Unit: `urlBase64ToUint8Array` — the VAPID applicationServerKey decoder
@@ -102,6 +102,18 @@ this header gets renamed to a dated version.
     invalidation map is silent in production — a drift just means the
     UI stops auto-refreshing for that table — so the contract has to
     fail loudly here
+  - Component: `DashboardOverlays` — the previously-untested
+    presentational shell that mounts `PersonDrawer`, `SlotDrawer`, and
+    `NewSlotModal` above the commander dashboard. Pins the
+    render-when-truthy guards (`person` / `slotDrawer` null → not
+    mounted; non-null → mounted with the right prop), the always-mount
+    contract of `NewSlotModal` with `open` mirroring `modal.open`, and
+    the `cloneFrom={modal.cloneFrom ?? null}` undefined→null coercion
+    that keeps a stale optional from leaking into the modal's
+    `Slot | null` prop. Forwards-`teamId`-from-`team.id` is pinned for
+    both `SlotDrawer` and `NewSlotModal`. Same precedent as #160-#162:
+    pin the small hinge before the deferred PRD §9 confirm/decline
+    assignment flow lands another overlay through here
   - Component: every extracted card + filter + screen-router gets a
     focused test (#106, #108, #110, #111, #112, #114, #115, #118, #123, #124)
 - Deploy infrastructure:

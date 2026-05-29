@@ -158,6 +158,14 @@ this header gets renamed to a dated version.
   Dropped the vestigial `-b` (no project references exist) so no
   `.tsbuildinfo` is written either. Added defensive `.gitignore` entries
   (`*.tsbuildinfo`, `src/**/*.js`, `src/**/*.d.ts`) (#165).
+- `useResolvePick` guarded on the wrong state, breaking deployment-pick
+  approval entirely (regression from #120): the guard filtered on
+  `state = 'pending'`, but picks are created `'proposed'` and the
+  state-machine only allows `proposed → approved/rejected`, so every
+  commander approve/reject matched 0 rows and threw "already resolved".
+  Corrected to `.eq('state', 'proposed')` and added a hook-level test that
+  pins the guard state (the component tests mock the hook and the
+  integration tests hit PostgREST directly, so neither covered it) (#168).
 - Race conditions:
   - `useResolvePick` double-approve race (HIGH): commander concurrent
     approve/reject of the same pick (#120).

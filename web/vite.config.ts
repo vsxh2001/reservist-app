@@ -59,15 +59,20 @@ export default defineConfig({
     },
   },
   build: {
-    // Without manualChunks, vite bundles everything into one 607 KB file.
+    // Without manual chunking vite bundles everything into one ~607 KB file.
     // Splitting vendor groups lets the browser cache them independently
     // across deploys (only the app chunk invalidates when our code ships).
+    //
+    // Vite 8 bundles with Rolldown, whose `manualChunks` only accepts the
+    // function form (the Rollup object form throws "manualChunks is not a
+    // function"). The id-based function below is equivalent and portable.
     rollupOptions: {
       output: {
-        manualChunks: {
-          react: ['react', 'react-dom'],
-          supabase: ['@supabase/supabase-js'],
-          query: ['@tanstack/react-query'],
+        manualChunks: (id) => {
+          if (!id.includes('node_modules')) return;
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return 'react';
+          if (id.includes('node_modules/@supabase/')) return 'supabase';
+          if (id.includes('node_modules/@tanstack/')) return 'query';
         },
       },
     },

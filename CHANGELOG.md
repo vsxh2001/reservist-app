@@ -131,6 +131,12 @@ this header gets renamed to a dated version.
 
 ### Changed
 
+- Build toolchain upgraded to Vite 8 (from 5.4), `@vitejs/plugin-react`
+  6 (from 4.3), and `@vitejs/plugin-basic-ssl` 2 (from 1.2). Vite 8
+  bundles with Rolldown, so the vendor-split config moved from Rollup's
+  object-form `manualChunks` to the equivalent function form. React
+  Compiler peers stay opt-out (not enabled). Supersedes the deadlocked
+  Dependabot pair #150 + #151 (#164).
 - Bundle now splits into 4 chunks (react / supabase / query / app) for
   better caching across deploys (#119).
 - Workbox: `cleanupOutdatedCaches: true` so stale buckets don't push

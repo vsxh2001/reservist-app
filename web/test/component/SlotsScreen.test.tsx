@@ -367,6 +367,7 @@ describe('SlotsScreen', () => {
     const arg = mockUpdateState.mutateAsync.mock.calls[0][0];
     expect(arg.slotId).toBe('s3');
     expect(arg.state).toBe('published');
+    expect(arg.currentState).toBe('draft');
     expect(arg.teamId).toBe('team1');
     expect(arg.actorId).toBe('u1');
     expect(arg.actorName).toBe('Commander Test');

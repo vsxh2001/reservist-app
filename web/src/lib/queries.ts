@@ -1089,15 +1089,27 @@ export function useUpdateSlotState() {
   return useMutation({
     mutationFn: async (vars: {
       slotId: string; state: 'draft' | 'published' | 'completed' | 'cancelled';
+      /** The state the caller last saw — guards against a concurrent transition. */
+      currentState: 'draft' | 'published' | 'completed' | 'cancelled';
       actorId: string; teamId: string; actorName: string; slotTitle: string;
       /** Optional — when set + state==='cancelled', the assignee receives a push (PRD §7.8). */
       assigneeId?: string | null;
     }) => {
-      const { error } = await supabase
+      // Two commanders can act on the same slot at once (e.g. one publishes
+      // while another cancels). The `.eq('state', currentState)` guard makes
+      // the UPDATE a no-op when the slot already moved on; the 0-row result
+      // then surfaces a clean error instead of logging the change twice and
+      // firing a duplicate cancellation push. Mirrors useResolvePick.
+      const { data: rows, error } = await supabase
         .from('slots')
         .update({ state: vars.state })
-        .eq('id', vars.slotId);
+        .eq('id', vars.slotId)
+        .eq('state', vars.currentState)
+        .select('id');
       if (error) throw error;
+      if (!rows || rows.length === 0) {
+        throw new Error('This slot was already changed by another commander. Refresh to see the current state.');
+      }
       await supabase.from('activity_log').insert({
         team_id: vars.teamId,
         actor_id: vars.actorId,
@@ -1327,7 +1339,13 @@ export function useUpdateDeploymentWindow() {
   return useMutation({
     mutationFn: async (vars: {
       windowId: string; teamId: string; actorId: string; actorName: string;
-      patch: { label?: string; startDate?: string; endDate?: string; notes?: string | null; state?: 'open' | 'closed' };
+      patch: {
+        label?: string; startDate?: string; endDate?: string; notes?: string | null;
+        state?: 'open' | 'closed';
+        /** The state the caller last saw. Required when `state` is set so a
+         *  concurrent open/close can't double-fire; ignored for metadata edits. */
+        currentState?: 'open' | 'closed';
+      };
     }) => {
       const row: Record<string, unknown> = {};
       if (vars.patch.label     !== undefined) row.label      = vars.patch.label;
@@ -1336,8 +1354,18 @@ export function useUpdateDeploymentWindow() {
       if (vars.patch.notes     !== undefined) row.notes      = vars.patch.notes;
       if (vars.patch.state     !== undefined) row.state      = vars.patch.state;
       if (Object.keys(row).length === 0) return;
-      const { error } = await supabase.from('deployment_windows').update(row).eq('id', vars.windowId);
+      // Only a state transition (open<->closed) needs the concurrency guard;
+      // metadata-only edits keep their original unguarded behavior. When the
+      // guard applies and the window already moved on, the 0-row result
+      // surfaces a clean error instead of logging the close/open twice.
+      const guarding = vars.patch.state !== undefined && vars.patch.currentState !== undefined;
+      let q = supabase.from('deployment_windows').update(row).eq('id', vars.windowId);
+      if (guarding) q = q.eq('state', vars.patch.currentState!);
+      const { data: rows, error } = await q.select('id');
       if (error) throw error;
+      if (guarding && (!rows || rows.length === 0)) {
+        throw new Error('This deployment window was already changed by another commander. Refresh to see the current state.');
+      }
       await supabase.from('activity_log').insert({
         team_id: vars.teamId, actor_id: vars.actorId, actor_name: vars.actorName,
         verb: vars.patch.state === 'closed' ? 'closed deployment window' : 'edited deployment window',
@@ -1411,15 +1439,26 @@ export function useWithdrawDayPick() {
   return useMutation({
     mutationFn: async (vars: {
       pickId: string;
+      /** The state the caller last saw — guards against a concurrent resolve. */
+      currentState: 'proposed' | 'approved' | 'rejected' | 'withdrawn';
       /** Optional actor metadata for activity_log; pass the pick's date so the
        *  log entry's `what` field carries enough context to render. */
       actorId?: string; actorName?: string; teamId?: string; date?: string;
     }) => {
-      const { error } = await supabase
+      // A reservist can withdraw a day at the same instant a commander
+      // approves/rejects it. The `.eq('state', currentState)` guard makes the
+      // withdrawal a no-op if the pick already moved on, so we don't log a
+      // phantom withdrawal over a decision. Mirrors useResolvePick.
+      const { data: rows, error } = await supabase
         .from('deployment_picks')
         .update({ state: 'withdrawn', resolved_at: new Date().toISOString() })
-        .eq('id', vars.pickId);
+        .eq('id', vars.pickId)
+        .eq('state', vars.currentState)
+        .select('id');
       if (error) throw error;
+      if (!rows || rows.length === 0) {
+        throw new Error('This deployment day was already changed. Refresh to see the current state.');
+      }
       if (vars.actorId && vars.teamId) {
         await supabase.from('activity_log').insert({
           team_id: vars.teamId,

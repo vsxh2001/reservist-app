@@ -165,6 +165,13 @@ this header gets renamed to a dated version.
     (MEDIUM) (#121).
   - `useUpdateStatus` / `useUpdateSlot` audit-trail gap on partial
     failure (LOW) (#122).
+  - Optimistic-concurrency guards on three more state transitions, each
+    now `.eq('state', currentState).select('id')` + 0-row check (mirrors
+    `useResolvePick`): `useUpdateSlotState` (publish/cancel/complete vs a
+    concurrent change), `useWithdrawDayPick` (reservist withdraw vs
+    commander decide), and `useUpdateDeploymentWindow` (open↔close); the
+    callers now pass the state they last observed. Prevents duplicate
+    activity-log entries and push notifications on a lost race (#166).
 - send-push Edge Function audit (5/5 findings):
   - Input length caps on title/body/url/tag/recipients (#125)
   - Endpoint stripped from failure logs (#126)

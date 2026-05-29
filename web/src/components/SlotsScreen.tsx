@@ -65,7 +65,7 @@ export function SlotsScreen({ slots, members, onUrgent, onNewSlot, onSlotClick, 
     e.stopPropagation();
     if (!user) return;
     await updateState.mutateAsync({
-      slotId: s.id, state: 'published', actorId: user.id,
+      slotId: s.id, state: 'published', currentState: s.state, actorId: user.id,
       teamId: s.team_id, actorName: user.name, slotTitle: s.title,
     });
     onToast(`Published "${s.title}"`);

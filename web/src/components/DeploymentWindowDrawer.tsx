@@ -104,7 +104,7 @@ export function DeploymentWindowDrawer({ window: w, memberName, teamId, onClose,
   };
   const withdrawApproved = async () => {
     if (!selected) return;
-    await withdraw.mutateAsync({ pickId: selected.id });
+    await withdraw.mutateAsync({ pickId: selected.id, currentState: selected.state });
     onToast(`Withdrew ${selected.date}`);
     setSelected(null); setSelectedDate(null);
   };
@@ -123,7 +123,7 @@ export function DeploymentWindowDrawer({ window: w, memberName, teamId, onClose,
     await updateWindow.mutateAsync({
       windowId: w.id, teamId,
       actorId: user.id, actorName: user.name,
-      patch: { state: 'closed' },
+      patch: { state: 'closed', currentState: w.state },
     });
     onToast('Window closed');
     onClose();

@@ -185,6 +185,7 @@ describe('DeploymentPickScreen', () => {
     await user.click(findDayButton(3));
     expect(mockWithdraw.mutateAsync.mock.calls[0][0]).toMatchObject({
       pickId: 'p-w',
+      currentState: 'proposed',
       actorId: 'm1',
       actorName: 'Yael Cohen',
       teamId: 't1',

@@ -1517,10 +1517,12 @@ export function useResolvePick() {
       date: string;
     }) => {
       // Two commanders can hit Approve/Reject on the same pick at the same
-      // moment. The `.eq('state', 'pending')` guard makes the UPDATE a no-op
+      // moment. The `.eq('state', 'proposed')` guard makes the UPDATE a no-op
       // when the pick has already been resolved; the returned row count is
       // then 0 and we surface a clean error instead of logging the resolve
-      // twice + firing duplicate push notifications. See PRD §7.4.
+      // twice + firing duplicate push notifications. A pick is only ever
+      // resolved from 'proposed' (its initial state — see the pick_state_enum
+      // default and the deployment-pick state-machine trigger). See PRD §7.4.
       const { data: rows, error } = await supabase
         .from('deployment_picks')
         .update({
@@ -1528,7 +1530,7 @@ export function useResolvePick() {
           resolved_at: new Date().toISOString(), resolved_by: vars.actorId,
         })
         .eq('id', vars.pickId)
-        .eq('state', 'pending')
+        .eq('state', 'proposed')
         .select('id');
       if (error) throw error;
       if (!rows || rows.length === 0) {

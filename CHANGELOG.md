@@ -150,6 +150,14 @@ this header gets renamed to a dated version.
 
 ### Fixed
 
+- Build no longer pollutes the working tree. The `build` script ran
+  `tsc -b` against a single non-composite project with emit on, dumping
+  ~62 untracked `.js`/`.d.ts` files into `web/src` on every build. Switched
+  to typecheck-only (`tsc --noEmit && vite build`, plus `noEmit: true` in
+  `tsconfig.json` and a new `typecheck` script); vite still does the emit.
+  Dropped the vestigial `-b` (no project references exist) so no
+  `.tsbuildinfo` is written either. Added defensive `.gitignore` entries
+  (`*.tsbuildinfo`, `src/**/*.js`, `src/**/*.d.ts`) (#165).
 - Race conditions:
   - `useResolvePick` double-approve race (HIGH): commander concurrent
     approve/reject of the same pick (#120).

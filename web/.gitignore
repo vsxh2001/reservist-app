@@ -4,3 +4,10 @@ node_modules
 .env
 .env.local
 *.local
+
+# Defensive: stray TS build artifacts must never re-enter the tree.
+# The build is typecheck-only (`tsc --noEmit`); vite does the emit. The
+# legit hand-written service worker lives in public/sw-push.js, not src.
+*.tsbuildinfo
+src/**/*.js
+src/**/*.d.ts

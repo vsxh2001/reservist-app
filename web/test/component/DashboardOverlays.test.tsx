@@ -126,7 +126,7 @@ describe('DashboardOverlays', () => {
       expect(captured.PersonDrawer ?? []).toHaveLength(0);
     });
 
-    it('renders when person is non-null and forwards person/team/divisionId/onClose/onToast', () => {
+    it('renders when person is non-null and forwards person/team/allSkills/divisionId/onClose/onToast', () => {
       resetCaptured();
       const person = makeMember('mem-42');
       const onClosePerson = vi.fn();

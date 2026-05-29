@@ -61,6 +61,15 @@ this header gets renamed to a dated version.
     setters, the rehydrate-from-storage path, the corrupt-JSON fallback,
     and the `usePrefs outside PrefsProvider` guard before the deferred
     RTL/i18n library migration lands (#159)
+  - Unit: `TeamProvider` — the previously-untested active-team selector
+    that every screen reads from via `useActiveTeam`. Pins the
+    loading + empty-membership shapes, the auto-pick-first-team +
+    persist-to-`localStorage` flow, the rehydrate-from-storage path, the
+    auto-correct when a stored team_id is no longer in the member's
+    teams (e.g. the member was removed between sessions), `setTeamId`
+    persistence, and the `useActiveTeam outside TeamProvider` guard.
+    Same precedent as #159 / #157: pin the small hinge before it gets
+    touched by deferred auth / multi-team work
   - Component: every extracted card + filter + screen-router gets a
     focused test (#106, #108, #110, #111, #112, #114, #115, #118, #123, #124)
 - Deploy infrastructure:

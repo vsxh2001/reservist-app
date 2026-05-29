@@ -48,6 +48,10 @@ this header gets renamed to a dated version.
   - Roster stat-filter / sortable-header / row keyboard activation (#98)
   - Checkbox `Check` atom keyboard activation (#96)
   - `Roster` bulk-clear button `aria-label` (#98)
+  - `PersonDrawer` profile/activity/reviews tabs now follow the WAI-ARIA
+    tabs pattern: `role="tablist"/"tab"/"tabpanel"`, `aria-selected`,
+    `aria-controls`/`aria-labelledby`, roving `tabindex`, and
+    Left/Right/Home/End keyboard navigation (#169)
 - Tests (suite 692 → 837, +145):
   - Unit: `isoDay`, `monthGridCells`, `getActiveMembers`, `activate()`,
     notify helpers (#103, #96, #94, #88)

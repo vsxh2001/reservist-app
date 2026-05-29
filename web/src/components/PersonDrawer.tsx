@@ -27,9 +27,12 @@ interface Props {
   onToast: (msg: string) => void;
 }
 
+const PERSON_TABS = ['profile', 'activity', 'reviews'] as const;
+type PersonTab = (typeof PERSON_TABS)[number];
+
 export function PersonDrawer({ person, team, allSkills, divisionId, onClose, onToast }: Props) {
   const { user } = useAuth();
-  const [tab, setTab] = useState<'profile' | 'activity' | 'reviews'>('profile');
+  const [tab, setTab] = useState<PersonTab>('profile');
   const [editingStatus, setEditingStatus] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<Status>(person.status);
   const [note, setNote] = useState<string>(person.status_note ?? '');
@@ -212,23 +215,60 @@ export function PersonDrawer({ person, team, allSkills, divisionId, onClose, onT
           </button>
         </div>
 
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--line-soft)', padding: '0 18px', gap: 4 }}>
-          {(['profile', 'activity', 'reviews'] as const).map((t) => (
-            <button key={t} onClick={() => setTab(t)} style={{
-              appearance: 'none', border: 0, background: 'transparent',
-              font: 'inherit', fontSize: 12.5, fontWeight: 500,
-              padding: '10px 12px',
-              color: tab === t ? 'var(--ink)' : 'var(--ink-soft)',
-              borderBottom: '2px solid ' + (tab === t ? 'var(--accent)' : 'transparent'),
-              marginBottom: -1, cursor: 'pointer',
-              letterSpacing: '-.005em', textTransform: 'capitalize',
-            }}>
+        <div
+          role="tablist"
+          aria-label="Person details sections"
+          style={{ display: 'flex', borderBottom: '1px solid var(--line-soft)', padding: '0 18px', gap: 4 }}
+        >
+          {PERSON_TABS.map((t, i) => (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              id={`pd-tab-${t}`}
+              aria-selected={tab === t}
+              // Only one tabpanel is in the DOM at a time (its id tracks the
+              // active tab), so only the selected tab carries aria-controls —
+              // an inactive tab would otherwise dangle at a missing id.
+              aria-controls={tab === t ? `pd-panel-${t}` : undefined}
+              // Roving tabindex: only the selected tab is in the tab order; the
+              // others are reached with Left/Right per the WAI-ARIA tabs pattern.
+              tabIndex={tab === t ? 0 : -1}
+              onClick={() => setTab(t)}
+              onKeyDown={(e) => {
+                let next: number;
+                if (e.key === 'ArrowRight') next = (i + 1) % PERSON_TABS.length;
+                else if (e.key === 'ArrowLeft') next = (i - 1 + PERSON_TABS.length) % PERSON_TABS.length;
+                else if (e.key === 'Home') next = 0;
+                else if (e.key === 'End') next = PERSON_TABS.length - 1;
+                else return;
+                e.preventDefault();
+                const target = PERSON_TABS[next];
+                setTab(target);
+                document.getElementById(`pd-tab-${target}`)?.focus();
+              }}
+              style={{
+                appearance: 'none', border: 0, background: 'transparent',
+                font: 'inherit', fontSize: 12.5, fontWeight: 500,
+                padding: '10px 12px',
+                color: tab === t ? 'var(--ink)' : 'var(--ink-soft)',
+                borderBottom: '2px solid ' + (tab === t ? 'var(--accent)' : 'transparent'),
+                marginBottom: -1, cursor: 'pointer',
+                letterSpacing: '-.005em', textTransform: 'capitalize',
+              }}
+            >
               {t}
             </button>
           ))}
         </div>
 
-        <div className="drawer-body">
+        <div
+          className="drawer-body"
+          role="tabpanel"
+          id={`pd-panel-${tab}`}
+          aria-labelledby={`pd-tab-${tab}`}
+          tabIndex={0}
+        >
           {tab === 'profile' && (
             <>
               <div className="drawer-section">

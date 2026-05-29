@@ -433,3 +433,83 @@ describe('PersonDrawer', () => {
     expect(onClose).toHaveBeenCalled();
   });
 });
+
+// ---------------------------------------------------------------------------
+// ARIA tab pattern (profile / activity / reviews)
+// ---------------------------------------------------------------------------
+
+describe('PersonDrawer tab accessibility', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('exposes a tablist with three tabs, profile selected by default', () => {
+    renderDrawer();
+    const tablist = screen.getByRole('tablist', { name: /sections/i });
+    const tabs = within(tablist).getAllByRole('tab');
+    expect(tabs.map((t) => t.textContent)).toEqual(['profile', 'activity', 'reviews']);
+
+    const profileTab = screen.getByRole('tab', { name: /profile/i });
+    expect(profileTab).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: /activity/i })).toHaveAttribute('aria-selected', 'false');
+    // Roving tabindex: only the selected tab is in the tab order.
+    expect(profileTab).toHaveAttribute('tabindex', '0');
+    expect(screen.getByRole('tab', { name: /activity/i })).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('associates the panel with the selected tab via aria-controls / aria-labelledby', () => {
+    renderDrawer();
+    const profileTab = screen.getByRole('tab', { name: /profile/i });
+    const panel = screen.getByRole('tabpanel');
+    expect(profileTab).toHaveAttribute('aria-controls', panel.id);
+    expect(panel).toHaveAttribute('aria-labelledby', profileTab.id);
+    expect(panel.id).toBe('pd-panel-profile');
+  });
+
+  it('never leaves a dangling aria-controls (only one panel is in the DOM)', () => {
+    renderDrawer();
+    // Only one tabpanel exists at a time; any tab that advertises
+    // aria-controls must point at an element that actually exists.
+    for (const tab of screen.getAllByRole('tab')) {
+      const controlled = tab.getAttribute('aria-controls');
+      if (controlled !== null) {
+        expect(document.getElementById(controlled)).toBeInTheDocument();
+      }
+    }
+    // Exactly one tab (the selected one) owns the live panel.
+    const withControls = screen.getAllByRole('tab').filter((t) => t.getAttribute('aria-controls') !== null);
+    expect(withControls).toHaveLength(1);
+    expect(withControls[0]).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('clicking a tab moves selection and re-labels the panel', async () => {
+    const user = userEvent.setup();
+    renderDrawer();
+    await user.click(screen.getByRole('tab', { name: /reviews/i }));
+
+    const reviewsTab = screen.getByRole('tab', { name: /reviews/i });
+    expect(reviewsTab).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: /profile/i })).toHaveAttribute('aria-selected', 'false');
+    const panel = screen.getByRole('tabpanel');
+    expect(panel.id).toBe('pd-panel-reviews');
+    expect(panel).toHaveAttribute('aria-labelledby', reviewsTab.id);
+  });
+
+  it('ArrowRight moves selection to the next tab (WAI-ARIA roving)', async () => {
+    const user = userEvent.setup();
+    renderDrawer();
+    const profileTab = screen.getByRole('tab', { name: /profile/i });
+    profileTab.focus();
+    await user.keyboard('{ArrowRight}');
+
+    expect(screen.getByRole('tab', { name: /activity/i })).toHaveAttribute('aria-selected', 'true');
+    expect(profileTab).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('ArrowLeft from the first tab wraps to the last', async () => {
+    const user = userEvent.setup();
+    renderDrawer();
+    screen.getByRole('tab', { name: /profile/i }).focus();
+    await user.keyboard('{ArrowLeft}');
+
+    expect(screen.getByRole('tab', { name: /reviews/i })).toHaveAttribute('aria-selected', 'true');
+  });
+});

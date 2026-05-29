@@ -85,6 +85,23 @@ this header gets renamed to a dated version.
     and the `useAuth outside AuthProvider` guard. Same precedent as
     #160 / #159 / #157: pin the small hinge before the deferred PRD §7.1
     auth tightening lands
+  - Unit: `useRealtime` — the previously-untested hook every dashboard
+    mounts to invalidate the React Query cache from Postgres-changes
+    events. Pins the no-op when `teamId` is undefined, the
+    `team:${teamId}` channel name, the full set of subscribed tables,
+    the per-table invalidation map (`members` → members + my-member +
+    members-in-division, `team_members` → members + teams-for-member +
+    team + teams-for-division, `activity_log` → activity + my-activity,
+    `slots` → slots + my-slots + team-day, `join_requests` →
+    join-requests, `deployment_windows` → deployment-windows +
+    my-deployment-windows, `deployment_picks` → the full pick fan-out
+    incl. `team-day` + `approved-picks`, `teams` → team +
+    teams-for-division + teams-for-member, `projects` → projects), the
+    `removeChannel` on unmount, and the re-subscribe (cleanup + new
+    channel + new filter strings) when `teamId` changes. The
+    invalidation map is silent in production — a drift just means the
+    UI stops auto-refreshing for that table — so the contract has to
+    fail loudly here
   - Component: every extracted card + filter + screen-router gets a
     focused test (#106, #108, #110, #111, #112, #114, #115, #118, #123, #124)
 - Deploy infrastructure:

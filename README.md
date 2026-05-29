@@ -88,7 +88,8 @@ From `web/`:
 
 ```sh
 npm run dev               # vite, HTTPS dev server
-npm run build             # tsc -b && vite build
+npm run build             # tsc --noEmit && vite build
+npm run typecheck         # tsc --noEmit (typecheck only)
 npm run preview           # vite preview
 npm run lint              # eslint .
 npm run lint:fix          # eslint . --fix
@@ -97,7 +98,6 @@ npm run test:watch        # vitest (interactive)
 npm run test:ui           # vitest --ui
 npm run test:unit         # vitest run, excludes test/integration/**
 npm run test:integration  # vitest run test/integration
-npx tsc -b --noEmit       # typecheck only
 ```
 
 ## Domain model
@@ -128,7 +128,7 @@ peers (see Security).
   apply. Fixture setup uses `serviceRoleHeaders()` to bypass RLS. Run with
   `supabase start && npm run test:integration`.
 - **Lint + typecheck** — `npm run lint` (ESLint flat config) and
-  `npx tsc -b --noEmit`.
+  `npm run typecheck` (`tsc --noEmit`).
 
 ### End-to-end tests
 

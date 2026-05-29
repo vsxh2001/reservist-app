@@ -70,6 +70,21 @@ this header gets renamed to a dated version.
     persistence, and the `useActiveTeam outside TeamProvider` guard.
     Same precedent as #159 / #157: pin the small hinge before it gets
     touched by deferred auth / multi-team work
+  - Unit: `AuthProvider` — the previously-untested auth hinge every
+    screen reads from via `useAuth`. Pins the initial `loading` state,
+    the `no-session` / `no-link` / `linked` resolutions of `applySession`,
+    the production-safety contract that a stored `reservist.mockUser`
+    is ignored when `VITE_MOCK_AUTH !== '1'`, the dev-mode mock-localStorage
+    fallback, the `onAuthStateChange` sign-out transition, listener
+    unsubscribe on unmount, `signInWithGoogle` redirect-to-origin,
+    `signInAsMock` calling `signInWithPassword` with the seeded
+    `'unused'` password (seed.sql §P), `signOut` clearing the mock key,
+    `refreshLink` no-op-when-no-authUser + `no-link` → `linked` promotion
+    + the retry-before-claim race where it must stay `no-link`, the
+    PostgREST-error branch of `resolveMember` collapsing to `no-link`,
+    and the `useAuth outside AuthProvider` guard. Same precedent as
+    #160 / #159 / #157: pin the small hinge before the deferred PRD §7.1
+    auth tightening lands
   - Component: every extracted card + filter + screen-router gets a
     focused test (#106, #108, #110, #111, #112, #114, #115, #118, #123, #124)
 - Deploy infrastructure:

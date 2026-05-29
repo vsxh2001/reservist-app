@@ -1202,6 +1202,33 @@ export function useApproveJoinRequest() {
       actorId: string; actorName: string;
       name: string; phone: string; skillNames: string[];
     }) => {
+      // Claim the request FIRST, before provisioning anything. Two commanders
+      // can hit Approve (or Approve + Reject) on the same request at once; the
+      // `.eq('state', 'pending')` guard makes the loser's UPDATE a no-op (0
+      // rows) so we throw before creating a member. Provisioning first would
+      // leave a duplicate orphan member behind on the losing approve. A join
+      // request is only ever resolved from 'pending', so the source state is
+      // hardcoded rather than caller-supplied. Mirrors useResolvePick.
+      const { data: claimed, error: claimErr } = await supabase
+        .from('join_requests')
+        .update({
+          state: 'approved',
+          resolved_at: new Date().toISOString(),
+          resolved_by: vars.actorId,
+        })
+        .eq('id', vars.requestId)
+        .eq('state', 'pending')
+        .select('id');
+      if (claimErr) throw claimErr;
+      if (!claimed || claimed.length === 0) {
+        throw new Error('This join request was already resolved by another commander.');
+      }
+
+      // Tradeoff of claiming first: if a provisioning insert below fails
+      // (FK/RLS/network), the request is already 'approved' and drops out of
+      // the pending list, so it can't be retried from the UI. That is rarer
+      // and less corrupting than the duplicate-orphan-member it replaces;
+      // closing it fully would need a server-side transaction (RPC).
       const initials = initialsFromName(vars.name);
       const tone = Math.floor(Math.random() * 8);
 
@@ -1239,15 +1266,6 @@ export function useApproveJoinRequest() {
         }
       }
 
-      await supabase
-        .from('join_requests')
-        .update({
-          state: 'approved',
-          resolved_at: new Date().toISOString(),
-          resolved_by: vars.actorId,
-        })
-        .eq('id', vars.requestId);
-
       await supabase.from('activity_log').insert({
         team_id: vars.teamId,
         actor_id: vars.actorId,
@@ -1271,15 +1289,23 @@ export function useRejectJoinRequest() {
     mutationFn: async (vars: {
       requestId: string; teamId: string; actorId: string; actorName: string; name: string;
     }) => {
-      const { error } = await supabase
+      // Guard the pending->rejected transition so a concurrent approve/reject
+      // of the same request can't double-log. A join request is only ever
+      // resolved from 'pending'. Mirrors useResolvePick.
+      const { data: rows, error } = await supabase
         .from('join_requests')
         .update({
           state: 'rejected',
           resolved_at: new Date().toISOString(),
           resolved_by: vars.actorId,
         })
-        .eq('id', vars.requestId);
+        .eq('id', vars.requestId)
+        .eq('state', 'pending')
+        .select('id');
       if (error) throw error;
+      if (!rows || rows.length === 0) {
+        throw new Error('This join request was already resolved by another commander.');
+      }
       await supabase.from('activity_log').insert({
         team_id: vars.teamId,
         actor_id: vars.actorId,

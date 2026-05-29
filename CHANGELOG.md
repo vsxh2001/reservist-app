@@ -172,6 +172,12 @@ this header gets renamed to a dated version.
     commander decide), and `useUpdateDeploymentWindow` (open↔close); the
     callers now pass the state they last observed. Prevents duplicate
     activity-log entries and push notifications on a lost race (#166).
+  - `useApproveJoinRequest` / `useRejectJoinRequest` double-resolve race.
+    Both now guard the `pending →` transition with
+    `.eq('state', 'pending').select('id')` + 0-row check. Approve is
+    restructured to **claim the request first**, before provisioning the
+    member, so a lost double-approve throws instead of leaving a duplicate
+    orphan member + team membership behind (#167).
 - send-push Edge Function audit (5/5 findings):
   - Input length caps on title/body/url/tag/recipients (#125)
   - Endpoint stripped from failure logs (#126)

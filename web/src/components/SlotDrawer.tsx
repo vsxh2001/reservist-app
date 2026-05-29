@@ -120,7 +120,7 @@ export function SlotDrawer({ slot, members, allSlots, approvedPicks, teamId, onC
     if (!user) return;
     try {
       await updateState.mutateAsync({
-        slotId: slot.id, state, actorId: user.id, teamId,
+        slotId: slot.id, state, currentState: slot.state, actorId: user.id, teamId,
         actorName: user.name, slotTitle: slot.title,
         assigneeId: slot.assignee_id,
       });

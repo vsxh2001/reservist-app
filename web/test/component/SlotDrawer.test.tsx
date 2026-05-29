@@ -331,6 +331,7 @@ describe('SlotDrawer', () => {
     const arg = mockUpdateState.mutateAsync.mock.calls[0][0];
     expect(arg.slotId).toBe('s1');
     expect(arg.state).toBe('published');
+    expect(arg.currentState).toBe('draft');
     expect(arg.teamId).toBe('team1');
     expect(arg.actorId).toBe('u1');
     expect(arg.actorName).toBe('Commander Test');
@@ -347,6 +348,7 @@ describe('SlotDrawer', () => {
 
     expect(mockUpdateState.mutateAsync).toHaveBeenCalledTimes(1);
     expect(mockUpdateState.mutateAsync.mock.calls[0][0].state).toBe('completed');
+    expect(mockUpdateState.mutateAsync.mock.calls[0][0].currentState).toBe('published');
     expect(onToast).toHaveBeenCalledWith(expect.stringMatching(/marked complete/i));
     expect(onClose).toHaveBeenCalled();
   });
@@ -359,6 +361,7 @@ describe('SlotDrawer', () => {
 
     expect(mockUpdateState.mutateAsync).toHaveBeenCalledTimes(1);
     expect(mockUpdateState.mutateAsync.mock.calls[0][0].state).toBe('cancelled');
+    expect(mockUpdateState.mutateAsync.mock.calls[0][0].currentState).toBe('published');
     expect(onToast).toHaveBeenCalledWith(expect.stringMatching(/cancelled/i));
     expect(onClose).toHaveBeenCalled();
   });

@@ -64,6 +64,7 @@ export function DeploymentPickScreen({ window: w, creatorName, actorMemberId, ac
       } else if (existing.state === 'proposed' || existing.state === 'approved') {
         await withdraw.mutateAsync({
           pickId: existing.id,
+          currentState: existing.state,
           actorId: actorMemberId ?? undefined,
           actorName: actorName ?? undefined,
           teamId: w.team_id,

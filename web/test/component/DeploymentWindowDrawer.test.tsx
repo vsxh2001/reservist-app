@@ -330,7 +330,7 @@ describe('DeploymentWindowDrawer', () => {
     await user.click(screen.getByRole('button', { name: /Withdraw/i }));
 
     expect(mockWithdraw.mutateAsync).toHaveBeenCalledTimes(1);
-    expect(mockWithdraw.mutateAsync.mock.calls[0][0]).toEqual({ pickId: 'p7' });
+    expect(mockWithdraw.mutateAsync.mock.calls[0][0]).toEqual({ pickId: 'p7', currentState: 'approved' });
     expect(onToast).toHaveBeenCalledWith(expect.stringMatching(/Withdrew 2026-06-03/));
   });
 
@@ -447,7 +447,7 @@ describe('DeploymentWindowDrawer', () => {
     const arg = mockUpdate.mutateAsync.mock.calls[0][0];
     expect(arg.windowId).toBe('w1');
     expect(arg.teamId).toBe('team1');
-    expect(arg.patch).toEqual({ state: 'closed' });
+    expect(arg.patch).toEqual({ state: 'closed', currentState: 'open' });
     expect(onToast).toHaveBeenCalledWith('Window closed');
     expect(onClose).toHaveBeenCalled();
   });

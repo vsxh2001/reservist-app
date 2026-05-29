@@ -52,7 +52,7 @@ this header gets renamed to a dated version.
     tabs pattern: `role="tablist"/"tab"/"tabpanel"`, `aria-selected`,
     `aria-controls`/`aria-labelledby`, roving `tabindex`, and
     Left/Right/Home/End keyboard navigation (#169)
-- Tests (suite 692 → 837, +145):
+- Tests (suite 692 → 857, +165):
   - Unit: `isoDay`, `monthGridCells`, `getActiveMembers`, `activate()`,
     notify helpers (#103, #96, #94, #88)
   - Unit: `urlBase64ToUint8Array` — the VAPID applicationServerKey decoder
@@ -120,6 +120,15 @@ this header gets renamed to a dated version.
     assignment flow lands another overlay through here
   - Component: every extracted card + filter + screen-router gets a
     focused test (#106, #108, #110, #111, #112, #114, #115, #118, #123, #124)
+  - Hook: first hook-level coverage of the `lib/queries.ts`
+    concurrency guards — `useResolvePick` (#168) plus
+    `useUpdateSlotState`, `useWithdrawDayPick`, `useUpdateDeploymentWindow`,
+    `useApproveJoinRequest`, `useRejectJoinRequest` (#170). Each pins the
+    matched-row success and the 0-row "lost race" throw (and that the throw
+    skips the side effects); the approve case pins claim-first ordering — a
+    lost claim must not provision a member. Closes the test-architecture
+    blind spot that let #168 ship (component tests mock these hooks;
+    integration tests hit PostgREST directly)
 - Deploy infrastructure:
   - `web/.env.production.example` (#91)
   - `supabase/.env.example` (#129)

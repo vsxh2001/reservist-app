@@ -753,6 +753,11 @@ export function useUpdateStatus() {
       // ['my-member'] cache — invalidate it explicitly so the acting session
       // doesn't lag a realtime tick behind.
       qc.invalidateQueries({ queryKey: ['my-member'] });
+      // member.status is denormalized into two read paths: useTeamDayAggregate
+      // (members!inner join) and members_view (the division roster). Refresh
+      // both or their status bubbles lag a status change until remount.
+      qc.invalidateQueries({ queryKey: ['team-day'] });
+      qc.invalidateQueries({ queryKey: ['members-in-division'] });
     },
     onError: () => {
       // useUpdateStatus does the members UPDATE and the activity_log insert
@@ -763,6 +768,8 @@ export function useUpdateStatus() {
       qc.invalidateQueries({ queryKey: ['members'] });
       qc.invalidateQueries({ queryKey: ['my-member'] });
       qc.invalidateQueries({ queryKey: ['activity'] });
+      qc.invalidateQueries({ queryKey: ['team-day'] });
+      qc.invalidateQueries({ queryKey: ['members-in-division'] });
     },
   });
 }
@@ -802,6 +809,9 @@ export function useSetMemberSkill() {
       qc.invalidateQueries({ queryKey: ['my-member'] });
       qc.invalidateQueries({ queryKey: ['activity'] });
       qc.invalidateQueries({ queryKey: ['my-activity'] });
+      // members_view (division roster) surfaces skills, so the division-admin
+      // roster must refresh too. Mirrors useSetDivisionAdmin.
+      qc.invalidateQueries({ queryKey: ['members-in-division'] });
     },
   });
 }
@@ -837,6 +847,9 @@ export function useRemoveMemberSkill() {
       qc.invalidateQueries({ queryKey: ['my-member'] });
       qc.invalidateQueries({ queryKey: ['activity'] });
       qc.invalidateQueries({ queryKey: ['my-activity'] });
+      // members_view (division roster) surfaces skills, so a removed skill
+      // must clear from the division-admin roster too. Mirrors useSetMemberSkill.
+      qc.invalidateQueries({ queryKey: ['members-in-division'] });
     },
   });
 }
@@ -1279,6 +1292,11 @@ export function useApproveJoinRequest() {
       qc.invalidateQueries({ queryKey: ['members'] });
       qc.invalidateQueries({ queryKey: ['join-requests'] });
       qc.invalidateQueries({ queryKey: ['activity'] });
+      // The approval inserts a member + a team_members row, so refresh both
+      // the team-membership view and the division roster (members_view).
+      // Mirrors useCreateTeam / useSetDivisionAdmin.
+      qc.invalidateQueries({ queryKey: ['teams-for-member'] });
+      qc.invalidateQueries({ queryKey: ['members-in-division'] });
     },
   });
 }

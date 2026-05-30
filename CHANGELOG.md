@@ -163,6 +163,21 @@ this header gets renamed to a dated version.
 
 ### Fixed
 
+- Stale-UI cache invalidations: four mutations wrote a table that feeds a
+  query key they did not invalidate, leaving stale data until refetch/remount
+  (#171):
+  - `useUpdateStatus` now invalidates `['team-day']` **and**
+    `['members-in-division']` — `member.status` is denormalized into both
+    `useTeamDayAggregate`'s `members!inner` join and `members_view` (the
+    division roster), so status bubbles lagged a status change in both.
+  - `useSetMemberSkill` / `useRemoveMemberSkill` now invalidate
+    `['members-in-division']` — the division roster (`members_view`)
+    surfaces skills.
+  - `useApproveJoinRequest` now invalidates `['teams-for-member']` (it
+    inserts a `team_members` row) **and** `['members-in-division']` (it
+    inserts the new member, who must appear in the division roster).
+  Found by an adversarial-verification sweep of `queries.ts`; +4 hook-level
+  tests assert the keys now fire.
 - Build no longer pollutes the working tree. The `build` script ran
   `tsc -b` against a single non-composite project with emit on, dumping
   ~62 untracked `.js`/`.d.ts` files into `web/src` on every build. Switched

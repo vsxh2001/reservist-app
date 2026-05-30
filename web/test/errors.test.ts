@@ -45,6 +45,13 @@ describe('humanizeError', () => {
     expect(humanizeError(err, 'Failed')).toBe('That already exists — refresh and try again.');
   });
 
+  it('translates RLS WITH CHECK rejections to a friendly permission message', () => {
+    const err = new Error('new row violates row-level security policy for table "members"');
+    expect(humanizeError(err, 'Failed to approve')).toBe(
+      "You don't have permission to do that — it may require commander or admin rights.",
+    );
+  });
+
   it('translates fetch / network errors', () => {
     const err = new TypeError('Failed to fetch');
     expect(humanizeError(err, 'Failed')).toBe('Network error — check your connection and try again.');

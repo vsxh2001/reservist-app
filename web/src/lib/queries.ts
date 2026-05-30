@@ -1189,7 +1189,13 @@ export function useSubmitJoinRequest() {
       teamId: string; name: string; phone: string;
       skillNames: string[]; note: string | null;
     }) => {
-      const { data, error } = await supabase
+      // Anon insert only — the join flow runs before the user has an account.
+      // Do NOT chain .select()/.single(): that asks PostgREST for the row back
+      // (Prefer: return=representation), but join_requests has no anon SELECT
+      // policy (only commander/admin can read), so the read-back returns 0 rows
+      // and .single() throws on an insert that actually succeeded. The id is
+      // unused by the caller, so a minimal insert is both correct and enough.
+      const { error } = await supabase
         .from('join_requests')
         .insert({
           team_id: vars.teamId,
@@ -1197,11 +1203,8 @@ export function useSubmitJoinRequest() {
           phone: vars.phone,
           skill_names: vars.skillNames,
           note: vars.note,
-        })
-        .select('id')
-        .single();
+        });
       if (error) throw error;
-      return data.id as string;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['join-requests'] }); },
   });

@@ -163,6 +163,24 @@ this header gets renamed to a dated version.
 
 ### Fixed
 
+- Anonymous join-request submit silently failed its own RLS read-back:
+  `useSubmitJoinRequest` chained `.insert(...).select('id').single()`, which
+  asks PostgREST for the row back (`Prefer: return=representation`). But
+  `join_requests` has an anon **INSERT** policy and no anon **SELECT** policy
+  (only commander/admin can read — see `20260516192409__rls_tightening.sql`),
+  so the read-back returned 0 rows and `.single()` threw on a row that was
+  actually inserted — every anonymous joiner saw a failure toast for a request
+  that went through. Switched to a minimal insert (no `.select()`/`.single()`);
+  the returned id was unused by `JoinScreen`. Added hook-level coverage
+  (`queries.submitJoin.test.ts`) since component tests mock the hook and the
+  integration suite deliberately uses `return=minimal`.
+- Cryptic copy on RLS `WITH CHECK` rejections: a commander/admin-gated mutation
+  that the caller is not authorized for (e.g. a team commander who is not a
+  division admin approving a join request, which inserts a `members` row gated
+  by `is_division_admin_of`) surfaced PostgREST's raw `new row violates
+  row-level security policy ...`. `humanizeError` now maps `row-level security`
+  to "You don't have permission to do that — it may require commander or admin
+  rights.", centrally covering every create/approve auth reject.
 - Stale-UI cache invalidations: four mutations wrote a table that feeds a
   query key they did not invalidate, leaving stale data until refetch/remount
   (#171):

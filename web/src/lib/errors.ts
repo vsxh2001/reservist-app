@@ -38,6 +38,13 @@ const HUMAN_HINTS: Array<{ test: (msg: string) => boolean; copy: string }> = [
     copy: 'That already exists — refresh and try again.',
   },
   {
+    // Postgres RLS WITH CHECK rejection on an INSERT/UPDATE (code 42501) —
+    // surfaced as "new row violates row-level security policy for table ...".
+    // Means the caller lacks the commander/admin rights the mutation needs.
+    test: (m) => m.includes('row-level security'),
+    copy: "You don't have permission to do that — it may require commander or admin rights.",
+  },
+  {
     // Network / offline.
     test: (m) => m.toLowerCase().includes('failed to fetch'),
     copy: 'Network error — check your connection and try again.',

@@ -27,7 +27,7 @@ const titleFor: Record<Screen, { title: string; em: string }> = {
   admin:    { title: 'Division', em: 'admin' },
 };
 
-export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () => void }) {
+export function Dashboard({ onSwitchToReservist, onReplayTour }: { onSwitchToReservist?: () => void; onReplayTour?: () => void }) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const { team, teams, setTeamId } = useActiveTeam();
@@ -122,6 +122,7 @@ export function Dashboard({ onSwitchToReservist }: { onSwitchToReservist?: () =>
           onToggleBell={() => setBellOpen((v) => !v)}
           activity={activity.data ?? []}
           onSwitchToReservist={onSwitchToReservist}
+          onReplayTour={onReplayTour}
           onOpenMobileMenu={() => setMobileNavOpen(true)}
           onOpenInviteSettings={() => { setActive('settings'); showToast('Open settings → Invite link'); }}
           onNewSlot={(urgent) => setModal({ open: true, urgent, preselected: urgent ? null : selected[0] ?? null })}

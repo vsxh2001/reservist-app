@@ -53,6 +53,8 @@ vi.mock('../../src/lib/auth', () => ({
 
 vi.mock('../../src/lib/prefs', () => ({
   PrefsProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  // The first-run OnboardingTour (mounted by RoleRouter) reads dir via usePrefs.
+  usePrefs: () => ({ dir: 'ltr', lang: 'en', setDir: () => {}, setLang: () => {} }),
 }));
 
 vi.mock('../../src/lib/team-context', () => ({

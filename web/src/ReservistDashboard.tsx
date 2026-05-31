@@ -28,7 +28,7 @@ import {
 } from './lib/types';
 
 
-export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void }) {
+export function ReservistDashboard({ onSwitchView, onReplayTour }: { onSwitchView?: () => void; onReplayTour?: () => void }) {
   const { user, signOut } = useAuth();
   const { team, teams, setTeamId } = useActiveTeam();
   const me = useMyMember(user?.id);
@@ -120,6 +120,11 @@ export function ReservistDashboard({ onSwitchView }: { onSwitchView?: () => void
           {onSwitchView && (
             <Button variant="ghost" size="sm" onClick={onSwitchView} data-tip="Commander view">
               <Icon name="settings" size={13} /> Commander
+            </Button>
+          )}
+          {onReplayTour && (
+            <Button variant="ghost" size="icon" onClick={onReplayTour} data-tip="App tour">
+              <Icon name="help" size={15} />
             </Button>
           )}
           <Button variant="ghost" size="icon" onClick={() => { void signOut(); }} data-tip="Sign out">

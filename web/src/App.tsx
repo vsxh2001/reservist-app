@@ -10,6 +10,8 @@ import { Dashboard } from './Dashboard';
 import { ReservistDashboard } from './ReservistDashboard';
 import { useMyMember } from './lib/queries';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { OnboardingTour } from './components/OnboardingTour';
+import { hasSeenOnboarding, markOnboardingSeen } from './lib/onboarding';
 
 const qc = new QueryClient({
   defaultOptions: { queries: { staleTime: 5_000, refetchOnWindowFocus: false } },
@@ -31,10 +33,17 @@ function RoleRouter() {
   const [forceReservist, setForceReservist] = useState<boolean>(
     () => sessionStorage.getItem('viewAsReservist') === '1',
   );
+  const [tourOpen, setTourOpen] = useState(false);
+  const meId = me.data?.id;
 
   useEffect(() => {
     sessionStorage.setItem('viewAsReservist', forceReservist ? '1' : '0');
   }, [forceReservist]);
+
+  // First-run: show the onboarding tour once per member.
+  useEffect(() => {
+    if (meId && !hasSeenOnboarding(meId)) setTourOpen(true);
+  }, [meId]);
 
   if (me.isLoading) {
     return <div style={{ display: 'grid', placeItems: 'center', height: '100%', color: 'var(--ink-soft)' }}>Loading profile…</div>;
@@ -46,11 +55,25 @@ function RoleRouter() {
     ? me.data.teams.some((t) => t.team_id === team.id && t.role === 'commander')
     : false;
   const showCommander = isCommanderOfActiveTeam && !forceReservist;
-  return showCommander
-    ? <Dashboard onSwitchToReservist={() => setForceReservist(true)} />
-    : <ReservistDashboard
-        onSwitchView={isCommanderOfActiveTeam ? () => setForceReservist(false) : undefined}
-      />;
+  const closeTour = () => { if (meId) markOnboardingSeen(meId); setTourOpen(false); };
+  const replayTour = () => setTourOpen(true);
+  return (
+    <>
+      {showCommander
+        ? <Dashboard onSwitchToReservist={() => setForceReservist(true)} onReplayTour={replayTour} />
+        : <ReservistDashboard
+            onSwitchView={isCommanderOfActiveTeam ? () => setForceReservist(false) : undefined}
+            onReplayTour={replayTour}
+          />}
+      {tourOpen && (
+        <OnboardingTour
+          role={showCommander ? 'commander' : 'reservist'}
+          isDivisionAdmin={me.data.is_division_admin}
+          onClose={closeTour}
+        />
+      )}
+    </>
+  );
 }
 
 function Gate() {

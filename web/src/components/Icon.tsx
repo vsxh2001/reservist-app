@@ -6,7 +6,7 @@ export type IconName =
   | 'copy' | 'roster' | 'calendar' | 'slots' | 'activity' | 'reviews'
   | 'settings' | 'urgent' | 'clock' | 'pin' | 'skill' | 'user' | 'users'
   | 'moreHoriz' | 'shield' | 'eyeOff' | 'edit'
-  | 'link' | 'radio';
+  | 'link' | 'radio' | 'help';
 
 const paths: Record<IconName, JSX.Element> = {
   available: <circle cx="8" cy="8" r="3.2" />,
@@ -40,6 +40,7 @@ const paths: Record<IconName, JSX.Element> = {
   edit: <path d="M10.5 3.5l2 2M3 13l1-3 6.5-6.5 2 2L6 12z" />,
   link: <path d="M9 5h2.5a2.5 2.5 0 1 1 0 5H9M7 11H4.5a2.5 2.5 0 1 1 0-5H7M5.5 8h5" />,
   radio: <><circle cx="8" cy="8" r="1.5" /><path d="M5.5 5.5a3.5 3.5 0 0 0 0 5M10.5 5.5a3.5 3.5 0 0 1 0 5M3 3.5a7 7 0 0 0 0 9M13 3.5a7 7 0 0 1 0 9" /></>,
+  help: <><circle cx="8" cy="8" r="6" /><path d="M6.2 6.2a1.9 1.9 0 0 1 3.6.6c0 1.3-1.8 1.6-1.8 2.7" /><circle cx="8" cy="11.4" r=".6" fill="currentColor" /></>,
 };
 
 interface Props extends Omit<SVGProps<SVGSVGElement>, 'stroke'> {

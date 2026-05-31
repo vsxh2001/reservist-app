@@ -21,6 +21,7 @@ interface Props {
   onToggleBell: () => void;
   activity: ActivityItem[];
   onSwitchToReservist?: () => void;
+  onReplayTour?: () => void;
   onOpenMobileMenu: () => void;
   onOpenInviteSettings: () => void;
   onNewSlot: (urgent: boolean) => void;
@@ -33,6 +34,7 @@ export function CommanderTopbar({
   onToggleBell,
   activity,
   onSwitchToReservist,
+  onReplayTour,
   onOpenMobileMenu,
   onOpenInviteSettings,
   onNewSlot,
@@ -59,6 +61,11 @@ export function CommanderTopbar({
               boxShadow: '0 0 0 2px var(--paper)',
             }}/>}
           </Button>
+          {onReplayTour && (
+            <Button variant="ghost" size="icon" onClick={onReplayTour} data-tip="App tour">
+              <Icon name="help" size={15}/>
+            </Button>
+          )}
           <Button variant="ghost" size="icon" data-tip="Invite member"
                   onClick={onOpenInviteSettings}>
             <Icon name="link" size={15}/>

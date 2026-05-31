@@ -8,6 +8,24 @@ this header gets renamed to a dated version.
 
 ### Added
 
+- First-run onboarding tour — a role-aware welcome carousel that introduces
+  the whole app to new users (#173). A slideshow (not a spotlight tour) so it
+  covers every feature regardless of the current screen and needs no fragile
+  anchoring to live DOM across the ~15 screens:
+  - `components/OnboardingTour.tsx` — a focus-trapped `role="dialog"` overlay
+    (reusing the existing `.modal` shell) with progress dots, Back/Next/Done,
+    a Skip control, keyboard nav (Esc to dismiss; arrow keys, mirrored for
+    RTL), and an SR-friendly "Step X of N".
+  - Step content is role-filtered: a shared welcome → the commander set
+    (Roster, Duty slots, Calendar/Day, Join requests, Activity, Settings, plus
+    a Division-admin slide for admins) **or** the reservist set (Availability,
+    Skills, Upcoming duty, Deployments, Phone visibility, Notifications) → a
+    shared closing slide.
+  - `lib/onboarding.ts` — member-scoped, versioned "seen" flag in
+    `localStorage` (`reservist.onboarded.v1.<memberId>`), wrapped in try/catch
+    like `lib/prefs`. `RoleRouter` shows the tour once per member on first
+    authenticated load; a new `?` help button in both the commander and
+    reservist top bars (new `help` icon) replays it anytime.
 - Component extractions, parallel to the dashboard slim-down:
   - `MyStatusCard`, `MyPhoneVisibilityCard`, `MySkillsCard` from
     `ReservistDashboard` (#89)

@@ -70,7 +70,7 @@ jobs:
 
       - name: Install Supabase CLI
         if: env.SUPABASE_ACCESS_TOKEN != ''
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@v3
         with:
           version: latest
 
